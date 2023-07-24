@@ -3,7 +3,7 @@
 This is a modified version of the EDIPIC code from Dmytro Sydorenko. This version of the code directly incorporates
 into the inpu files the functionality to have an RF biased left wall.
 
-# Other Modifications
+### Other Modifications
 
 - (_in progress_) Output IADF data at each snapshot
 
