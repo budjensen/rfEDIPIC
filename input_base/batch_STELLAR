@@ -1,0 +1,29 @@
+#!/bin/bash
+#SBATCH -J ED_rf_test
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=96
+#SBATCH --ntasks-per-socket=24
+#SBATCH --exclusive
+#SBATCH --time=00:15:00
+##SBATCH -q pppl-short
+#SBATCH --mail-type=all
+#SBATCH --mail-user=bjensen@pppl.gov
+
+exec=/scratch/gpfs/bj8080/rfEDIPIC/src/dedipic
+
+# Load openmpi environment
+#export OMP_NUM_THREADS=1
+nb_cpu=$SLURM_NPROCS
+#Loading relevant modules
+#module purge
+#module load intel/2021.1.2
+#module load intel-mpi/intel/2021.3.1
+
+#Setting relevant environment variables
+#export PETSC_DIR=/scratch/gpfs/apowis/petsc/installs_stellar
+#export LD_LIBRARY_PATH=${PETSC_DIR}/lib:${LD_LIBRARY_PATH}
+
+
+#srun ./edipic2d
+#mpirun -np $nb_cpu $exec > dedipic_ge.${SLURM_JOBID}.out 
+srun $exec > dedipic.${SLURM_JOBID}.out
