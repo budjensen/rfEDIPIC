@@ -603,6 +603,7 @@ SUBROUTINE CREATE_SNAPSHOT
 
   IF (N_spec.EQ.2) THEN
 
+     CALL SNAP_ION_2D_VDF_WALLS
      CALL SNAP_LOCAL_ION_VDFS
      CALL SNAP_ION_PHASE_PLANE
 
@@ -811,6 +812,165 @@ SUBROUTINE SNAP_ELECTRON_2D_VDF_WALLS
   END IF
  
 END SUBROUTINE SNAP_ELECTRON_2D_VDF_WALLS
+
+!-----------------------------------------------------------------------------------------------
+! produces the 2-d velocity distribution functions for electrons hitting the right wall
+!
+SUBROUTINE SNAP_ION_2D_VDF_WALLS
+
+   USE ParallelOperationValues
+   USE Snapshots
+   USE CurrentProblemValues !, ONLY : V_Te_ms
+   
+   IMPLICIT NONE
+ 
+   INCLUDE 'mpif.h'
+ 
+   INTEGER j               ! index of a box of velocity parallel to the walls
+   INTEGER i               ! index of a box of velocity normal to the walls
+ 
+   CHARACTER(16) i2vdfw_filename
+ 
+   INTEGER, ALLOCATABLE :: ibufer(:) !(0:N_box_Vx_i) 
+   INTEGER, ALLOCATABLE :: ibufer2(:)  
+   INTEGER ALLOC_ERR, DEALLOC_ERR, ierr
+ 
+   IF (.NOT.ALLOCATED(ibufer)) THEN
+      ALLOCATE(ibufer(0:N_box_Vx_i), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT '(2x,"Process ",i3," : SNAP_ION_2D_VDF_WALLS : Error in ALLOCATE ibufer !!!")', Rank_of_process
+         PRINT '(2x,"The program will be terminated now :(")'
+         STOP
+      END IF
+   END IF
+ 
+   IF (.NOT.ALLOCATED(ibufer2)) THEN
+      ALLOCATE(ibufer2(0:N_box_Vx_i), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT '(2x,"Process ",i3," : SNAP_ION_2D_VDF_WALLS : Error in ALLOCATE ibufer2 !!!")', Rank_of_process
+         PRINT '(2x,"The program will be terminated now :(")'
+         STOP
+      END IF
+   END IF
+ 
+   IF (Rank_of_process.NE.0) THEN   ! client process
+ ! transmit data to the server
+ ! ip_2vdf_rw
+      DO j = 0, N_box_Vyz_i
+         ibufer(0:N_box_Vx_i) = ip_2vdf_rw(0:N_box_vx_i, j)
+         ibufer2 = 0
+         CALL MPI_REDUCE(ibufer, ibufer2, N_box_vx_i + 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)        
+      END DO
+ ! ip_2vdf_lw
+      DO j = 0, N_box_Vyz_i
+         ibufer(0:N_box_vx_i) = ip_2vdf_lw(0:N_box_vx_i, j)
+         ibufer2 = 0
+         CALL MPI_REDUCE(ibufer, ibufer2, N_box_vx_i + 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)        
+      END DO
+!  ! is_2vdf_rw
+!       DO j = 0, N_box_Vyz_i
+!          ibufer(0:N_box_vx_i) = is_2vdf_rw(0:N_box_vx_i, j)
+!          ibufer2 = 0
+!          CALL MPI_REDUCE(ibufer, ibufer2, N_box_vx_i + 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+!          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)        
+!       END DO
+!  ! is_2vdf_lw
+!       DO j = 0, N_box_Vyz_i
+!          ibufer(0:N_box_vx_i) = is_2vdf_lw(0:N_box_vx_i, j)
+!          ibufer2 = 0
+!          CALL MPI_REDUCE(ibufer, ibufer2, N_box_vx_i + 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+!          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)        
+!       END DO
+ 
+   ELSE                             ! server process
+ ! receive data from clients
+ ! ip_2vdf_rw
+      DO j = 0, N_box_Vyz_i
+         ibufer = 0
+         ibufer2 = 0
+         CALL MPI_REDUCE(ibufer2, ibufer, N_box_vx_i + 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         ip_2vdf_rw(0:N_box_vx_i, j) = ibufer(0:N_box_vx_i)
+         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)        
+      END DO
+ ! ip_2vdf_lw
+      DO j = 0, N_box_Vyz_i
+         ibufer = 0
+         ibufer2 = 0
+         CALL MPI_REDUCE(ibufer2, ibufer, N_box_vx_i + 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         ip_2vdf_lw(0:N_box_vx_i, j) = ibufer(0:N_box_vx_i)
+         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)        
+      END DO
+!  ! is_2vdf_rw
+!       DO j = 0, N_box_Vyz_i
+!          ibufer = 0
+!          ibufer2 = 0
+!          CALL MPI_REDUCE(ibufer2, ibufer, N_box_vx_i + 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+!          is_2vdf_rw(0:N_box_vx_i, j) = ibufer(0:N_box_vx_i)
+!          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)        
+!       END DO
+!  ! is_2vdf_lw
+!       DO j = 0, N_box_Vyz_i
+!          ibufer = 0
+!          ibufer2 = 0
+!          CALL MPI_REDUCE(ibufer2, ibufer, N_box_vx_i + 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+!          is_2vdf_lw(0:N_box_vx_i, j) = ibufer(0:N_box_vx_i)
+!          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)        
+!       END DO
+ 
+      i2vdfw_filename = '_TTTT_i2vdfw.dat'
+      i2vdfw_filename(2:5) = snapnumber_txt
+ 
+      OPEN (99, FILE = i2vdfw_filename)
+      WRITE (99, '("# col 1 is |Vx| [in units of V_th_e = ",e12.5," m/s]")') V_Te_ms
+      WRITE (99, '("# col 2 is |V_perp|=sqrt(Vy**2+Vz**2) [V_th_e]")')
+      WRITE (99, '("#----------")')
+      WRITE (99, '("# col 3 is VDF of ions hitting the left wall")')
+      ! WRITE (99, '("# col 4 is VDF of ions emitted from the left wall")')
+      WRITE (99, '("# col 4 is VDF of ions hitting the right wall")')
+      ! WRITE (99, '("# col 6 is VDF of ions emitted from the right wall")')
+      WRITE (99, '("#----------")')
+      DO j = 0, N_box_Vyz_i
+         DO i = 0, N_box_vx_i
+            WRITE (99, '(2(1x,f10.5),4(1x,i7))') &
+                 & ivx_mid_of_box(i+1), &
+                 & ivyz_mid_of_box(j+1), &
+                 & ip_2vdf_lw(i, j), &
+               !   & is_2vdf_lw(i, j), &
+                 & ip_2vdf_rw(i, j)!, &
+               !   & is_2vdf_rw(i, j)
+         END DO
+         WRITE  (99, '(" ")')
+      END DO
+      CLOSE (99, STATUS = 'KEEP')
+ 
+   END IF
+ 
+   ip_2vdf_lw = 0
+   ip_2vdf_rw = 0
+   ! is_2vdf_lw = 0
+   ! is_2vdf_rw = 0
+ 
+   IF (ALLOCATED(ibufer)) THEN
+      DEALLOCATE(ibufer, STAT = DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT '(2x,"Process ",i3," : SNAP_ION_2D_VDF_WALLS : Error in DEALLOCATE ibufer !!!")', Rank_of_process
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+   END IF
+ 
+   IF (ALLOCATED(ibufer2)) THEN
+      DEALLOCATE(ibufer2, STAT = DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT '(2x,"Process ",i3," : SNAP_ION_2D_VDF_WALLS : Error in DEALLOCATE ibufer2 !!!")', Rank_of_process
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+   END IF
+  
+ END SUBROUTINE SNAP_ION_2D_VDF_WALLS
 
 !------------------------------------------------------
 ! produces the local ion velocity distribution functions 
@@ -1901,6 +2061,64 @@ SUBROUTINE ADD_EMITTED_E_TO_RIGHT_DF(Vx, Vy, Vz)
 
 END SUBROUTINE ADD_EMITTED_E_TO_RIGHT_DF
 
+!---------------------------------------------------------------------------------------------------
+! adds ion, which hit the wall, to the corresponding 2-d distribution function of the left wall
+SUBROUTINE ADD_PRIMARY_I_TO_LEFT_DF(Vx, Vy, Vz)
+
+   USE Snapshots
+ !  USE CurrentProblemValues, ONLY : N_box_Vx_e, N_box_Vyz_e
+ 
+   IMPLICIT NONE
+ 
+   REAL(8) Vx       ! x-component of ion velocity  (dim-less)
+   REAL(8) Vy       ! y-component of ion velocity  (dim-less)
+   REAL(8) Vz       ! z-component of ion velocity  (dim-less)
+ 
+   INTEGER index_norm   ! index of box for x-velocity
+   INTEGER index_par    ! index of box for parallel velocity
+ 
+ ! quit if the flag is not set for saving
+   IF (.NOT.Accumulate_wall_df) RETURN
+   
+   index_norm = INT(ABS(Vx))
+   index_par  = INT(SQRT(Vy*Vy+Vz*Vz))
+ 
+   IF (index_norm.GT.N_box_Vx_i) RETURN
+   IF (index_par.GT.N_box_Vyz_i) RETURN
+ 
+   ip_2vdf_lw(index_norm, index_par) = ip_2vdf_lw(index_norm, index_par) + 1 
+ 
+ END SUBROUTINE ADD_PRIMARY_I_TO_LEFT_DF 
+ 
+ !----------------------------------------------------------------------------------------------------
+ ! adds ion, which hit the wall, to the corresponding 2-d distribution function of the right wall
+ SUBROUTINE ADD_PRIMARY_I_TO_RIGHT_DF(Vx, Vy, Vz)
+ 
+   USE Snapshots
+ !  USE CurrentProblemValues, ONLY : N_box_Vx_e, N_box_Vyz_e
+ 
+   IMPLICIT NONE
+ 
+   REAL(8) Vx       ! x-component of ion velocity  (dim-less)
+   REAL(8) Vy       ! y-component of ion velocity  (dim-less)
+   REAL(8) Vz       ! z-component of ion velocity  (dim-less)
+ 
+   INTEGER index_norm   ! index of box for x-velocity
+   INTEGER index_par    ! index of box for parallel velocity
+ 
+ ! quit if the flag is not set for saving
+   IF (.NOT.Accumulate_wall_df) RETURN
+   
+   index_norm = INT(ABS(Vx))
+   index_par  = INT(SQRT(Vy*Vy+Vz*Vz))
+ 
+   IF (index_norm.GT.N_box_Vx_i) RETURN
+   IF (index_par.GT.N_box_Vyz_i) RETURN
+ 
+   ip_2vdf_rw(index_norm, index_par) = ip_2vdf_rw(index_norm, index_par) + 1 
+ 
+ END SUBROUTINE ADD_PRIMARY_I_TO_RIGHT_DF 
+
 !-------------------------------------
 !
 SUBROUTINE CREATE_DF_ARRAYS 
@@ -2146,10 +2364,56 @@ SUBROUTINE CREATE_DF_ARRAYS
         STOP
      END IF
      
+     ALLOCATE(ivyz_mid_of_box(N_box_Vyz_i_low:N_box_Vyz_i_top), STAT=ALLOC_ERR)
+     IF(ALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in ALLOCATE ivyz_mid_of_box !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+     
      DO i = N_box_Vx_i_low, N_box_Vx_i_top
         ivx_mid_of_box(i) = (DBLE(i) - 0.5_8) / (DBLE(N_box_vel) * SQRT(Ms(2)))
      END DO
-     
+
+     DO i = N_box_Vyz_i_low, N_box_Vyz_i_top
+        ivyz_mid_of_box(i) = (DBLE(i) - 0.5_8) / (DBLE(N_box_vel) * SQRT(Ms(2)))
+     END DO
+
+!----------
+     ALLOCATE(ip_2vdf_lw(0:N_box_Vx_i,0:N_box_Vyz_i), STAT=ALLOC_ERR)
+     IF(ALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in ALLOCATE ip_2vdf_lw !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+   
+     ALLOCATE(ip_2vdf_rw(0:N_box_Vx_i,0:N_box_Vyz_i), STAT=ALLOC_ERR)
+     IF(ALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in ALLOCATE ip_2vdf_rw !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+   
+   !   ALLOCATE(is_2vdf_lw(0:N_box_Vx_i,0:N_box_Vyz_i), STAT=ALLOC_ERR)
+   !   IF(ALLOC_ERR.NE.0)THEN
+   !      PRINT *, 'Error in ALLOCATE is_2vdf_lw !!!'
+   !      PRINT *, 'The program will be terminated now :('
+   !      STOP
+   !   END IF
+   
+   !   ALLOCATE(is_2vdf_rw(0:N_box_Vx_i,0:N_box_Vyz_i), STAT=ALLOC_ERR)
+   !   IF(ALLOC_ERR.NE.0)THEN
+   !      PRINT *, 'Error in ALLOCATE is_2vdf_rw !!!'
+   !      PRINT *, 'The program will be terminated now :('
+   !      STOP
+   !   END IF
+
+   ! clear the distribution function arrays
+     ip_2vdf_lw = 0
+     ip_2vdf_rw = 0
+   !   is_2vdf_lw = 0
+   !   is_2vdf_rw = 0
+
 !     IF (Rank_of_process.EQ.0) THEN
 !        OPEN (99, FILE = 'dim_mid_ivx.dat')
 !        DO i = N_box_Vx_i_low, N_box_Vx_i_top
@@ -2542,6 +2806,51 @@ SUBROUTINE FINISH_SNAPSHOTS
         STOP
      END IF
   END IF
+
+  IF (ALLOCATED(ivyz_mid_of_box)) THEN
+   DEALLOCATE(ivyz_mid_of_box, STAT=DEALLOC_ERR)
+   IF(DEALLOC_ERR.NE.0)THEN
+      PRINT *, 'Error in DEALLOCATE ivyz_mid_of_box !!!'
+      PRINT *, 'The program will be terminated now :('
+      STOP
+   END IF
+END IF
+!----------
+IF (ALLOCATED(ip_2vdf_lw)) THEN
+   DEALLOCATE(ip_2vdf_lw, STAT=DEALLOC_ERR)
+   IF(DEALLOC_ERR.NE.0)THEN
+      PRINT *, 'Error in DEALLOCATE ip_2vdf_lw !!!'
+      PRINT *, 'The program will be terminated now :('
+      STOP
+   END IF
+END IF
+
+IF (ALLOCATED(ip_2vdf_rw)) THEN
+   DEALLOCATE(ip_2vdf_rw, STAT=DEALLOC_ERR)
+   IF(DEALLOC_ERR.NE.0)THEN
+      PRINT *, 'Error in DEALLOCATE ip_2vdf_rw !!!'
+      PRINT *, 'The program will be terminated now :('
+      STOP
+   END IF
+END IF
+
+! IF (ALLOCATED(is_2vdf_lw)) THEN
+!    DEALLOCATE(is_2vdf_lw, STAT=DEALLOC_ERR)
+!    IF(DEALLOC_ERR.NE.0)THEN
+!       PRINT *, 'Error in DEALLOCATE is_2vdf_lw !!!'
+!       PRINT *, 'The program will be terminated now :('
+!       STOP
+!    END IF
+! END IF
+
+! IF (ALLOCATED(is_2vdf_rw)) THEN
+!    DEALLOCATE(is_2vdf_rw, STAT=DEALLOC_ERR)
+!    IF(DEALLOC_ERR.NE.0)THEN
+!       PRINT *, 'Error in DEALLOCATE is_2vdf_rw !!!'
+!       PRINT *, 'The program will be terminated now :('
+!       STOP
+!    END IF
+! END IF
 
   IF (ALLOCATED(i_vxdf_loc)) THEN
      DEALLOCATE(i_vxdf_loc, STAT=DEALLOC_ERR)

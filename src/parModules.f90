@@ -802,9 +802,13 @@ MODULE Snapshots
   INTEGER N_box_Vyz_e_top        ! =  N_box_Vyz_e + 1              !
 
   INTEGER N_box_Vx_i             ! (Number of velocity boxes - 1) for positive x-velocity (normal) for ions
+  INTEGER N_box_Vyz_i            ! (Total number of velocity boxes - 1) for positive y,z-velocity (parallel) for ions
+                                                                   ! Above line added on 7-25-23 for _####_i2vdf.dat
   INTEGER N_box_Vx_i_low         ! = -N_box_Vx_i                   ! this will save one addition and one sign changing for each ion
   INTEGER N_box_Vx_i_top         ! =  N_box_Vx_i + 1               ! 
-  
+  INTEGER N_box_Vyz_i_low        ! = -N_box_Vyz_i                  ! Added on 7-25-23 for _####_i2vdf.dat
+  INTEGER N_box_Vyz_i_top        ! =  N_box_Vyz_i + 1              ! Added on 7-25-23 for _####_i2vdf.dat
+
   INTEGER, ALLOCATABLE :: Tcntr_snapshot(:)     ! timesteps when the snapshot files are written
 
   INTEGER, ALLOCATABLE :: Vdf_location_bnd(:)   ! Spatial boundaries, defining the locations for calculation of VDFs (numbers of nodes)
@@ -840,10 +844,20 @@ MODULE Snapshots
   INTEGER, ALLOCATABLE :: ebr_vydf_loc(:,:)       ! distribution of electrons over v_y at certain location inside the plasma
   INTEGER, ALLOCATABLE :: ebr_vzdf_loc(:,:)       ! distribution of electrons over v_z at certain location inside the plasma
 
-  REAL(8), ALLOCATABLE :: ivx_mid_of_box(:)     ! middles of x-velocity boxes (in units of V_th_e), ions
+  REAL(8), ALLOCATABLE :: ivx_mid_of_box(:)     ! middles of   x-velocity boxes (in units of V_th_e), ions
+  REAL(8), ALLOCATABLE :: ivyz_mid_of_box(:)    ! middles of y,z-velocity boxes in (in units of V_th_e), ions
   INTEGER, ALLOCATABLE :: i_vxdf_loc(:,:)       ! distribution of ions over v_x at certain location inside the plasma
   INTEGER, ALLOCATABLE :: i_vydf_loc(:,:)       ! distribution of ions over v_y at certain location inside the plasma
   INTEGER, ALLOCATABLE :: i_vzdf_loc(:,:)       ! distribution of ions over v_z at certain location inside the plasma
+
+                                                ! Four lines below were added on 7-25-23 for _####_i2vdf.dat
+  INTEGER, ALLOCATABLE :: ip_2vdf_lw(:,:)       ! 2-d (|v_norm|,|v_par|) distribution of incident (primary) ions at the  left wall
+  INTEGER, ALLOCATABLE :: ip_2vdf_rw(:,:)       ! 2-d (|v_norm|,|v_par|) distribution of incident (primary) ions at the right wall
+  ! INTEGER, ALLOCATABLE :: is_2vdf_lw(:,:)       ! 2-d (|v_norm|,|v_par|) distribution of emitted ions at the left wall
+  ! INTEGER, ALLOCATABLE :: is_2vdf_rw(:,:)       ! 2-d (|v_norm|,|v_par|) distribution of emitted (secondary) ions at the right wall
+                                                  ! The bottom two lines were taken out because electrons leaving the wall are not 
+                                                  ! interesting right now. This could change if you are interested in ion reflection at
+                                                  ! a wall. You may want to modify variable names then...
 
 END MODULE Snapshots
 

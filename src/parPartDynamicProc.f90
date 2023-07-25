@@ -198,6 +198,7 @@ SUBROUTINE FINAL_PUSH
 ! so we must update the wall charge
                  Q_right = Q_right + Qs(s)
               END IF
+              CALL ADD_PRIMARY_I_TO_RIGHT_DF(species(s)%part(k)%VX, species(s)%part(k)%VY, species(s)%part(k)%VZ)      ! diagnostics
               CALL PROCESS_ION_COLLISION_WITH_RIGHT_WALL(Xtmp, species(s)%part(k)%VX, species(s)%part(k)%VY, species(s)%part(k)%VZ, v_2, s)    
               CALL SUBSTITUTE_LEAVING_PARTICLE(s, k)
               k = k - 1
@@ -219,6 +220,7 @@ SUBROUTINE FINAL_PUSH
 ! so we must update the wall charge
                  Q_left = Q_left + Qs(s)  ! only if it was not updated at the pre-push
               END IF
+              CALL ADD_PRIMARY_I_TO_LEFT_DF(species(s)%part(k)%VX, species(s)%part(k)%VY, species(s)%part(k)%VZ)    ! diagnostics
               CALL PROCESS_ION_COLLISION_WITH_LEFT_WALL(Xtmp, species(s)%part(k)%VX, species(s)%part(k)%VY, species(s)%part(k)%VZ, v_2, s)   
               CALL SUBSTITUTE_LEAVING_PARTICLE(s, k)
               k = k - 1

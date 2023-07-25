@@ -359,11 +359,15 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
      IF (N_box_Vyz_e.GT.N_box_Vx_e) THEN
         N_box_Vx_i = N_box_Vyz_e
+        N_box_Vyz_i = N_box_Vyz_e
      ELSE
         N_box_Vx_i = N_box_Vx_e
+        N_box_Vyz_i = N_box_Vyz_e
      END IF
      N_box_Vx_i_low  = -N_box_Vx_i                   ! this will save one addition and one sign changing for each ion
      N_box_Vx_i_top  =  N_box_Vx_i + 1               ! 
+     N_box_Vyz_i_low = -N_box_Vyz_i
+     N_box_Vyz_i_top =  N_box_Vyz_i + 1
 
 ! allocate arrays, related with the distribution functions, initiate and write to the files arrays of middles of velocity boxes
      CALL CREATE_DF_ARRAYS
