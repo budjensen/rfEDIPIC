@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH -J ED_rf_test
+#SBATCH -J T_rf_16
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=96
+#SBATCH --ntasks-per-node=16
 #SBATCH --ntasks-per-socket=24
 #SBATCH --exclusive
-#SBATCH --time=00:15:00
+#SBATCH --time=03:00:00
 ##SBATCH -q pppl-short
 #SBATCH --mail-type=all
 #SBATCH --mail-user=bjensen@pppl.gov

@@ -8,34 +8,14 @@
 --dddddd----- Skip periods of averaging between text outputs (>=0) ----------
      100
 -----ddd----- Number of probes ( no probes if <= 0 ) ------------------------
-      20
+       0
 --dddddd.ddd- Probe coordinates (node number if>0 or millimeters if<0) ------
-      -0.000
-      -1.250
-      -2.500
-      -3.750
-      -5.000
-      -7.500
-     -10.000
-     -20.000
-     -40.000
-     -50.000
-     -60.000
-     -70.000
-     -80.000
-     -90.000
-     -92.500
-     -95.000
-     -96.125
-     -97.500
-     -98.750
-    -100.000
 ************************ SNAPSHOTS CREATION CONTROL *************************
 ------dd----- Number of groups of snapshots ( >= 0 )-------------------------
        1
 ----------- start (ns) ---------- finish (ns) ---------- number -------------
 ------------dddddd.ddd------------dddddd.ddd--------------dddd---------------
-                 0.000               100.000                10
+            368731.563            368805.310                 8
 ********************** PHASE PLANES CREATION CONTROL ************************
 -------d----- Create phase planes ? (1/0) -----------------------------------
        0

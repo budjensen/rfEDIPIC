@@ -14,7 +14,7 @@
 --dddddd.ddd- External y-magnetic field parallel to walls (Gauss) -----------
        0.000
 --dddddd.ddd- Left wall potential/battery voltage (V) -----------------------
-     500.000
+       0.000
 --#d.dddE#dd- Left wall RF frequency (Hz) -----------------------------------
    1.356E+7
 --dddddd.ddd- Left wall RF amplitude (V) ------------------------------------
@@ -22,11 +22,11 @@
 --#d.dddE#dd- Left wall RF start time (s) -----------------------------------
    0.000E-9
 --dddd.ddddd- Plasma layer width (m, beam wavelengths if negative) ----------
-     0.02000
+     0.06700
 --dddddd.ddd- Ion mass (a.m.u., m_e if negative) ----------------------------
-      39.948
+       4.017
 --dddddd.ddd- Ion temperature (eV) ------------------------------------------
-       0.028
+       0.026
 -------d----- Ions sense the external MAGNETIC field (1/0=Yes/No) -----------
        0
 -------d----- Ions sense the external ELECTRIC field (1/0=Yes/No) -----------
@@ -41,20 +41,20 @@
      0.01000
 ======================= PARAMETERS DEFINING SCALE VALUES ====================
 --#d.dddE#dd- Plasma density (m^-3) -----------------------------------------
-   1.000E+18
+   1.826E+15
 --dddddd.ddd- Electron temperature (eV) -------------------------------------
-       2.000
+       2.546
 --dddddd----- Number of macroparticles per cell -----------------------------
-       1
+     128
 --dddddd----- Number of cells per Debye length ------------------------------
        3
 ------dd----- Maximal expected velocity (in V_therm_e) ----------------------
-      10
+       3
 --dddddd----- Number of velocity boxes per unit of V_therm ------------------
       20
 ============================ SIMULATION CONTROL =============================
 --dddddd.ddd- Duration of simulation (ns) -----------------------------------
-   10000.000
+  377581.121   =5120/f
 --dddddd----- Step for saving checkpoints (timesteps, skip if <=0) ----------
   -90000
 --dddddd----- Seed for random numbers generator -----------------------------
