@@ -2843,7 +2843,7 @@ SUBROUTINE FINISH_SNAPSHOTS
   END IF
 
   IF (ALLOCATED(ivx_mid_of_box_i2vdfw)) THEN
-     DEALLOCATE(ivx_mid_of_box, STAT=DEALLOC_ERR)
+     DEALLOCATE(ivx_mid_of_box_i2vdfw, STAT=DEALLOC_ERR)
      IF(DEALLOC_ERR.NE.0)THEN
         PRINT *, 'Error in DEALLOCATE ivx_mid_of_box_i2vdfw !!!'
         PRINT *, 'The program will be terminated now :('
@@ -2852,7 +2852,7 @@ SUBROUTINE FINISH_SNAPSHOTS
   END IF
 
   IF (ALLOCATED(ivyz_mid_of_box_i2vdfw)) THEN
-     DEALLOCATE(ivyz_mid_of_box, STAT=DEALLOC_ERR)
+     DEALLOCATE(ivyz_mid_of_box_i2vdfw, STAT=DEALLOC_ERR)
      IF(DEALLOC_ERR.NE.0)THEN
         PRINT *, 'Error in DEALLOCATE ivyz_mid_of_box_i2vdfw !!!'
         PRINT *, 'The program will be terminated now :('
