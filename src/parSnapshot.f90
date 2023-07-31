@@ -934,8 +934,8 @@ SUBROUTINE SNAP_ION_2D_VDF_WALLS
       DO j = 0, N_box_Vyz_i
          DO i = 0, N_box_vx_i
             WRITE (99, '(2(1x,f10.5),4(1x,i7))') &
-                 & ivx_mid_of_box(i+1), &
-                 & ivyz_mid_of_box(j+1), &
+                 & ivx_mid_of_box_i2vdfw(i+1), &
+                 & ivyz_mid_of_box_i2vdfw(j+1), &
                  & ip_2vdf_lw(i, j), &
                !   & is_2vdf_lw(i, j), &
                  & ip_2vdf_rw(i, j)!, &
@@ -2079,10 +2079,12 @@ SUBROUTINE ADD_PRIMARY_I_TO_LEFT_DF(Vx, Vy, Vz)
  
  ! quit if the flag is not set for saving
    IF (.NOT.Accumulate_wall_df) RETURN
-   
-   index_norm = INT(ABS(Vx))
-   index_par  = INT(SQRT(Vy*Vy+Vz*Vz))
- 
+
+   index_norm = INT(ABS(Vx) * N_i2vdf_vel_scl)              ! multiply by N_i2vdf_vel_scl to make the index of the box
+                                                            ! fit with the finer scaling of _i2vdfw.dat
+   index_par  = INT(SQRT(Vy*Vy+Vz*Vz) * N_i2vdf_vel_scl)    ! multiply by N_i2vdf_vel_scl to make the index of the box
+                                                            ! fit with the finer scaling of _i2vdfw.dat
+
    IF (index_norm.GT.N_box_Vx_i) RETURN
    IF (index_par.GT.N_box_Vyz_i) RETURN
  
@@ -2108,10 +2110,12 @@ SUBROUTINE ADD_PRIMARY_I_TO_LEFT_DF(Vx, Vy, Vz)
  
  ! quit if the flag is not set for saving
    IF (.NOT.Accumulate_wall_df) RETURN
-   
-   index_norm = INT(ABS(Vx))
-   index_par  = INT(SQRT(Vy*Vy+Vz*Vz))
- 
+
+   index_norm = INT(ABS(Vx) * N_i2vdf_vel_scl)              ! multiply by N_i2vdf_vel_scl to make the index of the box
+                                                            ! fit with the finer scaling of _i2vdfw.dat
+   index_par  = INT(SQRT(Vy*Vy+Vz*Vz) * N_i2vdf_vel_scl)    ! multiply by N_i2vdf_vel_scl to make the index of the box
+                                                            ! fit with the finer scaling of _i2vdfw.dat
+
    IF (index_norm.GT.N_box_Vx_i) RETURN
    IF (index_par.GT.N_box_Vyz_i) RETURN
  
@@ -2377,6 +2381,28 @@ SUBROUTINE CREATE_DF_ARRAYS
 
      DO i = N_box_Vyz_i_low, N_box_Vyz_i_top
         ivyz_mid_of_box(i) = (DBLE(i) - 0.5_8) / (DBLE(N_box_vel) * SQRT(Ms(2)))
+     END DO
+
+     ALLOCATE(ivx_mid_of_box_i2vdfw(N_box_Vx_i_low:N_box_Vx_i_top), STAT=ALLOC_ERR)
+     IF(ALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in ALLOCATE ivx_mid_of_box_i2vdfw !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+     
+     ALLOCATE(ivyz_mid_of_box_i2vdfw(N_box_Vyz_i_low:N_box_Vyz_i_top), STAT=ALLOC_ERR)
+     IF(ALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in ALLOCATE ivyz_mid_of_box_i2vdfw !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+     
+     DO i = N_box_Vx_i_low, N_box_Vx_i_top
+        ivx_mid_of_box_i2vdfw(i) =  ivx_mid_of_box(i) / DBLE(N_i2vdf_vel_scl)
+     END DO
+
+     DO i = N_box_Vyz_i_low, N_box_Vyz_i_top
+        ivyz_mid_of_box_i2vdfw(i) = ivyz_mid_of_box(i) / DBLE(N_i2vdf_vel_scl)
      END DO
 
 !----------
@@ -2808,13 +2834,31 @@ SUBROUTINE FINISH_SNAPSHOTS
   END IF
 
   IF (ALLOCATED(ivyz_mid_of_box)) THEN
-   DEALLOCATE(ivyz_mid_of_box, STAT=DEALLOC_ERR)
-   IF(DEALLOC_ERR.NE.0)THEN
-      PRINT *, 'Error in DEALLOCATE ivyz_mid_of_box !!!'
-      PRINT *, 'The program will be terminated now :('
-      STOP
-   END IF
-END IF
+     DEALLOCATE(ivyz_mid_of_box, STAT=DEALLOC_ERR)
+     IF(DEALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in DEALLOCATE ivyz_mid_of_box !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+  END IF
+
+  IF (ALLOCATED(ivx_mid_of_box_i2vdfw)) THEN
+     DEALLOCATE(ivx_mid_of_box, STAT=DEALLOC_ERR)
+     IF(DEALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in DEALLOCATE ivx_mid_of_box_i2vdfw !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+  END IF
+
+  IF (ALLOCATED(ivyz_mid_of_box_i2vdfw)) THEN
+     DEALLOCATE(ivyz_mid_of_box, STAT=DEALLOC_ERR)
+     IF(DEALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in DEALLOCATE ivyz_mid_of_box_i2vdfw !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+  END IF
 !----------
 IF (ALLOCATED(ip_2vdf_lw)) THEN
    DEALLOCATE(ip_2vdf_lw, STAT=DEALLOC_ERR)

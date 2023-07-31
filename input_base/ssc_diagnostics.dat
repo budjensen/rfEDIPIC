@@ -26,6 +26,8 @@
        4.000
 --dddddd.ddd- Maximal y,z-velocity for e-v_y,z-distribution (in V_therm_e) --
        4.000
+-----ddd----- Ion 2vdfw scaling factor ( 1=no scaling, >1=fine scaling ) ----
+       8
 ------dd----- Number of breakpoints (no evdfs if<0, all system used if 0) ---
        5
 --dddddd.ddd- Breakpoints (ascend., node number if>0 or millimeters if <0) --

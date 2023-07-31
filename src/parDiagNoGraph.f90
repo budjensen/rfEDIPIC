@@ -157,6 +157,8 @@ SUBROUTINE INITIATE_DIAGNOSTICS
         READ (9, '(2x,f10.3)') Ve_x_max
         READ (9, '(A77)') buf ! --dddddd.ddd- Maximal y,z-velocity for e-v_y,z-distribution (in V_therm_e) --")')
         READ (9, '(2x,f10.3)') Ve_yz_max
+        READ (9, '(A77)') buf ! -----ddd----- Ion 2vdfw scaling factor ( 1=no scaling, >1=fine scaling ) ----")')
+        READ (9, '(5x,i3)') N_i2vdf_vel_scl
         READ (9, '(A77)') buf ! ------dd----- Number of breakpoints (no evdfs if<0, all system used if 0) ---")') Creation of local distr. fun-s can be cancelled
         READ (9, '(6x,i2)') N_of_breakpoints
         READ (9, '(A77)') buf ! --dddddd.ddd- Breakpoints (ascend., node number if>0 or millimeters if <0) --")')
@@ -197,6 +199,7 @@ SUBROUTINE INITIATE_DIAGNOSTICS
      N_to_skip_ion       = 100
      Ve_x_max            = 3.0_8
      Ve_yz_max           = 3.0_8
+     N_i2vdf_vel_scl     = 1
      N_of_breakpoints    = 0
 
      IF (Rank_of_process.EQ.0) THEN
@@ -232,6 +235,8 @@ SUBROUTINE INITIATE_DIAGNOSTICS
         WRITE (9, '(2x,f10.3)') Ve_x_max
         WRITE (9, '("--dddddd.ddd- Maximal y,z-velocity for e-v_y,z-distribution (in V_therm_e) --")')
         WRITE (9, '(2x,f10.3)') Ve_yz_max
+        WRITE (9, '("-----ddd----- Ion 2vdfw scaling factor ( 1=no scaling, >1=fine scaling ) ----")')
+        WRITE (9, '(5x,i3)') N_i2vdf_vel_scl
         WRITE (9, '("------dd----- Number of breakpoints (no evdfs if<0, all system used if 0) ---")')
         WRITE (9, '(6x,i2)') N_of_breakpoints
         WRITE (9, '("--dddddd.ddd- Breakpoints (ascend., node number if>0 or millimeters if <0) --")')

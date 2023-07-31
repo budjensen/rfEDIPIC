@@ -794,6 +794,8 @@ MODULE Snapshots
   REAL(8) Ve_x_max               ! Maximal x-velocity (normal) for electron velocity distribution (initially given in V_therm)
   REAL(8) Ve_yz_max              ! Maximal y,z-velocity (parallel) for electron velocity distribution (initially given in V_therm)
 
+  INTEGER N_i2vdf_vel_scl        ! Scaling factor for fine graining of ion velocity distribution function in _i2vdfw.dat files
+
   INTEGER N_box_Vx_e             ! (Total number of velocity boxes - 1) for positive x-velocity (normal) for electrons
   INTEGER N_box_Vyz_e            ! (Total number of velocity boxes - 1) for positive y,z-velocity (parallel) for electrons
   INTEGER N_box_Vx_e_low         ! = -N_box_Vx_e                   !
@@ -803,11 +805,11 @@ MODULE Snapshots
 
   INTEGER N_box_Vx_i             ! (Number of velocity boxes - 1) for positive x-velocity (normal) for ions
   INTEGER N_box_Vyz_i            ! (Total number of velocity boxes - 1) for positive y,z-velocity (parallel) for ions
-                                                                   ! Above line added on 7-25-23 for _####_i2vdf.dat
+                                                                   ! Above line added on 7-25-23 for _####_i2vdfw.dat
   INTEGER N_box_Vx_i_low         ! = -N_box_Vx_i                   ! this will save one addition and one sign changing for each ion
   INTEGER N_box_Vx_i_top         ! =  N_box_Vx_i + 1               ! 
-  INTEGER N_box_Vyz_i_low        ! = -N_box_Vyz_i                  ! Added on 7-25-23 for _####_i2vdf.dat
-  INTEGER N_box_Vyz_i_top        ! =  N_box_Vyz_i + 1              ! Added on 7-25-23 for _####_i2vdf.dat
+  INTEGER N_box_Vyz_i_low        ! = -N_box_Vyz_i                  ! Added on 7-25-23 for _####_i2vdfw.dat
+  INTEGER N_box_Vyz_i_top        ! =  N_box_Vyz_i + 1              ! Added on 7-25-23 for _####_i2vdfw.dat
 
   INTEGER, ALLOCATABLE :: Tcntr_snapshot(:)     ! timesteps when the snapshot files are written
 
@@ -850,14 +852,20 @@ MODULE Snapshots
   INTEGER, ALLOCATABLE :: i_vydf_loc(:,:)       ! distribution of ions over v_y at certain location inside the plasma
   INTEGER, ALLOCATABLE :: i_vzdf_loc(:,:)       ! distribution of ions over v_z at certain location inside the plasma
 
-                                                ! Four lines below were added on 7-25-23 for _####_i2vdf.dat
-  INTEGER, ALLOCATABLE :: ip_2vdf_lw(:,:)       ! 2-d (|v_norm|,|v_par|) distribution of incident (primary) ions at the  left wall
-  INTEGER, ALLOCATABLE :: ip_2vdf_rw(:,:)       ! 2-d (|v_norm|,|v_par|) distribution of incident (primary) ions at the right wall
-  ! INTEGER, ALLOCATABLE :: is_2vdf_lw(:,:)       ! 2-d (|v_norm|,|v_par|) distribution of emitted ions at the left wall
-  ! INTEGER, ALLOCATABLE :: is_2vdf_rw(:,:)       ! 2-d (|v_norm|,|v_par|) distribution of emitted (secondary) ions at the right wall
-                                                  ! The bottom two lines were taken out because electrons leaving the wall are not 
-                                                  ! interesting right now. This could change if you are interested in ion reflection at
-                                                  ! a wall. You may want to modify variable names then...
+                                                     ! Six lines below were added in 7-2023 for _####_i2vdfw.dat
+  REAL(8), ALLOCATABLE :: ivx_mid_of_box_i2vdfw(:)   ! middles of   x-velocity boxes (in units of V_th_e) for _i2vdfw files, ions
+                                                     !  this is the same length as ivx_mid_of_box, but more finely grained
+                                                     !  (as defined in the file ssc_diagnostics.dat)
+  REAL(8), ALLOCATABLE :: ivyz_mid_of_box_i2vdfw(:)  ! middles of y,z-velocity boxes in (in units of V_th_e) for _i2vdfw files, ions
+                                                     !  this is the same length as ivyz_mid_of_box, but more finely grained
+                                                     !  (as defined in the file ssc_diagnostics.dat)
+  INTEGER, ALLOCATABLE :: ip_2vdf_lw(:,:)            ! 2-d (|v_norm|,|v_par|) distribution of incident (primary) ions at the  left wall
+  INTEGER, ALLOCATABLE :: ip_2vdf_rw(:,:)            ! 2-d (|v_norm|,|v_par|) distribution of incident (primary) ions at the right wall
+  ! INTEGER, ALLOCATABLE :: is_2vdf_lw(:,:)            ! 2-d (|v_norm|,|v_par|) distribution of emitted ions at the left wall
+  ! INTEGER, ALLOCATABLE :: is_2vdf_rw(:,:)            ! 2-d (|v_norm|,|v_par|) distribution of emitted (secondary) ions at the right wall
+                                                     ! The bottom two lines were taken out because ions leaving the wall are not 
+                                                     ! interesting right now. This could change if you are interested in ion reflection at
+                                                     ! a wall. You may want to modify variable names then...
 
 END MODULE Snapshots
 
