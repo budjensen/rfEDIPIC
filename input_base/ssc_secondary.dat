@@ -8,13 +8,13 @@
 ---           0 = off                                                     ---
 ---           1 = additional flux equals to ion flux to the right wall    ---
 -------d----- 2 = constant (Maxwellian source with Te and Ti of the bulk) ---
-       0     
+       0
 ***************************** ELASTIC REFLECTION ****************************
 --- Select the model:                                                     ---
 ---           0 = turned off                                              ---
 ---           1 = constant, nonzero for E_min < energy < E_max            ---
 -------d----- 2 = function 1-1 of incident electron energy ------------------
-       0 2
+       0
 ================== ELASTIC REFLECTION, TYPE OF REFLECTION ===================
 --- Select the type:                                                      ---
 ---           0 = specular                                                ---
@@ -43,7 +43,7 @@
 ---           0 = turned off                                              ---
 ---           1 = constant, nonzero for E_min < energy < E_max            ---
 -------d----- 2 = function 2-1 of incident electron energy ------------------
-       0 2
+       0
 ====================== INELASTIC, MODEL 1, PARAMETERS =======================
 -------d.ddd- Value of the coefficient (from 0 to 1) ------------------------
        1.000
@@ -59,7 +59,7 @@
 ---           0 = turned off                                              ---
 ---           1 = constant, nonzero for E_min < energy < E_max            ---
 -------d----- 2 = function 3-1 of incident electron energy ------------------
-       0 2
+       0
 ================= TRUE SECONDARY, MODEL 1, PARAMETERS =======================
 -------d.ddd- Value of the coefficient --------------------------------------
        0.300
@@ -69,11 +69,11 @@
    10000.000
 ============= TRUE SECONDARY, MODEL 2 (AND CLASSIC), PARAMETERS =============
 --dddddd.ddd- Threshold energy, [eV] ----------------------------------------
-      13.000
+      12.000
 --dddddd.ddd- Maximal emission energy, [eV] ---------------------------------
-     500.000
+     350.000
 ------dd.ddd- Maximal emission coefficient (normal to the surface) ----------
-       3.000
+       1.200
 -------d.ddd- Smoothness factor (0 = very rough, 2 = polished) --------------
        1.000
 ============= PARAMETERS OF INJECTED TRUE SECONDARY ELECTRONS ===============
@@ -85,11 +85,10 @@
 ---           1 = 100% specular reflection                                ---
 -------d----- 2 = 100% ion adsorption, secondary electrons may be emitted ---
        0
-============ ION INDUCED SECONDARY ELECTRON EMISSION, PARAMETERS ============
+************************ ION-INDUCED SECONDARY ELECTRON EMISSION ************
 -------d.ddd- Value of the coefficient (<1) ---------------------------------
-       0.300
+       0.200
 --dddddd.ddd- Minimal ion energy to start the emission, [eV] ----------------
-     200.000
+       0.000
 --dddddd.ddd- Temperature of injected secondary electron, [eV] --------------
-       1.000
-
+       2.000

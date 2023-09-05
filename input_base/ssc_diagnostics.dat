@@ -1,21 +1,29 @@
 ********************* TIME DEPENDENCIES CREATION CONTROL ********************
 --dddddd----- Step for saving (timesteps >0, plasma periods <0) -------------
-       1
+     128      147493  
 --dddddd----- Start collecting data at (timesteps >0, plasma periods <0) ----
-       1
+       1 
 --dddddd----- Average during (timesteps >0, plasma periods <0 ) -------------
-       1
+     128      147493 
 --dddddd----- Skip periods of averaging between text outputs (>=0) ----------
-     100
+       5
 -----ddd----- Number of probes ( no probes if <= 0 ) ------------------------
-       0
+       8
 --dddddd.ddd- Probe coordinates (node number if>0 or millimeters if<0) ------
+       0.000
+      -5.000
+     -10.000
+     -16.000
+     -20.000
+     -25.000
+     -30.000
+     -33.000
 ************************ SNAPSHOTS CREATION CONTROL *************************
 ------dd----- Number of groups of snapshots ( >= 0 )-------------------------
        1
 ----------- start (ns) ---------- finish (ns) ---------- number -------------
 ------------dddddd.ddd------------dddddd.ddd--------------dddd---------------
-            368731.563            368805.310                 8
+                 0.000             30000.000              1001
 ********************** PHASE PLANES CREATION CONTROL ************************
 -------d----- Create phase planes ? (1/0) -----------------------------------
        0
@@ -23,16 +31,12 @@
   50   0   0  50
 ************* VELOCITY DISTRIBUTION FUNCTIONS CREATION CONTROL **************
 --dddddd.ddd- Maximal x-velocity for e-v_x-distribution (in V_therm_e) ------
-       4.000
+      10.000 
 --dddddd.ddd- Maximal y,z-velocity for e-v_y,z-distribution (in V_therm_e) --
-       4.000
------ddd----- Ion 2vdfw scaling factor ( 1=no scaling, >1=fine scaling ) ----
-       8
+      10.000 
 ------dd----- Number of breakpoints (no evdfs if<0, all system used if 0) ---
-       5
+       3
 --dddddd.ddd- Breakpoints (ascend., node number if>0 or millimeters if <0) --
-      -1.000
-      -2.000
-      -3.000
-      -4.000
-      -5.000
+     -70.000
+     -90.000
+    -110.000

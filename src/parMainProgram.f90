@@ -1,12 +1,13 @@
 !===========================================
 PROGRAM MainProg
 
+  use mpi
   USE CurrentProblemValues
   USE ParallelOperationValues
 
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   INTEGER ierr
   REAL(8) start, finish
@@ -36,11 +37,9 @@ PROGRAM MainProg
 
   DO T_cntr = Start_T_cntr, Max_T_cntr
 
-!if (Rank_of_process.eq.0) print '(">>> ",i8," >>> ",i8," >>> ",i8)', T_cntr, N_part(1), N_part(2)
+ if (Rank_of_process.eq.0) start = MPI_WTIME()
 
-!if (Rank_of_process.eq.0) start = MPI_WTIME()
-
-!print *, T_cntr, Rank_of_process, N_part(1), N_part(2)
+!!! print *, T_cntr, Rank_of_process, N_part(1), N_part(2)
 
      IF (T_cntr.NE.Start_T_cntr) THEN
         CALL CALCULATE_STR_CHARGE_DENSITY                                   ! server and clients, with difference
@@ -48,7 +47,6 @@ PROGRAM MainProg
 
         IF (Rank_of_process.GT.0) THEN 
            CALL FINAL_PUSH                                                  ! clients
-           CALL PROCESS_Z_SHIFT                                             ! clients
            CALL INJECT_ADDITIONAL_EI_PAIRS_LEFT_WALL                        ! clients
            CALL INJECT_ELECTRONS_AT_WALLS                                   ! clients
         ELSE
@@ -63,7 +61,7 @@ PROGRAM MainProg
 
         CALL START_BEAM_IN_PLASMA                                           ! server and clients, with difference, only one time
 
-        IF (Rank_of_process.GT.0) CALL RESIZE_PARTICLE_ARRAYS               ! clients
+        IF (Rank_of_process.GT.0) CALL REARRANGE_ACTIVE_BLOCKS              ! clients
 
 !        CALL CLEAR_TAGS                                 ! clients
 
@@ -77,10 +75,7 @@ PROGRAM MainProg
      CALL DO_DIAGNOSTICS_STEP_1                                             ! server and clients, with differences
      CALL CREATE_SNAPSHOT                                                   ! server and clients, with differences    
      CALL DO_DIAGNOSTICS_STEP_2                                             ! server and clients, with differences
-
-     IF (Rank_of_process.EQ.0) N_part = 0                                   ! server, for correct operation of checkpoints
-
-     CALL SAVE_CHECKPOINT_MPIIO                                             ! server and clients, with differences 
+     CALL SAVE_CHECKPOINT                                                   ! server and clients, with differences 
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)                                 ! all, synchronization
 

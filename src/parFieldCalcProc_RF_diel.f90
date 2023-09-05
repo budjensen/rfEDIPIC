@@ -1,20 +1,24 @@
 !============================================================================
 ! This subroutine calculates the mesh values of the streaming charge density
-!.  
+!  
 SUBROUTINE CALCULATE_STR_CHARGE_DENSITY 
 
+  use mpi
   USE ParallelOperationValues
   USE CurrentProblemValues
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
 !  INTEGER s                             ! species
   INTEGER ierr, ALLOC_ERR, DEALLOC_ERR
   REAL(8), ALLOCATABLE :: rbufer(:)     ! for Q_strm_spec
-  REAL(8), ALLOCATABLE :: rbufer2(:)   
+  REAL(8), ALLOCATABLE :: rbufer2(:) 
+  real(8) j_Am2_vst  
   INTEGER ibufer(1:2)                   ! for Q_left and Q_right
   INTEGER ibufer2(1:2)  
+
+  INTEGER i
 
 !  LOGICAL flag
 !  INTEGER stattus(MPI_STATUS_SIZE)
@@ -68,10 +72,16 @@ SUBROUTINE CALCULATE_STR_CHARGE_DENSITY
      Q_left  = ibufer(1)
      Q_right = ibufer(2)
 
-     IF (BC_flag.EQ.1) THEN
-! floating wall, direct accumulation
-        full_Q_left = DBLE(Q_left)
-        full_Q_right = DBLE(Q_right)
+     if (BC_flag.EQ.3) then !*** total time-integrated charge passed through the circuit 
+        Q_ext = Q_ext + factor_j * j_Am2_vst(T_cntr * delta_t_s)
+     else
+        Q_ext = 0.0_8
+     end if
+
+     IF (BC_flag.NE.0 .and. BC_flag.NE.2) THEN
+! floating wall or specified charge moved through or U_ext behind dielectric layer, direct accumulation
+        full_Q_left  = DBLE(Q_left)  + Q_ext !** continously integrated from the initial moment
+        full_Q_right = DBLE(Q_right) - Q_ext
      ELSE
 ! constant given potential or external circuit, the accumulated value is the correction
         full_Q_left  = full_Q_left  + DBLE(Q_left)
@@ -86,15 +96,21 @@ SUBROUTINE CALCULATE_STR_CHARGE_DENSITY
         CALL MPI_REDUCE(rbufer2, rbufer, N_nodes, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
         Q_strm_spec(0:N_cells, 1) = rbufer(1:N_nodes)
-        Q_stream(0:N_cells)   =     Qs(1) * Q_strm_spec(0:N_cells, 1) 
-        Xi(0:N_cells)         =   K_Xi(1) * Q_strm_spec(0:N_cells, 1)
+        Q_stream(0:N_cells) = Qs(1) * Q_strm_spec(0:N_cells, 1) 
+! ###
+        DO i = 0, N_cells
+           Xi(i) = K_Xi(i,1) * Q_strm_spec(i,1)
+        END DO
      ELSE
         CALL MPI_REDUCE(rbufer2, rbufer, 2*N_nodes, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
         Q_strm_spec(0:N_cells, 1) = rbufer(1:N_nodes)
         Q_strm_spec(0:N_cells, 2) = rbufer((N_nodes+1):(2*N_nodes))
-        Q_stream(0:N_cells)   =     Qs(1) * Q_strm_spec(0:N_cells, 1) +   Qs(2) * Q_strm_spec(0:N_cells, 2)
-        Xi(0:N_cells)         =   K_Xi(1) * Q_strm_spec(0:N_cells, 1) + K_Xi(2) * Q_strm_spec(0:N_cells, 2)
+        Q_stream(0:N_cells) = Qs(1) * Q_strm_spec(0:N_cells, 1) + Qs(2) * Q_strm_spec(0:N_cells, 2)
+! ###
+        DO i = 0, N_cells
+           Xi(i) =   K_Xi(i,1) * Q_strm_spec(i,1) + K_Xi(i,2) * Q_strm_spec(i,2)
+        END DO
      END IF
 
   END IF
@@ -126,12 +142,14 @@ END SUBROUTINE CALCULATE_STR_CHARGE_DENSITY
 ! Besides, the energy of the longitudinal electric field is calculated too. IN FUTURE!!!
 SUBROUTINE CALCULATE_STR_LONG_ELECTR_FIELD
 
+  use mpi
   USE ParallelOperationValues
   USE CurrentProblemValues
   USE BeamInPlasma, ONLY : PeriodicBoundaryFlag
+  USE Diagnostics, ONLY: N_in_macro
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
 !  INTEGER igrid
 
@@ -143,9 +161,15 @@ SUBROUTINE CALCULATE_STR_LONG_ELECTR_FIELD
   INTEGER ierr
 
 ! function
-  REAL(8) U_ext_vst
+  REAL(8) U_ext_vst, j_Am2_vst, sigma_Cm2_vst, sawtooth_Cm2_vst, QDC_Cm2_vst
 
-!  K_Q            = 1.0_8 / REAL(N_of_particles_cell * N_of_cells_debye)
+!  K_Q            = 1.0_8 / REAL(N_of_particles_cell * N_of_cells_debye), set elsewhwre
+!  factor_SR = (delta_x_m * delta_t_s) / (1.0d-4 * S_electrode_cm2 * R_ext_ohm * eps_0_Fm), set elsewhere
+!  factor_j = delta_t_s / (e_Cl * N_plasma_m3 * delta_x_m) * dble(N_of_particles_cell)
+!  factor_sigma = 1.0_8/(e_Cl * N_plasma_m3 * delta_x_m) * dble(N_of_particles_cell), set elsewhere
+!  factor_j = delta_t_s * factor_sigma
+!  factor_j = delta_t_s / (e_Cl * N_in_macro)
+!*** note that factor_SR / U_scl_V * (1.0d-4 * S_electrode_cm2 * R_ext_ohm) = factor_j * K_Q
 
   IF (Rank_of_process.EQ.0) THEN                                                          ! server >>>
 
@@ -154,7 +178,7 @@ SUBROUTINE CALCULATE_STR_LONG_ELECTR_FIELD
         a_eq( 0, 1) =  0.0_8
         a_eq( 0, 2) =  1.0_8
         a_eq( 0, 3) =  0.0_8
-        b_eq( 0)    = U_ext_vst(T_cntr * delta_t_s)
+        b_eq( 0)    =  U_ext_vst(T_cntr * delta_t_s)
         
      CASE (1)              ! potentials of walls (plasma boundaries) are floating
         a_eq( 0, 1) =  0.0_8
@@ -166,8 +190,22 @@ SUBROUTINE CALCULATE_STR_LONG_ELECTR_FIELD
         a_eq( 0, 1) =  0.0_8
         a_eq( 0, 2) =  1.0_8 + Xi(0) + Xi(1) + factor_SR * (1.0_8 + 2.0_8 * Xi(0))
         a_eq( 0, 3) = -1.0_8 - Xi(0) - Xi(1)
-        b_eq( 0)    = factor_SR * U_ext * (1.0_8 + 2.0_8 * Xi(0)) + K_Q * (full_Q_left + Q_stream(0))
+        b_eq( 0)    = factor_SR * U_ext_vst(T_cntr * delta_t_s) * (1.0_8 + 2.0_8 * Xi(0)) + K_Q * (full_Q_left + Q_stream(0))
 
+     CASE (3)              ! electrode current is specified
+!!        full_Q_left = full_Q_left + factor_j * j_Am2_vst(T_cntr * delta_t_s) *** obsolete, 9/1/15
+        a_eq( 0, 1) =  0.0_8
+        a_eq( 0, 2) =  1.0_8
+        a_eq( 0, 3) = -1.0_8
+!!        b_eq( 0)    =  K_Q * ( factor_sigma * sawtooth_Cm2_vst(T_cntr * delta_t_s) + full_Q_left + Q_stream(0)) / (1.0_8 + Xi(0) + Xi(1))
+        b_eq( 0)    =  K_Q * (full_Q_left + Q_stream(0)) / (1.0_8 + Xi(0) + Xi(1))
+
+     CASE (4)              !*** dielectric layer with eps_diel at -d < x < 0, external potential specified at x = -d
+        a_eq( 0, 1) =  0.0_8
+        a_eq( 0, 2) =  1.0_8 + Xi(0) + Xi(1) + eps_param
+        a_eq( 0, 3) = -1.0_8 - Xi(0) - Xi(1)
+        b_eq( 0)    = K_Q * (full_Q_left + Q_stream(0)) + eps_param * U_ext_vst(T_cntr * delta_t_s)
+!!        b_eq( 0)    = K_Q * (dble(Q_left) + Q_stream(0)) + eps_param * U_ext_vst(T_cntr * delta_t_s)
      END SELECT
 
      DO i = 1, N_cells - 1
@@ -243,8 +281,6 @@ SUBROUTINE CALCULATE_STR_LONG_ELECTR_FIELD
      
   CALL MPI_BCAST(EX, (N_cells+1), MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, ierr)      ! server sends and clients receive array EX
 
-  CALL MPI_BCAST(F, (N_cells+1), MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, ierr)       ! server sends and clients receive array F
-
   DO i = 0, N_cells - 1      
      GradEX(i) = EX(i+1) - EX(i)
   END DO
@@ -255,29 +291,106 @@ END SUBROUTINE CALCULATE_STR_LONG_ELECTR_FIELD
 !
 REAL(8) FUNCTION U_ext_vst(t_s)
 
-  USE CurrentProblemValues, ONLY : U_ext, U_scl_V, rf_on, U_rf_V, f_rf_Hz, t_start_s
+  USE CurrentProblemValues, ONLY : U_ext, U_scl_V, U_pp_V
 
   IMPLICIT NONE
 
-!   REAL(8), PARAMETER :: U_rf_V = 1000.0_8
-!   REAL(8), PARAMETER :: f_rf_Hz = 1.356d7
-!   REAL(8), PARAMETER :: t_start_s = 1.0d-9
+!!  REAL(8), PARAMETER :: U_pp_V =  100.0_8 !** twice the amplitude !**now set in the module
+  REAL(8), PARAMETER :: f_rf_Hz = 5.5d7 !4.5d7 !4.0d7 !2.712d7 !5.0d7 !6.0d7 !1.356d7
+  REAL(8), PARAMETER :: t_start_s = 0.0d-8
 
   REAL(8) t_s
-  IF (rf_on) THEN
-    
-    U_ext_vst = U_ext
 
-    IF (t_s.LT.t_start_s) RETURN
+!!  U_ext_vst = U_ext !the constant component U_ext is specified in the input file
 
-    U_ext_vst = U_ext + (U_rf_V / U_scl_V) * SIN(6.283185307_8 * (t_s - t_start_s) * f_rf_Hz)
+!  IF (t_s.LT.t_start_s) RETURN
 
-  ELSE
-    U_ext_vst = U_ext
-
-  END IF
+  U_ext_vst =  (0.5 * U_pp_V / U_scl_V) * SIN(6.283185307_8 * (t_s - t_start_s) * f_rf_Hz)
 
 END FUNCTION U_ext_vst
+
+!REAL(8) FUNCTION j_Am2_vst(t_s)
+!
+!  IMPLICIT NONE
+!
+!  REAL(8), PARAMETER :: j_rf_Am2 = 5.d3
+!  REAL(8), PARAMETER :: f_rf_Hz = 2.712d7
+!  REAL(8), PARAMETER :: t_start_s = 0.0_8
+!
+!  REAL(8) t_s
+!
+!  j_Am2_vst = 0.0_8
+!
+!  IF (t_s.LT.t_start_s) RETURN
+!
+!  j_Am2_vst =  j_rf_Am2 * cos(6.283185307_8 * (t_s - t_start_s) * f_rf_Hz)
+!
+!END FUNCTION j_Am2_vst
+
+REAL(8) FUNCTION sigma_Cm2_vst(t_s)
+
+  IMPLICIT NONE
+
+  REAL(8), PARAMETER :: j_max_Am2 = 100.0_8
+  REAL(8), PARAMETER :: f_rf_Hz = 2.712d7
+  REAL(8), PARAMETER :: t_start_s = 0.0_8
+  real(8) omega
+  REAL(8) t_s
+
+  omega = 6.283185307_8 * f_rf_Hz
+  sigma_Cm2_vst = 0.0_8
+
+  IF (t_s.LT.t_start_s) RETURN
+
+  sigma_Cm2_vst =  (j_max_Am2 / omega) * SIN( omega * (t_s - t_start_s) )
+
+END FUNCTION sigma_Cm2_vst
+
+REAL(8) FUNCTION sawtooth_Cm2_vst(t_s)
+
+  IMPLICIT NONE
+  REAL(8), PARAMETER :: j_max_Am2 = 200.0_8
+  REAL(8), PARAMETER :: f_rf_Hz = 2.712d7
+  REAL(8), PARAMETER :: t_start_s = 0.0_8
+  REAL(8), PARAMETER :: asymm = 0.7_8
+  real(8) omega, phase, pi, twopi
+  REAL(8) t_s, T_rf_s, arg, c
+  integer n_periods
+
+  pi = 3.1415926536_8
+  twopi= 2. * pi
+  omega = twopi * f_rf_Hz
+  sawtooth_Cm2_vst = 0.0_8
+  T_rf_s = 1./f_rf_Hz
+
+  IF (t_s.LT.t_start_s) RETURN
+  
+  n_periods = int((t_s - t_start_s)/T_rf_s)
+  phase = (t_s - t_start_s) / T_rf_s - dble(n_periods)
+!  if (phase.le.asymm) then
+!    arg =  pi * phase / asymm
+!  else
+!    arg =  pi * ( 1. + (phase-asymm) / (1.-asymm) )
+!  end if
+
+!  arg = twopi * phase**3
+  arg = twopi * phase**0.5
+
+  sawtooth_Cm2_vst =  - (j_max_Am2 / omega) * ( COS(arg) + 0.1013145 ) !zero net charge density over one period
+
+END FUNCTION sawtooth_Cm2_vst
+
+ REAL(8) FUNCTION j_Am2_vst(t_s)
+  IMPLICIT NONE
+  REAL(8), PARAMETER :: j_const_Am2 = 1.9_8 !*** 1.9 A/m2
+  REAL(8), PARAMETER :: t_start_s = 0.0_8
+  REAL(8) t_s
+
+  j_Am2_vst = 0.
+  IF (t_s.LT.t_start_s) RETURN
+  j_Am2_vst =  j_const_Am2 
+
+ END FUNCTION j_Am2_vst
 
 
 

@@ -1,14 +1,14 @@
-
 !===================================================================================================
 SUBROUTINE INITIATE_MC_COLLISIONS
 
+  use mpi
   USE ParallelOperationValues
   USE MCCollisions
-  USE CurrentProblemValues, ONLY : N_max_vel, T_e_eV, T_i_eV, N_spec, W_cycl_x_s1, Ms, N_box_vel
+  USE CurrentProblemValues, ONLY : N_max_vel, T_e_eV, T_i_eV, N_spec, Ms, N_box_vel, r_max_vel
 
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   LOGICAL exists
   INTEGER s, k
@@ -18,6 +18,9 @@ SUBROUTINE INITIATE_MC_COLLISIONS
 
   maxNcolkind_spec(1) = 4            ! Currently we have 4 kinds of e-n collisions         !@#$
   maxNcolkind_spec(2) = 3            ! Currently we have 3 kinds of i-n collisions         !@#$
+! maxNcolkind_spec(3) = 0
+  
+  Colflag_kind_spec = 0
  
   INQUIRE (FILE = 'ssc_partcolls.dat', EXIST = exists)
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
@@ -67,6 +70,7 @@ SUBROUTINE INITIATE_MC_COLLISIONS
      READ (9, '(7x,i1)') Colflag_kind_spec(3,2)                                                            !@#$
      READ (9, '(A67)') buf !--#d.dddE#dd- Frequency, model-1 (s^-1) ---------------------------")')         !@#$      
      READ (9, '(2x,e10.3)') Freq_turb_i_1_s1                                                                  !@#$
+!     Colflag_kind_spec(4,2) = 1
      
   ELSE
 
@@ -141,16 +145,17 @@ SUBROUTINE INITIATE_MC_COLLISIONS
   CLOSE (9, STATUS = 'KEEP')
 
   IF (maxEnergy_eV_spec(1).LT.0.0_8) THEN                                 ! 
-     maxEnergy_eV_spec(1) = 2.0_8 * N_max_vel * N_max_vel * T_e_eV        ! default value of the maximal energy for electrons
+     maxEnergy_eV_spec(1) = 2.0_8 * r_max_vel * r_max_vel * T_e_eV        ! default value of the maximal energy for electrons
   END IF                                                                  !
 
   IF (maxEnergy_eV_spec(2).LT.0.0_8) THEN                                 ! 
-     maxEnergy_eV_spec(2) = 2.0_8 * N_max_vel * N_max_vel * T_i_eV        ! default value of the maximal energy for ions
+     maxEnergy_eV_spec(2) = 2.0_8 * r_max_vel * r_max_vel * T_i_eV        ! default value of the maximal energy for ions
   END IF                                                                  !
   
-  IF (Freq_turb_e_1_s1.LT.0.0_8) THEN                                     ! frequency of electron turbulence collisions is defined
-     Freq_turb_e_1_s1 = ABS(W_cycl_x_s1 / Freq_turb_e_1_s1)                 ! by the electron cyclotron frequency
-  END IF                                                                  ! (if the input data is negative)
+!  IF (Freq_turb_e_1_s1.LT.0.0_8) THEN                                     ! frequency of electron turbulence collisions is defined
+!     Freq_turb_e_1_s1 = ABS(W_cycl_x_s1 / Freq_turb_e_1_s1)                 ! by the electron cyclotron frequency
+!  END IF                                                                  ! (if the input data is negative)
+
 !print *, '1 <- ', Rank_of_process
   CALL CONFIG_READ_CRSECT_ARRAYS
 !print *, '2 <- ', Rank_of_process
@@ -161,7 +166,7 @@ SUBROUTINE INITIATE_MC_COLLISIONS
   CALL SETVALUES_COLLISION_ARRAYS
 !print *, '4 <- ', Rank_of_process
 
-!####  CALL PrepareMaxwellDistribIntegral   !### NEW :: moved this call to INITIATE_PARAMETERS to use GetMaxwellVelocity
+  CALL PrepareMaxwellDistribIntegral
 
   IF (Rank_of_process.EQ.0) THEN
 
@@ -211,7 +216,7 @@ SUBROUTINE INITIATE_MC_COLLISIONS
 
   e_n_1_count = 0; e_n_2_count = 0; e_n_3_count = 0; i_n_1_count = 0; i_n_2_count = 0
   e_t_4_count = 0; i_t_3_count = 0                                                              !@#$
-! 0.00054858 = m_e_kg / 1_amu_kg = 9.109534e-31 / 1.660565e-27 
+! **** 0.00054858 = m_e_kg / 1_amu_kg = 9.109534e-31 / 1.660565e-27 
   alpha_Vscl = SQRT(0.00054858_8 * T_neutral_eV / (T_e_eV * M_neutral_amu)) 
   
   DO s = 1, N_spec
@@ -265,7 +270,11 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
         
         DO j = 1, N_en_elast
 ! was      READ (9, '(4x,f8.2,3x,e9.2)') Energy_en_elast_eV(j), CrSect_en_elast_m2(j)
-           READ (9, '(4x,f9.3,2x,e10.3)') Energy_en_elast_eV(j), CrSect_en_elast_m2(j)
+!!           READ (9, '(4x,f9.3,2x,e10.3)') Energy_en_elast_eV(j), CrSect_en_elast_m2(j)
+
+            read (9,*) Energy_en_elast_eV(j), CrSect_en_elast_m2(j)
+            CrSect_en_elast_m2(j) =  CrSect_en_elast_m2(j) * 1.e-20 !** for Hayashi data
+
 !           print '(4x,f8.2,3x,e9.2)', Energy_en_elast_eV(j), CrSect_en_elast_m2(j)
         END DO
 
@@ -289,10 +298,12 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
      IF (exists) THEN
      
         OPEN (9, FILE = 'ssc_crsect_en_excit.dat')
+!!        OPEN (19, FILE = 'ssc_crsect_en_excitNIST.dat',status='replace')
 
         PRINT '(2x,"Process ",i3," : e-n excitation collisions cross-sections data file is found. Reading the data file...")',&
                                                                                                                & Rank_of_process
         READ (9, '(2x,i4)') N_en_excit
+!!        write(19,'(2x,i4)') N_en_excit
 
         ALLOCATE(Energy_en_excit_eV(1:N_en_excit), STAT=ALLOC_ERR)
         IF(ALLOC_ERR.NE.0)THEN
@@ -310,11 +321,16 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
         
         DO j = 1, N_en_excit
 ! was      READ (9, '(4x,f8.2,3x,e9.2)') Energy_en_excit_eV(j), CrSect_en_excit_m2(j)
-           READ (9, '(4x,f8.2,3x,e10.3)') Energy_en_excit_eV(j), CrSect_en_excit_m2(j)
+!!           READ (9, '(4x,f8.2,3x,e10.3)') Energy_en_excit_eV(j), CrSect_en_excit_m2(j)
+
+           read(9,*) Energy_en_excit_eV(j), CrSect_en_excit_m2(j)
+
+!!           CrSect_en_excit_m2(j) = CrSect_en_excit_m2(j) * 1.e-20 * 1.511 !for reading the NIST data
+!!           write(19, '(4x,f8.2,3x,e10.3)') Energy_en_excit_eV(j), CrSect_en_excit_m2(j)
         END DO
         
         CLOSE (9, STATUS = 'KEEP')
-        
+!!        CLOSE (19, STATUS = 'KEEP')       
         DO j = 1, N_en_excit                                 !
            IF (CrSect_en_excit_m2(j).GT.0.0) THEN            !
               Thresh_en_excit_eV = Energy_en_excit_eV(j)     ! finding the energy threshold value
@@ -336,7 +352,6 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
   IF (Colflag_kind_spec(3, 1).EQ.1) THEN           
 
      INQUIRE (FILE = 'ssc_crsect_en_ioniz.dat', EXIST = exists)
-     
      IF (exists) THEN
      
         OPEN (9, FILE = 'ssc_crsect_en_ioniz.dat')
@@ -361,7 +376,8 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
         
         DO j = 1, N_en_ioniz
 ! was      READ (9, '(4x,f7.1,4x,e10.3)') Energy_en_ioniz_eV(j), CrSect_en_ioniz_m2(j)
-           READ (9, '(4x,f8.2,3x,e10.3)') Energy_en_ioniz_eV(j), CrSect_en_ioniz_m2(j)
+!!           READ (9, '(4x,f8.2,3x,e10.3)') Energy_en_ioniz_eV(j), CrSect_en_ioniz_m2(j)
+          read (9,*) Energy_en_ioniz_eV(j), CrSect_en_ioniz_m2(j)
         END DO
         
         CLOSE (9, STATUS = 'KEEP')
@@ -524,6 +540,7 @@ SUBROUTINE REMOVE_COLLSPEC_ARRAYS
 
   USE ParallelOperationValues
   USE MCCollisions
+  USE CurrentProblemValues, ONLY: seed
   IMPLICIT NONE
   INTEGER DEALLOC_ERR
 
@@ -549,6 +566,10 @@ SUBROUTINE REMOVE_COLLSPEC_ARRAYS
 
 !  PRINT '(2x,"Finished :)")'
 
+  IF (ALLOCATED(seed)) THEN
+     DEALLOCATE(seed, STAT=DEALLOC_ERR)
+  END IF
+
 END SUBROUTINE REMOVE_COLLSPEC_ARRAYS 
 
 !=======================================================================================================
@@ -565,8 +586,23 @@ SUBROUTINE CONFIGURE_COLLISION_ARRAYS
 
 !  PRINT '(4x,"Allocating arrays for electron-neutral and ion-neutral collisions ...")'
 
-  ALLOCATE(maxColfrac_spec(1:N_spec), STAT=ALLOC_ERR)
-  ALLOCATE(Colkind_of_spec(1:N_spec), STAT=ALLOC_ERR)
+  IF (.NOT.ALLOCATED(maxColfrac_spec)) THEN
+     ALLOCATE(maxColfrac_spec(1:N_spec), STAT=ALLOC_ERR)
+     IF(ALLOC_ERR.NE.0)THEN
+        PRINT '(/2x,"Process ",i3," : Error in ALLOCATE maxColfrac_spec !!!")', Rank_of_process
+        PRINT  '(2x,"Program will be terminated now :(")'
+        STOP
+     END IF
+  END IF
+
+  IF (.NOT.ALLOCATED(Colkind_of_spec)) THEN
+     ALLOCATE(Colkind_of_spec(1:N_spec), STAT=ALLOC_ERR)
+     IF(ALLOC_ERR.NE.0)THEN
+        PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Colkind_of_spec !!!")', Rank_of_process
+        PRINT  '(2x,"Program will be terminated now :(")'
+        STOP
+     END IF
+  END IF
 
   DO s = 1, N_spec
      NULLIFY(Colkind_of_spec(s)%activated)
@@ -580,7 +616,14 @@ SUBROUTINE CONFIGURE_COLLISION_ARRAYS
      END IF
   END DO
 
-  ALLOCATE(Colprob_of_spec(1:N_spec), STAT=ALLOC_ERR)
+  IF (.NOT.ALLOCATED(Colprob_of_spec)) THEN
+     ALLOCATE(Colprob_of_spec(1:N_spec), STAT=ALLOC_ERR)
+     IF(ALLOC_ERR.NE.0)THEN
+        PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Colprob_of_spec !!!")', Rank_of_process
+        PRINT  '(2x,"Program will be terminated now :(")'
+        STOP
+     END IF
+  END IF
 
   DO s = 1, N_spec
      NULLIFY(Colprob_of_spec(s)%kind_energy)
@@ -594,8 +637,23 @@ SUBROUTINE CONFIGURE_COLLISION_ARRAYS
      END IF
   END DO
 
-  ALLOCATE(Numbers_of_particles(0:(N_of_processes-1)), STAT=ALLOC_ERR)      !^%
-  ALLOCATE(Numbers_of_collisions(0:(N_of_processes-1)), STAT=ALLOC_ERR)     !^%
+  IF (.NOT.ALLOCATED(Numbers_of_particles)) THEN
+     ALLOCATE(Numbers_of_particles(0:(N_of_processes-1)), STAT=ALLOC_ERR)      !^%
+     IF (ALLOC_ERR.NE.0)THEN
+        PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Numbers_of_particles !!!")', Rank_of_process
+        PRINT  '(2x,"Program will be terminated now :(")'
+        STOP
+     END IF
+  END IF
+
+  IF (.NOT.ALLOCATED(Numbers_of_collisions)) THEN
+     ALLOCATE(Numbers_of_collisions(0:(N_of_processes-1)), STAT=ALLOC_ERR)     !^%
+     IF (ALLOC_ERR.NE.0)THEN
+        PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Numbers_of_collisions !!!")', Rank_of_process
+        PRINT  '(2x,"Program will be terminated now :(")'
+        STOP
+     END IF
+  END IF
   
 
 !  PRINT '(2x,"Finished :)")'
@@ -611,12 +669,12 @@ SUBROUTINE SETVALUES_COLLISION_ARRAYS
   USE CurrentProblemValues, ONLY : N_spec, delta_t_s
   IMPLICIT NONE
 
-  REAL(8) FREQUENCY_OF_COLLISION
+  REAL(8) FREQUENCY_OF_COLLISION, sum
 
   INTEGER s   ! species
   INTEGER k   ! index for activated collisions
   INTEGER j   ! index for all collisions, index for energy 
-  REAL energy_eV, max_f !, delta_t
+  REAL energy_eV, max_f, aa, bb !, delta_t
 
 !  PRINT '(4x,"Setting the values of arrays for electron-neutral and ion-neutral collisions ...")'
 
@@ -646,29 +704,31 @@ SUBROUTINE SETVALUES_COLLISION_ARRAYS
         DO k = 1, Ncolkind_spec(s)
       
            Colprob_of_spec(s)%kind_energy(k, j) = FREQUENCY_OF_COLLISION(energy_eV, Colkind_of_spec(s)%activated(k), s)
-           IF (k.GT.1) THEN
+           IF (k.GT.1) THEN 
               Colprob_of_spec(s)%kind_energy(k, j) = Colprob_of_spec(s)%kind_energy(k, j) + & 
                                                    & Colprob_of_spec(s)%kind_energy(k-1, j)
            END IF
 
-        END DO
+        END DO         !cumulative frequency cycle
         IF (Colprob_of_spec(s)%kind_energy(Ncolkind_spec(s), j).GT.max_f) THEN
-           max_f = Colprob_of_spec(s)%kind_energy(Ncolkind_spec(s), j)
+          max_f = Colprob_of_spec(s)%kind_energy(Ncolkind_spec(s), j)
         END IF
      END DO
-! renormalize the probability (must be not greater than 1)
-     DO j = 1, Nenergyval_spec(s)
-        DO k = 1, Ncolkind_spec(s)
-           Colprob_of_spec(s)%kind_energy(k, j) = Colprob_of_spec(s)%kind_energy(k, j) / max_f
-        END DO
+
+     maxColfrac_spec(s) = max_f
+! renormalize the probability (must be not greater than 1), bypassed if every particle collides
+!     DO j = 1, Nenergyval_spec(s)
+!        DO k = 1, Ncolkind_spec(s)
+!           aa = Colprob_of_spec(s)%kind_energy(k, j)
+!           Colprob_of_spec(s)%kind_energy(k, j) = aa /  maxColfrac_spec(s)
+!        END DO
 !!!!!!!!print '(2x,i4,2x,6(1x,e12.5))', j, Colprob_of_spec(s)%kind_energy(1:Ncolkind_spec(s), j)
-     END DO
+!     END DO
 
 ! calculating the array of fractions of particles, colliding each time step (including the NULL collisions), 
-! for different groups and species maxColfrac_spec(1:N_of_groups,1:N_spec)
-     maxColfrac_spec(s) = 1.0 - EXP(- max_f)
-
-  END DO
+! for different groups and species maxColfrac_spec(1:N_spec)
+  
+ END DO !species cycle
 
 !  PRINT '(2x,"Finished :)")'
 
@@ -709,7 +769,31 @@ SUBROUTINE SETVALUES_COLLISION_ARRAYS
            WRITE (99, '(2(2x,e12.5))') energy_eV, FREQUENCY_OF_COLLISION(energy_eV, 4, 1) / delta_t_s
         END DO
         CLOSE (99, STATUS = 'KEEP')
+      END IF
+
+     IF (Colflag_kind_spec(2, 2).EQ.1) THEN                                  ! ion, charge exchange 
+       OPEN (99, FILE = '_in_chargex_coll_freqs.dat')
+       DO j = 1, Nenergyval_spec(2)
+          energy_eV = (j-1) * deltaEnergy_eV_spec(2)
+          WRITE (99, '(2(2x,e12.5))') energy_eV, FREQUENCY_OF_COLLISION(energy_eV, 2, 2) / delta_t_s
+       END DO
+       CLOSE (99, STATUS = 'KEEP')
      END IF
+
+     OPEN (99, FILE = '_en_cumul_probab.dat')
+     DO j = 1, Nenergyval_spec(1)
+       energy_eV = (j-1) * deltaEnergy_eV_spec(1)
+       WRITE (99, '(4(2x,e12.5))') energy_eV, (Colprob_of_spec(1)%kind_energy(k,j), k=1,Ncolkind_spec(1))
+       END DO
+     CLOSE (99, STATUS = 'KEEP')
+
+     OPEN (99, FILE = '_in_cumul_probab.dat')
+     DO j = 1, Nenergyval_spec(2)
+       energy_eV = (j-1) * deltaEnergy_eV_spec(2)
+       WRITE (99, '(4(2x,e12.5))') energy_eV, (Colprob_of_spec(2)%kind_energy(k,j), k=1,Ncolkind_spec(2))
+       END DO
+     CLOSE (99, STATUS = 'KEEP') 
+     
 
   END IF
 
@@ -805,15 +889,14 @@ END SUBROUTINE REMOVE_COLLISION_ARRAYS
 ! 
 SUBROUTINE PROCESS_COLLISIONS_WITH_ATOMS
 
+  use mpi
   USE ParallelOperationValues
   USE MCCollisions
   USE CurrentProblemValues
-
-  USE rng_wrapper
-
+  USE mt19937
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   INTERFACE
      RECURSIVE SUBROUTINE Node_Killer(node)
@@ -821,6 +904,8 @@ SUBROUTINE PROCESS_COLLISIONS_WITH_ATOMS
        TYPE (binary_tree), POINTER :: node
      END SUBROUTINE Node_Killer
   END INTERFACE
+
+  REAL RAN, RANF
 
   INTEGER s             ! species 
   INTEGER random_j      ! number of selected particle
@@ -832,16 +917,14 @@ SUBROUTINE PROCESS_COLLISIONS_WITH_ATOMS
   REAL    F_collided ! fractional part of R_collided
 
 ! one should definitely take I_collided particles as the collided, and 
-! 1 particle with the probability F_collided
+! one particle with the probability F_collided
 
   INTEGER start_attempt ! start index in the cycle, which takes the random numbers of particles
                         ! it is 1 if F_collided = 0 and it is 0 if F_collided > 0
 
-  REAL(8)    random_n   ! to account for the nonuniform neutral density
-  REAL(8)    random_r   ! to identify the type of collision
+  REAL    random_r, R   ! random probability
   INTEGER k          ! counter of kinds of collisions 
  
-
   REAL(8) energy_eV     ! energy of selected particle [eV]
 
   INTEGER indx_energy   ! 2-nd index of the array Colprob_of_spec(s)%kind_energy(k, indx_energy)  
@@ -854,15 +937,15 @@ SUBROUTINE PROCESS_COLLISIONS_WITH_ATOMS
   INTEGER ALLOC_ERR
   LOGICAL Find_in_stored_list
 
-  INTEGER n                           ! process number
+  INTEGER n, isum                           ! process number
   INTEGER ierr
 
   INTEGER N_of_collisions        ! number of collisions for a client process
 
-  REAL(8) a0, a1
-
 ! function
   REAL(8) Shape_of_Natom  ! defines shape of the neutral atom density profile, 0<=Shape_of_Natom<=1
+  
+  call random_seed(put=seed)
 
   DO s = 1, N_spec
 
@@ -877,14 +960,14 @@ SUBROUTINE PROCESS_COLLISIONS_WITH_ATOMS
 ! Receive data from clients
         CALL MPI_GATHER(N_part(s), 1, MPI_INTEGER, Numbers_of_particles, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-
-        DO n = 2, N_of_processes - 1
+        
+        DO n = 2, N_of_processes - 1        
            Numbers_of_particles(n) = Numbers_of_particles(n) + Numbers_of_particles(n - 1) 
         END DO
         N_part(s) = Numbers_of_particles(N_of_processes - 1)      ! ??? was (n-1)
 
         R_collided = maxColfrac_spec(s) * N_part(s)      
-        I_collided = INT(R_collided)
+        I_collided = int(R_collided)
         F_collided = R_collided - I_collided
 
         IF (F_collided.GT.0.000001) THEN
@@ -898,12 +981,12 @@ SUBROUTINE PROCESS_COLLISIONS_WITH_ATOMS
         DO j = start_attempt, I_collided
 
            IF (j.EQ.0) THEN                                                     ! statistical part
-              real_random_j = REAL(well_random_number() * N_part(s) / F_collided)       ! the value of the right-hand part can exceed the maximal 32-bit integer number
+              real_random_j = RAN(I_random_seed) * N_part(s) / F_collided       ! the value of the right-hand part can exceed the maximal 32-bit integer number
               IF ((real_random_j.GT.N_part(s)).OR.(real_random_j.LT.0.0)) CYCLE ! that is why we use the real value and check the negative value here too
-              random_j = INT(real_random_j)                                          ! initialize the integer value
+              random_j = real_random_j                                          ! initialize the integer value
               IF (random_j.GT.N_part(s)) CYCLE                                  ! double check (maybe that's silly...)
            ELSE                                                                 ! mandatory part
-              random_j = INT(well_random_number() * N_part(s))                         ! note, we assume that N_part(s) is a trusted 32-bit integer value
+              random_j = RAN(I_random_seed) * N_part(s)                         ! note, we assume that N_part(s) is a trusted 32-bit integer value
            END IF                                                           
            IF (random_j.LT.1) random_j = 1                                      ! to be sure that we are within the array boundaries
            
@@ -920,7 +1003,7 @@ SUBROUTINE PROCESS_COLLISIONS_WITH_ATOMS
         CALL MPI_SCATTER(Numbers_of_collisions, 1, MPI_INTEGER, N_of_collisions, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
-     ELSE                                                                                                      ! client >>>
+     ELSE                                                   ! client >>>
 
 ! send data to the server
         CALL MPI_GATHER(N_part(s), 1, MPI_INTEGER, Numbers_of_particles, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
@@ -944,103 +1027,99 @@ SUBROUTINE PROCESS_COLLISIONS_WITH_ATOMS
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
 !============= Randomly take some (always different) particle "I_collided(+1)" times
-        DO j = 1, N_of_collisions
+!        DO j = 1, N_of_collisions
+          DO j = 1, N_part(s) ! go over all particles instead
+            
+            random_j = j !not random here, all particles collide
 
+!           search_again = .TRUE.                              ! if I_collided >= 1 then
+!           DO WHILE (search_again)                            ! search will be repeated until a number will be successfully obtained
+!              random_j = int(RAN(I_random_seed) * N_part(s))
+!              IF (random_j.LT.1) random_j = 1                !                   
+!              IF (random_j.GT.N_part(s)) CYCLE                ! within the array boundaries
+!              already_stored = Find_in_stored_list(random_j)   ! 
+!              IF (already_stored) CYCLE                                  ! skip particle if it has collided already  
+!              search_again = .FALSE.
+!           END DO
+           
 !------------- Determine the kind of collision for the selected particle
-           random_r = well_random_number()
-           random_n = well_random_number()
+!!           random_r = RAN(I_random_seed)
+!!           random_r = RANF()
+!!           call random_number(random_r)
+           random_r = grnd()
 
-           search_again = .TRUE.                              ! if I_collided >= 1 then
-           DO WHILE (search_again)                            ! search will be repeated until a number will be successfully obtained
-              random_j = INT(well_random_number() * N_part(s))
-              random_j = MIN(MAX(random_j, 1), N_part(s))
-              already_stored = Find_in_stored_list(random_j)   ! 
-              IF (already_stored) CYCLE                                  ! skip particle if it has collided already  
-              search_again = .FALSE.
-           END DO
+           SELECT CASE (s)
+           CASE (1)
 
 ! #### NEW: first check whether collision is allowed by the neutral density profile #####
-           IF (random_n.LE.Shape_of_Natom(species(s)%part(random_j)%X)) THEN      
-
-              SELECT CASE (s)
-              CASE (1)
-
+!!              call random_number(R)
+              R = grnd()
+              IF (DBLE(R).LE.Shape_of_Natom(X_of_spec(s)%part(random_j))) THEN      
 ! if we are here, we can proceed with processing the colliding particle as usual           
 ! for electrons the kind of collision is determined by the energy of electron
-                 energy_eV = energy_factor_eV_s(s) * (species(s)%part(random_j)%VX**2 + &
-                                                   &  species(s)%part(random_j)%VY**2 + & 
-                                                   &  species(s)%part(random_j)%VZ**2)
-           
-                 indx_energy = energy_eV / deltaEnergy_eV_spec(s) + 1
+                 energy_eV = energy_factor_eV_s(s) * (VX_of_spec(s)%part(random_j)**2 + &
+                                                   &  VY_of_spec(s)%part(random_j)**2 + & 
+                                                   &  VZ_of_spec(s)%part(random_j)**2)
 
-                 a1 = (energy_eV - (indx_energy-1) * deltaEnergy_eV_spec(s)) / deltaEnergy_eV_spec(s)
-                 a0 = 1.0_8 - a1
-
-                 IF (indx_energy.GE.Nenergyval_spec(s)) THEN
-                    indx_energy = Nenergyval_spec(s)-1
-                    a0 = 0.0_8
-                    a1 = 1.0_8
+                 indx_energy = int(energy_eV / deltaEnergy_eV_spec(s)) + 1
+                 IF (indx_energy.GT.Nenergyval_spec(s)) THEN
+                    indx_energy = Nenergyval_spec(s)
+                    !                    PRINT *, '(2x,"particle of species ",i2,"exceeds the energy limit for collisions")', s
                  END IF
               
                  DO k = Ncolkind_spec(s), 1, -1 
-                    IF (random_r.GT. &
-                         & (a0 * Colprob_of_spec(s)%kind_energy(k, indx_energy) + &
-                         &  a1 * Colprob_of_spec(s)%kind_energy(k, indx_energy+1)) &
-                         & ) EXIT
+                    IF (random_r.GT.Colprob_of_spec(s)%kind_energy(k, indx_energy)) EXIT 
                  END DO
-
+              
                  indx_coll = k + 1        
                  CALL COLLIDE_ELECTRON(indx_coll, random_j, energy_eV)
+              END IF
 
-              CASE (2)   
+           CASE (2)   
 ! for ions the kind of collision is determined by the energy of relative motion ion-neutral
 ! that's why we must take the neutral's velocity from Maxwell distribution:
-                 CALL GetMaxwellVelocity(Vx_n) 
-                 CALL GetMaxwellVelocity(Vy_n)       ! #### FUTURE WORK - CHECK THIS FOR CORRELATIONS ########
-                 CALL GetMaxwellVelocity(Vz_n) 
+              CALL GetMaxwellVelocity(Vx_n) 
+              CALL GetMaxwellVelocity(Vy_n) 
+              CALL GetMaxwellVelocity(Vz_n) 
+
+!!              CALL GetMaxwellVector(Vx_n, Vy_n, Vz_n)
+
 ! Use the factor above to obtain the dim-less velocity (V/V_te) of the produced neutral atom
-                 Vx_n = Vx_n * alpha_Vscl
-                 Vy_n = Vy_n * alpha_Vscl
-                 Vz_n = Vz_n * alpha_Vscl
+              Vx_n = Vx_n * alpha_Vscl
+              Vy_n = Vy_n * alpha_Vscl
+              Vz_n = Vz_n * alpha_Vscl
 ! Take the energy of ion at the frame where the neutral atom is at rest
-                 energy_eV = energy_factor_eV_s(s) * ((species(s)%part(random_j)%VX - Vx_n)**2 + &
-                                                   &  (species(s)%part(random_j)%VY - Vy_n)**2 + & 
-                                                   &  (species(s)%part(random_j)%VZ - Vz_n)**2)
-                 
-                 indx_energy = energy_eV / deltaEnergy_eV_spec(s) + 1
+! Ngas * sigma(|v-u|) * |v-u| will be looked up in the collision frequency array
+              energy_eV = energy_factor_eV_s(s) * ( (VX_of_spec(s)%part(random_j) - Vx_n)**2 + &
+                                                &   (VY_of_spec(s)%part(random_j) - Vy_n)**2 + & 
+                                                &   (VZ_of_spec(s)%part(random_j) - Vz_n)**2 )
 
-                 a1 = (energy_eV - (indx_energy-1) * deltaEnergy_eV_spec(s)) / deltaEnergy_eV_spec(s)
-                 a0 = 1.0_8 - a1
-
-                 IF (indx_energy.GE.Nenergyval_spec(s)) THEN
-                    indx_energy = Nenergyval_spec(s)-1
-                    a0 = 0.0_8
-                    a1 = 1.0_8
-                 END IF
-
-                 DO k = Ncolkind_spec(s), 1, -1 
-                    IF (random_r.GT. &
-                         & (a0 * Colprob_of_spec(s)%kind_energy(k, indx_energy) + &
-                         &  a1 * Colprob_of_spec(s)%kind_energy(k, indx_energy+1)) &
-                         & ) EXIT
-                 END DO
-
-                 indx_coll = k + 1
-                 CALL COLLIDE_ION(indx_coll, random_j, Vx_n, Vy_n, Vz_n) 
-
-              END SELECT    !------------- End of determination of the kind of collision
-           END IF
+              indx_energy = int(energy_eV / deltaEnergy_eV_spec(s)) + 1
+              IF (indx_energy.GT.Nenergyval_spec(s)) THEN
+                 indx_energy = Nenergyval_spec(s)
+!                    PRINT *, '(2x,"particle of species ",i2,"exceeds the energy limit for collisions")', s
+              END IF
+! *** the type of collision is chosen here:
+              DO k = Ncolkind_spec(s), 1, -1 
+                 IF (random_r.GT.Colprob_of_spec(s)%kind_energy(k, indx_energy)) EXIT 
+              END DO
+           
+              indx_coll = k + 1
+              CALL COLLIDE_ION(indx_coll, random_j, Vx_n, Vy_n, Vz_n) 
+!          CASE (3)
+           END SELECT    !------------- End of determination of the kind of collision
 
         END DO           !============= End of random particle taking
 
-        CALL Node_Killer(Collided_particle)
+        CALL Node_Killer(Collided_particle) !*** null-collision bypassed
 
-     END IF
+     END IF !choice between species 
 
   END DO                 !------------- End of the external cycle over species
 
 !print *, 'exit  PROCESS_COLLISIONS_WITH_ATOMS' ------------------------------------------------------------------------------------
-
+  call random_seed(get=seed)
+  return
 END SUBROUTINE PROCESS_COLLISIONS_WITH_ATOMS
 
 !-----------------------------------------------------------------
@@ -1218,17 +1297,20 @@ SUBROUTINE PrepareMaxwellDistribIntegral
 
   v(0) = V_min
   count = 0
+  open(unit=99, file = 'SampledMaxwell.dat', status = 'replace')
   DO i = 1, N_pnts + 3
      IF ((INT(F(i))-count).EQ.1) THEN
         count = count + 1
         v(count) = V_min + i * dV
+        write (99,*) count, v(count)
         IF (count.EQ.R_max) THEN
            check1 = .TRUE.
            EXIT
         END IF
      END IF
   END DO
-
+  close(unit=99)
+ 
   v = v * N_box_vel
 
 !--------- for asymmetrical maxwellian * v (used for injection, v > 0)
@@ -1277,30 +1359,97 @@ END SUBROUTINE PrepareMaxwellDistribIntegral
 !-------------------------------------------------------------------------------------------
 !  
 SUBROUTINE GetMaxwellVelocity(U) 
-
-  USE MaxwellVelocity
-
-  USE rng_wrapper
-
+!! the Box-Muller algorithm
+  USE mt19937
+  USE CurrentProblemValues, ONLY : seed, N_box_vel 
   IMPLICIT NONE
 
-  REAL(8) U
-
-  REAL(8) R
-  INTEGER indx
-  
-  R = R_max * well_random_number()
-
-  indx = INT(R)
-
-  IF (indx.LT.R_max) THEN
-     U = v(indx) + (R - indx) * (v(indx+1) - v(indx))
-  ELSE
-     U = v(R_max)
-  END IF
+  logical flag
+  REAL(8) U, dR1, dR2, W
+!!  call random_seed(put=seed)
+  flag = .true.
+  do while (flag)
+!!    call random_number(R1)
+!!    call random_number(R2)
+!!    dR1 = 2.0_8 * dble(R1) - 1.0_8
+!!    dR2 = 2.0_8 * dble(R2) - 1.0_8
+    dR1 = 2.0_8 * grnd() - 1.0_8
+    dR2 = 2.0_8 * grnd() - 1.0_8
+    W = dR1*dR1 + dR2*dR2
+    if (W.le.1.d0 .and. W.gt.0.d0) then
+      U = -dR1 / dsqrt(W) * dsqrt( -log(W))
+! sampling the Gaussian with sigma^2 = 0.5, in accordance with
+! how the thermal velocity is defined in the code
+      flag = .false.
+    else
+    end if
+  end do
+  U = U * dble(N_box_vel) 
+!!  call random_seed(get=seed)
   RETURN
+  END SUBROUTINE GetMaxwellVelocity
+
+ SUBROUTINE GetMaxwellVector(VX,VY,VZ)
+!!*** needs to be validated
+
+ USE MaxwellVelocity
+ USE CurrentProblemValues, ONLY : I_random_seed, N_box_vel
+ Implicit none
+ Real(8) U, VX, VY, VZ, pi, twopi
+ Real RAN, R1, R2, R3, phi
+ logical flag
+
+ pi = 3.14159265358979_8
+ twopi = 2. * pi
+ flag = .true.
+ 
+ do while (flag)
+   R1 = RAN(I_random_seed)
+   R2 = RAN(I_random_seed)
+   R3 = RAN(I_random_seed)
+   if (R1.ge.1.e-6 .and. R2.ge.1.e-6) then
+     U = -( log(R1) + log (R2) * 0.5 * (1. + cos(pi * R3)) )
+     flag = .false.
+   else
+   end if
+ end do
+
+ R1 = 1. - 2. * RAN(I_random_seed)
+ phi = twopi * RAN(I_random_seed)
+ U = sqrt(U) * dble(N_box_vel)
+ VX = U * R1 
+ VY = U * sqrt(1.-R1*R1)
+ VZ = VY * sin(phi)
+ VY = VY * cos(phi)
   
-END SUBROUTINE GetMaxwellVelocity
+ RETURN
+ END SUBROUTINE GetMaxwellVector
+!__________________________________________________________________________________________
+FUNCTION RANF() RESULT (CR)
+!
+! Function to generate a uniform random number in [0,1]
+! following x(i+1)=a*x(i) mod c with a=7** 5 and
+! c=2** 31-1.  Here the seed is a global variable.
+!
+  USE CurrentProblemValues, ONLY : I_random_seed 
+  IMPLICIT NONE
+  INTEGER :: H, L, T, A, C, Q, R, SEED
+  DATA A/16807/, C/2147483647/, Q/127773/, R/2836/
+  REAL :: CR
+!
+  SEED = I_random_seed
+  H = SEED/Q
+  L = MOD(SEED, Q)
+  T = A*L - R*H
+  IF (T .GT. 0) THEN
+    SEED = T
+  ELSE
+    SEED = C + T
+  END IF
+  CR = SEED/FLOAT(C)
+  I_random_seed = SEED
+END FUNCTION RANF
+
 
 !-------------------------------------------------------------------------------------------
 !
@@ -1308,18 +1457,16 @@ END SUBROUTINE GetMaxwellVelocity
 SUBROUTINE GetInjMaxwellVelocity(U) 
 
   USE MaxwellVelocity
-
-  USE rng_wrapper
-
+  USE CurrentProblemValues, ONLY : I_random_seed 
+  USE mt19937
   IMPLICIT NONE
 
   REAL(8) U
-
-  REAL(8) R
+  REAL RAN, R
   INTEGER indx
   
-  R = R_max_inj * well_random_number()
-
+!!  R = R_max_inj * RAN(I_random_seed)
+  R = R_max_inj * grnd()
   indx = INT(R)
 
   IF (indx.LT.R_max_inj) THEN
@@ -1356,7 +1503,34 @@ REAL(8) FUNCTION Shape_of_Natom(x)
 
 END FUNCTION Shape_of_Natom
 
+SUBROUTINE GetMaxwell2D(U, V)
+!! the Box-Muller algorithm
+  USE mt19937 !** Mercenne twister
+  USE CurrentProblemValues, ONLY : N_box_vel
 
+  IMPLICIT NONE
+  logical tryagain
+  REAL(8) U, V, dR1, dR2, W, aa
+
+  tryagain = .true.
+  do while (tryagain)
+    dR1 = 2.0_8 * grnd() - 1.0_8
+    dR2 = 2.0_8 * grnd() - 1.0_8
+    W = dR1*dR1 + dR2*dR2
+    if (W.le.1.0_8 .and. W.gt.0.0_8) then
+      aa = dsqrt(-dlog(W) / W)
+      U = dR1 * aa
+      V = dR2 * aa
+! sampling the Gaussian with sigma^2 = 0.5, in accordance with
+! how the thermal velocity is defined in the code
+      tryagain = .false.
+    else
+    end if
+  end do
+  U = U * dble(N_box_vel)
+  V = V * dble(N_box_vel)
+  RETURN
+  END SUBROUTINE GetMaxwell2D
 
 
 

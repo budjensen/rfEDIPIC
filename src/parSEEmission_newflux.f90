@@ -3,13 +3,14 @@
 
 SUBROUTINE INITIATE_SE_EMISSION
 
+  use mpi
   USE ParallelOperationValues
   USE SEEmission
   USE IonInducedSEEmission
   USE CurrentProblemValues, ONLY : T_e_eV, BC_flag, N_box_vel
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   REAL(8) angle_rad, angle_deg ! for testing purpose, initial_angle_of_incidence_deg expressed in radians
 
@@ -455,9 +456,7 @@ SUBROUTINE PROCESS_ELECTRON_COLLISION_WITH_WALL(s, x, k)
   USE ParallelOperationValues
   USE SEEmission
   USE CurrentProblemValues
-
-  USE rng_wrapper
-
+  USE mt19937
   IMPLICIT NONE
 
   INTEGER s            ! species
@@ -466,11 +465,12 @@ SUBROUTINE PROCESS_ELECTRON_COLLISION_WITH_WALL(s, x, k)
                        ! x can be either streaming or corrected coordinate
   INTEGER k            ! index of colliding particle
 
+  REAL RAN
   REAL(8) Coeff_SEE_Elastic
   REAL(8) Coeff_SEE_Inelastic
   REAL(8) Coeff_SEE_True
   
-  REAL(8) R                  ! random number 
+  REAL R                  ! random number 
 
   REAL(8) vx, vy, vz, v   ! velocity components of incident particle
   INTEGER tag             ! tag of incident particle
@@ -484,10 +484,10 @@ SUBROUTINE PROCESS_ELECTRON_COLLISION_WITH_WALL(s, x, k)
 
 
 ! take the particle
-  vx = species(s)%part(k)%VX
-  vy = species(s)%part(k)%VY
-  vz = species(s)%part(k)%VZ
-  tag = species(s)%part(k)%Tag
+  vx = VX_of_spec(s)%part(k)
+  vy = VY_of_spec(s)%part(k)
+  vz = VZ_of_spec(s)%part(k)
+  tag = Tag_of_spec(s)%part(k)
 
   v = SQRT(vx**2 + vy**2 + vz**2)
 
@@ -541,7 +541,7 @@ SUBROUTINE PROCESS_ELECTRON_COLLISION_WITH_WALL(s, x, k)
 ! Therefore we must start from the attempts to inject a reflected (elastically or inelastically) particle.
 
 ! take a random number
-  R = well_random_number()
+  R = grnd()
 
 ! try to inject the inelasticaly backscattered electron
   IF ((R.GT.coef_elastic).AND.(R.LE.(coef_elastic + coef_inelastic))) THEN
@@ -577,7 +577,7 @@ SUBROUTINE PROCESS_ELECTRON_COLLISION_WITH_WALL(s, x, k)
 ! the remaining part gives us the probability for statistical injection of fractional part of true secondary electron
 
 ! take a random number
-  R = well_random_number()
+  R = grnd()
   IF (R.LT.coef_true) CALL INJECT_TRUE_SECONDARY(x, vx, tag)
 
 END SUBROUTINE PROCESS_ELECTRON_COLLISION_WITH_WALL
@@ -590,10 +590,8 @@ SUBROUTINE INJECT_ELASTIC_REFLECTED(x, vx, vy, vz, v, tag)
   USE SEEmission
   USE CurrentProblemValues
   USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_leftemit, Rate_energy_rightemit, &
-                        & Rate_number_leftemit, Rate_number_rightemit
-
-  USE rng_wrapper
-
+                        & Rate_number_leftemit, Rate_number_rightemit, NVX_mesh
+  USE mt19937
   IMPLICIT NONE
 
   REAL(8) x             ! coordinate of incident particle, must be beyond the plasma boundaries 
@@ -601,9 +599,11 @@ SUBROUTINE INJECT_ELASTIC_REFLECTED(x, vx, vy, vz, v, tag)
   REAL(8) v             ! absolute value of velocity
   INTEGER tag           ! tag of incident particle
 
+  REAL(8) R
   INTEGER ALLOC_ERR
 
   REAL(8) teta, fi                 ! angles of backscattering
+  REAL(8) sinteta, costeta
 
   REAL(8) x_new                    ! x-coordinate of the electron after reflection (to be injected)
 !  REAL(8) v_new                    ! absolute velocity   - " -
@@ -635,17 +635,17 @@ SUBROUTINE INJECT_ELASTIC_REFLECTED(x, vx, vy, vz, v, tag)
      vz_new =  vz
   
   ELSE                             ! if elastic reflection occurs at random angle
+     R = grnd()
+     costeta = sqrt(R)  ! assume that the distribution over the teta angle is f(teta) = COS(teta)
+     sinteta = sqrt(1.0_8 - R)
+     fi   = 6.283185307_8 * grnd()
 
-!     teta = 1.570796327_8 * RAN(I_random_seed)                  ! get the angles of reflection
-     teta = ASIN(MIN(well_random_number(),1.0_8))                ! assume that the distribution over the teta angle is f(teta) = COS(teta)   
-     fi   = 6.283185307_8 * well_random_number()
-
-     vy_new = v * SIN(teta) * SIN(fi)          ! get the Y,Z-velocity components
-     vz_new = v * SIN(teta) * COS(fi)
+     vy_new = v * sinteta * SIN(fi)          ! get the Y,Z-velocity components
+     vz_new = v * sinteta * COS(fi)
 
      IF (x.GT.DBLE(N_cells)) THEN                                   ! if the particle hits the RIGHT WALL
         Q_right =  Q_right - Qs(1)                                  ! restore the surface charge density
-        vx_new  = - v * COS(teta)                                   ! calculate the new X-velocity
+        vx_new  = - v * costeta                                   ! calculate the new X-velocity
 !        x_new   = N_cells - (x - N_cells) * ABS(vx_new / vx)        ! calculate the new coordinate
         x_new = dble(N_cells)                  ! calculate the new coordinate
         Q_strm_spec(N_cells, 1) = Q_strm_spec(N_cells, 1) + 1.0_8 
@@ -653,7 +653,7 @@ SUBROUTINE INJECT_ELASTIC_REFLECTED(x, vx, vy, vz, v, tag)
 
      IF (x.LT.0.0_8) THEN                      ! if the particle hits the LEFT WALL
         Q_left = Q_left - Qs(1)                ! restore the surface charge density
-        vx_new = v * COS(teta)                 ! calculate the new X-velocity
+        vx_new = v * costeta                 ! calculate the new X-velocity
 !        x_new = ABS(x * vx_new / vx)           ! calculate the new coordinate
         x_new = 0.0_8                            ! calculate the new coordinate
         Q_strm_spec(0, 1) = Q_strm_spec(0, 1) + 1.0_8 
@@ -668,7 +668,8 @@ SUBROUTINE INJECT_ELASTIC_REFLECTED(x, vx, vy, vz, v, tag)
         Rate_number_leftemit(1) = Rate_number_leftemit(1) + 1               !
         Rate_energy_leftemit(1) = Rate_energy_leftemit(1) + (v**2)          !
         see_left_elastic_count  = see_left_elastic_count  + 1               ! for diagnostics
-        see_left_elastic_energy = see_left_elastic_energy + (v**2)          !    
+        see_left_elastic_energy = see_left_elastic_energy + (v**2)          !
+        NVX_mesh(0, 1) = NVX_mesh(0, 1) + 1.    
         SELECT CASE (tag)                                                   
            CASE (eTag_Emit_Right)                                           !
               sece_left_from_right_count = sece_left_from_right_count + 1   ! if primary electron was emitted from the right wall
@@ -681,7 +682,8 @@ SUBROUTINE INJECT_ELASTIC_REFLECTED(x, vx, vy, vz, v, tag)
         Rate_number_rightemit(1) = Rate_number_rightemit(1) + 1             ! 
         Rate_energy_rightemit(1) = Rate_energy_rightemit(1) + (v**2)        !
         see_right_elastic_count  = see_right_elastic_count  + 1             ! for diagnostics
-        see_right_elastic_energy = see_right_elastic_energy + (v**2)        !    
+        see_right_elastic_energy = see_right_elastic_energy + (v**2)        !   
+        NVX_mesh(N_cells, 1) = NVX_mesh(N_cells, 1) - 1. 
         SELECT CASE (tag)
            CASE (eTag_Emit_Left)                                            ! 
               sece_right_from_left_count = sece_right_from_left_count + 1   ! if primary electron was emitted from the left wall
@@ -695,7 +697,7 @@ SUBROUTINE INJECT_ELASTIC_REFLECTED(x, vx, vy, vz, v, tag)
      Current_electron%VX      = vx_new     ! -vx
      Current_electron%VY      = vy_new
      Current_electron%VZ      = vz_new
-!     Current_electron%AX      = 0.0_8
+     Current_electron%AX      = 0.0_8
      ALLOCATE(Current_electron%next, STAT = ALLOC_ERR)
      IF (ALLOC_ERR.NE.0) THEN
         PRINT '(/2x,"Process ",i3," : Error in INJECT_ELASTIC_REFLECTED:")', Rank_of_process
@@ -735,10 +737,8 @@ SUBROUTINE INJECT_INELASTIC_BACKSCATTERED(x, vx, v, tag)
   USE SEEmission
   USE CurrentProblemValues
   USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_leftemit, Rate_energy_rightemit, &
-                        & Rate_number_leftemit, Rate_number_rightemit
-
-  USE rng_wrapper
-
+                        & Rate_number_leftemit, Rate_number_rightemit, NVX_mesh
+  USE mt19937
   IMPLICIT NONE
 
   REAL(8) x             ! coordinate of incident particle, must be beyond the plasma boundaries 
@@ -746,9 +746,11 @@ SUBROUTINE INJECT_INELASTIC_BACKSCATTERED(x, vx, v, tag)
   REAL(8) v             ! absolute velocity of incident electron
   INTEGER tag           ! tag of incident electron
 
+  REAL(8)  R
   INTEGER ALLOC_ERR
 
   REAL(8) teta, fi                 ! angles of backscattering
+  real(8) sinteta, costeta
 
   REAL(8) x_new                    ! x-coordinate of the electron after reflection (to be injected)
   REAL(8) v_new                    ! absolute velocity   - " -
@@ -757,23 +759,24 @@ SUBROUTINE INJECT_INELASTIC_BACKSCATTERED(x, vx, v, tag)
   INTEGER right_node               ! right node          - " -
 
 ! get the angles of backscattering
-!  teta = 1.570796327_8 * RAN(I_random_seed) 
-  teta = ASIN(MIN(1.0_8,well_random_number()))                ! assume that the distribution over the teta angle is f(teta) = COS(teta)   
-  fi   = 6.283185307_8 * well_random_number() 
+  R = grnd()
+  costeta = sqrt(R)
+  sinteta = sqrt(1.0_8 - R)
+  fi   = 6.283185307_8 * grnd()
  
 ! get the absolute velocity of backscattered
-  v_new = v * SQRT(well_random_number())           ! assume that the energy (NOT the velocity) is uniformly distributed between 0 and initial_energy
+  v_new = v * SQRT(grnd())           ! assume that the energy (NOT the velocity) is uniformly distributed between 0 and initial_energy
 
 ! get the Y,Z-velocity components
-  vy_new = v_new * SIN(teta) * SIN(fi)
-  vz_new = v_new * SIN(teta) * COS(fi)
+  vy_new = v_new * sinteta * SIN(fi)
+  vz_new = v_new * sinteta * COS(fi)
 
 ! if the particle hits the RIGHT WALL
   IF (x.GT.DBLE(N_cells)) THEN
 ! restore the surface charge density
      Q_right =  Q_right - Qs(1)
 ! calculate the new X-velocity
-     vx_new = - v_new * COS(teta)
+     vx_new = - v_new * costeta
 ! calculate the new coordinate
 !     x_new = N_cells - (x - N_cells) * ABS(vx_new / vx)
      x_new = dble(N_cells)                  ! calculate the new coordinate
@@ -785,7 +788,7 @@ SUBROUTINE INJECT_INELASTIC_BACKSCATTERED(x, vx, v, tag)
 ! restore the surface charge density
      Q_left = Q_left - Qs(1)
 ! calculate the new X-velocity
-     vx_new = v_new * COS(teta)
+     vx_new = v_new * costeta
 ! calculate the new coordinate
 !     x_new = ABS(x * vx_new / vx)
      x_new = 0.0_8                            ! calculate the new coordinate
@@ -807,6 +810,7 @@ SUBROUTINE INJECT_INELASTIC_BACKSCATTERED(x, vx, v, tag)
         Rate_energy_leftemit(1) = Rate_energy_leftemit(1) + (v_new**2)          !
         see_left_inelastic_count  = see_left_inelastic_count + 1                ! for diagnostics
         see_left_inelastic_energy = see_left_inelastic_energy + (v_new**2)      !
+        NVX_mesh(0, 1) = NVX_mesh(0, 1) + 1.
         SELECT CASE (tag)                                                   
            CASE (eTag_Emit_Right)                                               !
               sece_left_from_right_count = sece_left_from_right_count + 1       ! if primary electron was emitted from the right wall
@@ -820,6 +824,7 @@ SUBROUTINE INJECT_INELASTIC_BACKSCATTERED(x, vx, v, tag)
         Rate_energy_rightemit(1) = Rate_energy_rightemit(1) + (v_new**2)        !
         see_right_inelastic_count  = see_right_inelastic_count + 1              ! for diagnostics
         see_right_inelastic_energy = see_right_inelastic_energy + (v_new**2)    !
+        NVX_mesh(N_cells, 1) = NVX_mesh(N_cells, 1) - 1.
         SELECT CASE (tag)
            CASE (eTag_Emit_Left)                                                ! 
               sece_right_from_left_count = sece_right_from_left_count + 1       ! if primary electron was emitted from the left wall
@@ -833,7 +838,7 @@ SUBROUTINE INJECT_INELASTIC_BACKSCATTERED(x, vx, v, tag)
      Current_electron%VX      = vx_new
      Current_electron%VY      = vy_new
      Current_electron%VZ      = vz_new
-!     Current_electron%AX      = 0.0_8
+     Current_electron%AX      = 0.0_8
      ALLOCATE(Current_electron%next, STAT = ALLOC_ERR)
      IF (ALLOC_ERR.NE.0) THEN
         PRINT '(/2x,"Process ",i3," : Error in INJECT_INELASTIC_BACKSCATTERED:")', Rank_of_process
@@ -864,20 +869,20 @@ SUBROUTINE INJECT_TRUE_SECONDARY(x, vx_inc, tag)
   USE SEEmission
   USE CurrentProblemValues
   USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_leftemit, Rate_energy_rightemit, &
-                        & Rate_number_leftemit, Rate_number_rightemit
-
-  USE rng_wrapper
-
+                        & Rate_number_leftemit, Rate_number_rightemit, NVX_mesh
+  USE mt19937
   IMPLICIT NONE
 
   REAL(8) x             ! coordinate of incident electron, must be beyond the plasma boundaries 
   REAL(8) vx_inc        ! x-velocity of the electron before the collision
   INTEGER tag           ! tag of the incident electron
 
+  REAL(8) R
   INTEGER ALLOC_ERR
 
   REAL(8) energy        ! energy of injected (true secondary emitted) electron
   REAL(8) teta, fi      ! angles of injection (emission)
+  real(8) sinteta, costeta
   REAL(8) v             ! absolute velocity   - " -
   REAL(8) vx, vy, vz    ! velocity components - " -
   REAL(8) x_new         ! x-coordinate        - " -
@@ -892,25 +897,26 @@ if (vx_inc.eq.0.0_8) then
 end if
 
 ! get the energy of true secondary electron
-  CALL GetTrueSecondaryEnergy(energy) 
+  CALL GetTrueSecondaryEnergy(energy, costeta, sinteta) 
 
 ! get the absolute velocity of true secondary electron
   v = SQRT(2.0_8 * energy)
-
 ! get the angles of backscattering
-  teta = ASIN(MIN(1.0_8,well_random_number()))                ! assume that the distribution over the teta angle is f(teta) = COS(teta)   
-  fi   = 6.283185307_8 * well_random_number()     
-
+  fi   = 6.283185307_8 * grnd()
+! teta and energy are found simultaneously from sampling 2D Maxwellian in the subroutine above
+!!  R = grnd()   
+!!  costeta = sqrt(R)
+!!  sinteta = sqrt(1.0_8 - R)
 ! get the Y,Z-velocity components
-  vy = v * SIN(teta) * SIN(fi)
-  vz = v * SIN(teta) * COS(fi)
+  vy = v * sinteta * SIN(fi)
+  vz = v * sinteta * COS(fi)
 
 ! if the particle hits the RIGHT WALL
   IF (x.GT.N_cells) THEN
 ! decrease the surface charge density
      Q_right =  Q_right - Qs(1)
 ! calculate the new X-velocity
-     vx = - v * COS(teta)
+     vx = - v * costeta
 ! set the new coordinate
 ! calculate the new coordinate
 !     x_new = DBLE(N_cells) - (x - DBLE(N_cells)) * ABS(vx / vx_inc)
@@ -919,7 +925,11 @@ end if
 !!!!!!!!     left_node  = N_nodes - 1
 !!!!!!!!     right_node = N_nodes
      x_new = dble(N_cells)                  ! calculate the new coordinate
-     Q_strm_spec(N_cells, 1) = Q_strm_spec(N_cells, 1) + 1.0_8 
+!     R = grnd()
+!     x_new = dble(N_cells) - R
+     Q_strm_spec(N_cells, 1) = Q_strm_spec(N_cells, 1) + 1.0_8
+!     Q_strm_spec(N_cells, 1)   = Q_strm_spec(N_cells, 1)   + x_new - dble(N_cells) + 1.
+!     Q_strm_spec(N_cells-1, 1) = Q_strm_spec(N_cells-1, 1) - x_new + dble(N_cells)
   END IF
 
 ! if the particle hits the LEFT WALL
@@ -927,7 +937,7 @@ end if
 ! decrease the surface charge density
      Q_left = Q_left - Qs(1)
 ! calculate the new X-velocity
-     vx = v * COS(teta)
+     vx = v * costeta
 ! set the new coordinate
 !     x_new = ABS(x * vx / vx_inc)
 !!!!!!!!!!!!!     x_new = 0.0_8
@@ -935,7 +945,12 @@ end if
 !!!!!!!!!!!!!     left_node = 1
 !!!!!!!!!!!!!     right_node = 2
      x_new = 0.0_8                            ! calculate the new coordinate
-     Q_strm_spec(0, 1) = Q_strm_spec(0, 1) + 1.0_8 
+!     R = grnd()
+!     x_new = R
+ 
+!     Q_strm_spec(0, 1) = Q_strm_spec(0, 1) + 1.0_8 
+    Q_strm_spec(0, 1) = Q_strm_spec(0, 1) - x_new + 1.
+    Q_strm_spec(1, 1) = Q_strm_spec(1, 1) + x_new
   END IF
 
 !  left_node  = INT(x_new)
@@ -953,6 +968,7 @@ end if
         Rate_energy_leftemit(1) = Rate_energy_leftemit(1) + (v**2)          !
         see_left_true_count  = see_left_true_count  + 1                     ! for diagnostics
         see_left_true_energy = see_left_true_energy + (v**2)                !
+        NVX_mesh(0, 1) = NVX_mesh(0, 1) + 1.
         SELECT CASE (tag)                                                   
            CASE (eTag_Emit_Right)                                           !
               sece_left_from_right_count = sece_left_from_right_count + 1   ! if primary electron was emitted from the right wall
@@ -966,6 +982,7 @@ end if
         Rate_energy_rightemit(1) = Rate_energy_rightemit(1) + (v**2)        !
         see_right_true_count  = see_right_true_count  + 1                   ! for diagnostics
         see_right_true_energy = see_right_true_energy + (v**2)              !
+        NVX_mesh(N_cells, 1) = NVX_mesh(N_cells, 1) - 1.
         SELECT CASE (tag)
            CASE (eTag_Emit_Left)                                            ! 
               sece_right_from_left_count = sece_right_from_left_count + 1   ! if primary electron was emitted from the left wall
@@ -979,7 +996,7 @@ end if
      Current_electron%VX      = vx
      Current_electron%VY      = vy
      Current_electron%VZ      = vz
-!     Current_electron%AX      = 0.0_8
+     Current_electron%AX      = 0.0_8
      ALLOCATE(Current_electron%next, STAT = ALLOC_ERR)
      IF (ALLOC_ERR.NE.0) THEN
         PRINT '(/2x,"Process ",i3," : Error in INJECT_TRUE_SECONDARY :")', Rank_of_process
@@ -1151,7 +1168,7 @@ END FUNCTION Coeff_SEE_Classic
 ! according to the maxwell energy distribution
 MODULE MaxwellEnergy
   REAL(8) E(0:200)
-  REAL(8) :: E_max = 8.0_8
+  REAL(8) :: E_max = 25.0_8
   INTEGER :: R_max = 200
 END MODULE MaxwellEnergy
 
@@ -1180,8 +1197,7 @@ SUBROUTINE PrepareEnergyDistribIntegral
   F = 0.0_8 
   DO i = 1, N_pnts + 3
      temp = (REAL(i) - 0.5_8) * dE
-!     F(i) = F(i-1) + temp * EXP( -temp )     
-     F(i) = F(i-1) + SQRT(temp) * EXP( -temp )     
+     F(i) = 1. - (1. + temp)  * EXP( -temp ) !*** 10/26/2016     
   END DO
 
   temp = F(N_pnts)
@@ -1203,6 +1219,11 @@ SUBROUTINE PrepareEnergyDistribIntegral
   E = E * 0.5_8 * T_see_true_eV * N_box_vel**2 / T_e_eV    !??????????????????????????????????????????????????????????
 
   IF (check) THEN
+     open(unit = 33, file = 'EmittedEnergyCumulProb.dat')
+     do i = 0, R_max
+        write(33,*)  i, E(i)
+     end do
+     close (unit = 33)
 !     PRINT &
 !& '(2x,"Process ",i3," : Integral for producing energy distribution of secondary electrons is successfully obtained ...")', &
 !                                                                                                            & Rank_of_process
@@ -1217,23 +1238,37 @@ END SUBROUTINE PrepareEnergyDistribIntegral
 
 !-------------------------------------------------------------------------------------------
 !  
-SUBROUTINE GetTrueSecondaryEnergy(W) 
+SUBROUTINE GetTrueSecondaryEnergy(W, cosine, sine) 
 
   USE MaxwellEnergy
   USE SEEmission, ONLY : T_see_true_eV
-  USE CurrentProblemValues, ONLY : T_e_Ev
-
-  USE rng_wrapper
-
+  USE CurrentProblemValues, ONLY : T_e_eV, N_box_vel
+  USE mt19937
   IMPLICIT NONE
 
-  REAL(8) W
-
-  REAL(8) R
-  INTEGER indx 
+  REAL(8) W, cosine, sine, R, R1, R2, Wpar, Wperp
+  INTEGER indx
+!  logical tryagain
   
-  R = R_max * well_random_number()
+  R1 = grnd()
+  R2 = grnd()
+  if (R1.gt.0.0_8 .and. R2.gt.0.0_8 .and. R1.lt.1.0_8 .and. R2.lt.1.0_8) then
+    Wpar =  -log(R1)
+    Wperp = -log(R2)
+    W = Wpar + Wperp
+    cosine = sqrt(Wpar / W)
+    sine =   sqrt(Wperp / W)
+  else
+    cosine = 1.
+    sine = 0.
+    W = 20.
+  end if
+  W = 0.5 * W * (T_see_true_eV / T_e_eV) * N_box_vel**2  ! factor of 0.5 is for historical reasons
 
+  RETURN
+!************************  
+ 
+  R = R_max * grnd()
   indx = INT(R)
 
   IF (indx.LT.R_max) THEN
@@ -1241,7 +1276,10 @@ SUBROUTINE GetTrueSecondaryEnergy(W)
   ELSE
      W = E(R_max)
   END IF
-  RETURN
-  
+
+  R = grnd()
+  cosine = sqrt(R)
+  sine = sqrt(1. - R)
+
 END SUBROUTINE GetTrueSecondaryEnergy
 

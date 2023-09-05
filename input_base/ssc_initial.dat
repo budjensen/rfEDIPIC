@@ -1,68 +1,42 @@
-============================ SYSTEM CONFIGURATION ===========================
+=========================== SYSTEM CONFIGURATION ===========================
 -------d----- BC: Left wall potential is fixed/floating/ext.circuit {0/1/2}--
-       0
--------d----- Left wall is RF biased (1/0=Yes/No) ---------------------------
-       1
+       0   4    [4 means RF potential applied ditectly or with dielectric layer]
 --dddddd.ddd- Resistor in the external circuit (ohm) ------------------------
       10.000
 --dddddd.ddd- Electrode area (cm^2) -----------------------------------------
      400.000
 --dddddd.ddd- External z-electric field parallel to walls (V/m) -------------
        0.000
---dddddd.ddd- External x-magnetic field normal to walls (Gauss) -------------
-       0.000
---dddddd.ddd- External y-magnetic field parallel to walls (Gauss) -----------
-       0.000
---dddddd.ddd- Left wall potential/battery voltage (V) -----------------------
-       0.000
---#d.dddE#dd- Left wall RF frequency (Hz) -----------------------------------
-   1.356E+7
---dddddd.ddd- Left wall RF amplitude (V) ------------------------------------
-     150.000
---#d.dddE#dd- Left wall RF start time (s) -----------------------------------
-   0.000E-9
---dddd.ddddd- Plasma layer width (m, beam wavelengths if negative) ----------
-     0.06700
+--dddddd.ddd- Vpp
+     200.000
+--dddddd.dddd- Plasma layer width (m, beam wavelengths if negative) ----------
+       0.0320
 --dddddd.ddd- Ion mass (a.m.u., m_e if negative) ----------------------------
-       4.017
+      39.948 
 --dddddd.ddd- Ion temperature (eV) ------------------------------------------
        0.026
--------d----- Ions sense the external MAGNETIC field (1/0=Yes/No) -----------
-       0
--------d----- Ions sense the external ELECTRIC field (1/0=Yes/No) -----------
-       0
--------d----- Thermalize electron if Z-shift exceeds limit (1/0=Yes/No) -----
-       0
---dddd.ddddd- Limit for the electron Z-shift (m) ----------------------------
-     0.01000
--------d----- Thermalize ion if Z-shift exceeds limit (1/0=Yes/No) ----------
-       0
---dddd.ddddd- Limit for the ion Z-shift (m) ---------------------------------
-     0.01000
 ======================= PARAMETERS DEFINING SCALE VALUES ====================
 --#d.dddE#dd- Plasma density (m^-3) -----------------------------------------
-   1.826E+15
+   1.000E+15
 --dddddd.ddd- Electron temperature (eV) -------------------------------------
-       2.546
+       1.000
 --dddddd----- Number of macroparticles per cell -----------------------------
-     128
---dddddd----- Number of cells per Debye length ------------------------------
-       3
-------dd----- Maximal expected velocity (in V_therm_e) ----------------------
-       3
+     100
+--dddddd----- Number of cells per Debye length. ** If <0 then abs. value gives delta_x in microns ** 
+     -64  
+------dd--d-- Max. expected velocity (in V_therm_e) (** or delta_t [ps] if picosec_flag=1 **), picosec_flag
+      10  1
 --dddddd----- Number of velocity boxes per unit of V_therm ------------------
-      20
+     256 
 ============================ SIMULATION CONTROL =============================
 --dddddd.ddd- Duration of simulation (ns) -----------------------------------
-  377581.121   =5120/f
+   60000.000
 --dddddd----- Step for saving checkpoints (timesteps, skip if <=0) ----------
-  -90000
+  100000
 --dddddd----- Seed for random numbers generator -----------------------------
-  123456
+  713287
 ------------- Method of initialization --------------------------------------
 --            0 = start a new run, ordinary                                --
 --            1 = continue the old run, start at the last checkpoint       --
 -------d----- 2 = start a new run, take particles from the checkpoint -------
        0
----dddddddd-- Time step when the checkpoint to be used was created ----------
-       1000
