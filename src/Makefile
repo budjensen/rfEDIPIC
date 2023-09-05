@@ -16,25 +16,26 @@ else
    CFLAGS := -O2
 endif
 
-OBJ := WELL19937a_new.o \
-       parModules.o \
-       parRandomNumberInterface.o \
-       parBeamInjection.o \
-       parBeamInPlasma.o \
+OBJ := parMT19937.o \
+       parModules_RF.o \
+       parBeamInjection_newflux.o \
+       parBeamInPlasma_newflux.o \
        parCheckpoint.o \
-       parCollisionProc.o \
-       parCurProbVals.o \
-       parDiagNoGraph.o \
-       parFieldCalcProc.o \
-       parIonInducedSEEmission.o \
+       parCollisionProc_Argon.o \
+       parCurProbVals_dt_NewInt.o \
+       parDiagNoGraph_RF.o \
+       parFieldCalcProc_RF_diel.o \
+       parIonInducedSEEmission_newflux.o \
        parLangevinColl.o \
+       parMagneticFieldProfiles_zero.o \
        parMainProgram.o \
-       parMCCollisions.o \
-       parPartDynamicProc.o \
+       parMCCollisions_BoxMuller_orig.o \
+       parPartDynamicProc_Gauss.o \
        parPartExchangeProc.o \
-       parPlasmaSourceProc.o \
-       parSEEmission.o \
-       parSnapshot.o
+       parPlasmaSourceProc_newflux.o \
+       parRandomInit.o \
+       parSEEmission_newflux.o \
+       parSnapshot_newflux_heat.o
 
 dedipic : $(OBJ)
 	$(FC) $(FFLAGS) -o $@ $(OBJ)
