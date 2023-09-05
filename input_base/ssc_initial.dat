@@ -1,15 +1,28 @@
-=========================== SYSTEM CONFIGURATION ===========================
--------d----- BC: Left wall potential is fixed/floating/ext.circuit {0/1/2}--
-       0   4    [4 means RF potential applied ditectly or with dielectric layer]
+=========================== SYSTEM CONFIGURATION ============================
+------------- BC: Left wall potential is ------------------------------------
+--            0 = fixed, or connected to RF if the next option is on       --
+--            1 = floating                                                 --
+--            2 = connected to external circuit                            --
+--            3 = Electrode current is specified                           --
+-------d----- 4 = RF potential applied directly or with dielectric layer ----
+       0
+-------d----- Left wall is RF biased (1/0=Yes/No) ---------------------------
+       1
 --dddddd.ddd- Resistor in the external circuit (ohm) ------------------------
       10.000
 --dddddd.ddd- Electrode area (cm^2) -----------------------------------------
      400.000
 --dddddd.ddd- External z-electric field parallel to walls (V/m) -------------
        0.000
---dddddd.ddd- Vpp
+--dddddd.ddd- Left wall potential/battery voltage (V) -----------------------
      200.000
---dddddd.dddd- Plasma layer width (m, beam wavelengths if negative) ----------
+--#d.dddE#dd- Left wall RF frequency (Hz) -----------------------------------
+   1.356E+7
+--dddddd.ddd- Left wall RF amplitude (V) ------------------------------------
+     150.000
+--#d.dddE#dd- Left wall RF start time (s) -----------------------------------
+   0.000E-9
+--dddddd.dddd-Plasma layer width (m, beam wavelengths if negative) ----------
        0.0320
 --dddddd.ddd- Ion mass (a.m.u., m_e if negative) ----------------------------
       39.948 
