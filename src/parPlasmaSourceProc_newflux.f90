@@ -1,14 +1,16 @@
 !--------------------------------------------------------------------
-! This subrputine is called in subroutine INITIATE_SE_EMISSION
+! This subroutine is called in subroutine INITIATE_SE_EMISSION
 !
 SUBROUTINE INITIATE_ADDITIONAL_CONSTANT_INJECTION
-
+  
+  use mpi
   USE ParallelOperationValues
   USE SEEmission, ONLY : const_add_N_to_inject_by_proc, variable_add_N_to_inject
-  USE CurrentProblemValues, ONLY : N_distrib_m3, e_Cl, Tx_e_eV, Tz_e_eV, T_i_eV, M_i_amu, delta_x_m, delta_t_s, N_plasma_m3, N_of_particles_cell
+  USE CurrentProblemValues, ONLY : N_distrib_m3, e_Cl, Tx_e_eV, Tz_e_eV, T_i_eV, M_i_amu, &
+  & delta_x_m, delta_t_s, N_plasma_m3, N_of_particles_cell
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   INTEGER ierr
 
@@ -49,7 +51,7 @@ SUBROUTINE LEFT_WALL_REFLUX_THERMAL(x_after, v_after, s)
   USE ParallelOperationValues
   USE SEEmission
   USE CurrentProblemValues
-  USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_leftemit, Rate_number_leftemit
+  USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_leftemit, Rate_number_leftemit, NVX_mesh
   IMPLICIT NONE
 
   REAL(8) x_after       ! coordinate after collision, we must restore the initial particle position
@@ -74,7 +76,7 @@ SUBROUTINE LEFT_WALL_REFLUX_THERMAL(x_after, v_after, s)
      CALL GetMaxwellVelocity(vy)  
      CALL GetMaxwellVelocity(vz)     
 ! introduce the anisotropy
-     vx = vx * SQRT(Tx_e_eV / T_e_eV) + Vx_e_drift
+     vx = vx * SQRT(Tx_e_eV / T_e_eV)
      vy = vy * SQRT(Tz_e_eV / T_e_eV) + Vy_e_drift
      vz = vz * SQRT(Tz_e_eV / T_e_eV)
 ! calculate the squared absolute velocity
@@ -97,12 +99,13 @@ SUBROUTINE LEFT_WALL_REFLUX_THERMAL(x_after, v_after, s)
         electron_reflux_count  = electron_reflux_count + 1
         electron_reflux_energy = electron_reflux_energy + v2
         Rate_number_leftemit(1) = Rate_number_leftemit(1) + 1             !
+        NVX_mesh(0, 1) = NVX_mesh(0, 1) + 1.
         Rate_energy_leftemit(1) = Rate_energy_leftemit(1) + v2            !
         Current_electron%X       = x
         Current_electron%VX      = vx
         Current_electron%VY      = vy
         Current_electron%VZ      = vz
-!        Current_electron%AX      = 0.0_8
+        Current_electron%AX      = 0.0_8
         Current_electron%Tag     = 0 !eTag_Emit_Left                ! mark the refluxed electron
         CALL ADD_EMITTED_E_TO_LEFT_DF(vx, vy, vz)
         ALLOCATE(Current_electron%next, STAT = ALLOC_ERR)
@@ -127,8 +130,8 @@ SUBROUTINE LEFT_WALL_REFLUX_THERMAL(x_after, v_after, s)
      CALL GetMaxwellVelocity(vy)  
      CALL GetMaxwellVelocity(vz)     
 ! renormalize velocity for ions
-     vx = vx * VT(2) / VT(1) + Vx_i_drift
-     vy = vy * VT(2) / VT(1) + Vy_i_drift
+     vx = vx * VT(2) / VT(1)
+     vy = vy * VT(2) / VT(1)
      vz = vz * VT(2) / VT(1)
 ! calculate the squared absolute velocity
      v2 = vx * vx + vy * vy + vz * vz
@@ -151,12 +154,13 @@ SUBROUTINE LEFT_WALL_REFLUX_THERMAL(x_after, v_after, s)
         ion_reflux_count  = ion_reflux_count + 1
         ion_reflux_energy = ion_reflux_energy + v2
         Rate_number_leftemit(2) = Rate_number_leftemit(2) + 1                !
+        NVX_mesh(0, 2) = NVX_mesh(0, 2) + 1.
         Rate_energy_leftemit(2) = Rate_energy_leftemit(2) + v2               !
         Current_ion%X       = x
         Current_ion%VX      = vx
         Current_ion%VY      = vy
         Current_ion%VZ      = vz
-!        Current_ion%AX      = 0.0_8
+        Current_ion%AX      = 0.0_8
         Current_ion%Tag     = 0            ! later this value can be modified to mark the refluxed ion
         ALLOCATE(Current_ion%next, STAT = ALLOC_ERR)
         IF (ALLOC_ERR.NE.0) THEN
@@ -200,7 +204,7 @@ SUBROUTINE LEFT_WALL_REFLUX_SPECULAR(x, vx, vy, vz, v2, s)
   USE ParallelOperationValues
   USE SEEmission
   USE CurrentProblemValues
-  USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_leftemit, Rate_number_leftemit
+  USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_leftemit, Rate_number_leftemit, NVX_mesh
   IMPLICIT NONE
 
   REAL(8) x             ! coordinate of incident particle, must be beyond the plasma boundaries 
@@ -230,12 +234,13 @@ SUBROUTINE LEFT_WALL_REFLUX_SPECULAR(x, vx, vy, vz, v2, s)
         electron_reflux_count  = electron_reflux_count + 1
         electron_reflux_energy = electron_reflux_energy + v2
         Rate_number_leftemit(1) = Rate_number_leftemit(1) + 1           !
+        NVX_mesh(0, 1) = NVX_mesh(0, 1) + 1.
         Rate_energy_leftemit(1) = Rate_energy_leftemit(1) + v2          ! for diagnostics
         Current_electron%X  = x_new
         Current_electron%VX = ABS(vx)
         Current_electron%VY = vy
         Current_electron%VZ = vz
-!        Current_electron%AX = 0.0_8
+        Current_electron%AX = 0.0_8
         Current_electron%Tag = 0 ! eTag_Emit_Left                               ! mark the electron
         CALL ADD_EMITTED_E_TO_LEFT_DF(ABS(vx), vy, vz)
         ALLOCATE(Current_electron%next, STAT = ALLOC_ERR)
@@ -263,12 +268,13 @@ SUBROUTINE LEFT_WALL_REFLUX_SPECULAR(x, vx, vy, vz, v2, s)
         ion_reflux_count  = ion_reflux_count + 1
         ion_reflux_energy = ion_reflux_energy + v2
         Rate_number_leftemit(2) = Rate_number_leftemit(2) + 1                !
+        NVX_mesh(0, 2) = NVX_mesh(0, 2) + 1.
         Rate_energy_leftemit(2) = Rate_energy_leftemit(2) + v2               !
         Current_ion%X  = x_new
         Current_ion%VX = ABS(vx)
         Current_ion%VY = vy
         Current_ion%VZ = vz
-!        Current_ion%AX = 0.0_8
+        Current_ion%AX = 0.0_8
         Current_ion%Tag = 0            ! later the tag can be modified here in order to mark the collided ion
         ALLOCATE(Current_ion%next, STAT = ALLOC_ERR)
         IF (ALLOC_ERR.NE.0) THEN
@@ -369,13 +375,12 @@ SUBROUTINE INJECT_N_EI_PAIRS_LEFT_WALL(N_to_inject)
   USE ParallelOperationValues
   USE SEEmission 
   USE CurrentProblemValues
-  USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_leftemit, Rate_number_leftemit
-
-  USE rng_wrapper
-
+  USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_leftemit, Rate_number_leftemit, NVX_mesh
   IMPLICIT NONE
 
   INTEGER, INTENT(IN) :: N_to_inject
+
+  REAL RAN, R
 
   REAL(8) x             ! coordinate of refluxed particle (after refluxing)
   REAL(8) vx, vy, vz    ! velocity components of refluxed particle
@@ -390,12 +395,13 @@ SUBROUTINE INJECT_N_EI_PAIRS_LEFT_WALL(N_to_inject)
      CALL GetMaxwellVelocity(vy)  
      CALL GetMaxwellVelocity(vz)     
 ! introduce the anisotropy
-     vx = vx * SQRT(Tx_e_eV / T_e_eV) + Vx_e_drift
+     vx = vx * SQRT(Tx_e_eV / T_e_eV)
      vy = vy * SQRT(Tz_e_eV / T_e_eV) + Vy_e_drift
      vz = vz * SQRT(Tz_e_eV / T_e_eV)
 
 ! calculate the new coordinate 
-     x = well_random_number() * vx * KVx
+     call random_number(R)
+     x = R * vx * KVx
      
 ! calculate the squared absolute velocity
      v2 = vx * vx + vy * vy + vz * vz
@@ -405,12 +411,13 @@ SUBROUTINE INJECT_N_EI_PAIRS_LEFT_WALL(N_to_inject)
         electron_reemit_count  = electron_reemit_count + 1
         electron_reemit_energy = electron_reemit_energy + v2
         Rate_number_leftemit(1) = Rate_number_leftemit(1) + 1             !
+        NVX_mesh(0, 1) = NVX_mesh(0, 1) + 1.
         Rate_energy_leftemit(1) = Rate_energy_leftemit(1) + v2            !
         Current_electron%X       = x
         Current_electron%VX      = vx
         Current_electron%VY      = vy
         Current_electron%VZ      = vz
-!        Current_electron%AX      = 0.0_8
+        Current_electron%AX      = 0.0_8
         Current_electron%Tag     = eTag_Emit_Left                         ! mark the reemitted electron !!!
         CALL ADD_EMITTED_E_TO_LEFT_DF(vx, vy, vz)
         ALLOCATE(Current_electron%next, STAT = ALLOC_ERR)
@@ -434,8 +441,8 @@ SUBROUTINE INJECT_N_EI_PAIRS_LEFT_WALL(N_to_inject)
      CALL GetMaxwellVelocity(vy)  
      CALL GetMaxwellVelocity(vz)     
 ! renormalize velocity for ions
-     vx = vx * VT(2) / VT(1) + Vx_i_drift
-     vy = vy * VT(2) / VT(1) + Vy_i_drift
+     vx = vx * VT(2) / VT(1)
+     vy = vy * VT(2) / VT(1)
      vz = vz * VT(2) / VT(1)
 
 ! calculate the squared absolute velocity
@@ -450,12 +457,13 @@ SUBROUTINE INJECT_N_EI_PAIRS_LEFT_WALL(N_to_inject)
         ion_reemit_count  = ion_reemit_count + 1
         ion_reemit_energy = ion_reemit_energy + v2
         Rate_number_leftemit(2) = Rate_number_leftemit(2) + 1                !
+        NVX_mesh(0, 2) = NVX_mesh(0, 2) + 1.
         Rate_energy_leftemit(2) = Rate_energy_leftemit(2) + v2               !
         Current_ion%X       = x
         Current_ion%VX      = vx
         Current_ion%VY      = vy
         Current_ion%VZ      = vz
-!        Current_ion%AX      = 0.0_8
+        Current_ion%AX      = 0.0_8
         Current_ion%Tag     = 0                     ! later this value can be modified to mark the reemitted ion !!!!!!!!!!
         ALLOCATE(Current_ion%next, STAT = ALLOC_ERR)
         IF (ALLOC_ERR.NE.0) THEN

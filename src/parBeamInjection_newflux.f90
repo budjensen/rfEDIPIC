@@ -1,12 +1,13 @@
 
 SUBROUTINE INITIATE_ELECTRON_INJECTION
 
+  use mpi
   USE ParallelOperationValues
   USE ELectronInjection
-  USE CurrentProblemValues, ONLY : T_e_eV, BC_flag, N_box_vel, N_max_vel, N_of_particles_cell, delta_t_s, e_Cl, N_plasma_m3, delta_x_m
+  USE CurrentProblemValues, ONLY : T_e_eV, BC_flag, N_box_vel, N_max_vel, r_max_vel, N_of_particles_cell, delta_t_s, e_Cl, N_plasma_m3, delta_x_m
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   LOGICAL exists
   REAL(8) length_of_injection
@@ -168,7 +169,8 @@ SUBROUTINE INITIATE_ELECTRON_INJECTION
 
      VX_e_beam_left = SQRT(Beam_energy_eV_left / T_e_eV) * N_box_vel
      
-     length_of_injection = SQRT(Beam_energy_eV_left / T_e_eV) / N_max_vel
+!     length_of_injection = SQRT(Beam_energy_eV_left / T_e_eV) / N_max_vel
+     length_of_injection = SQRT(Beam_energy_eV_left / T_e_eV) / r_max_vel
      
      IF (N_to_inject_total_left.GT.0) THEN
         Gap_betw_part_left = length_of_injection / N_to_inject_total_left
@@ -241,7 +243,8 @@ SUBROUTINE INITIATE_ELECTRON_INJECTION
 
      VX_e_beam_right = SQRT(Beam_energy_eV_right / T_e_eV) * N_box_vel
      
-     length_of_injection = SQRT(Beam_energy_eV_right / T_e_eV) / N_max_vel
+!     length_of_injection = SQRT(Beam_energy_eV_right / T_e_eV) / N_max_vel
+     length_of_injection = SQRT(Beam_energy_eV_right / T_e_eV) / r_max_vel
    
      IF (N_to_inject_total_right.GT.0) THEN
         Gap_betw_part_right = length_of_injection / N_to_inject_total_right
@@ -345,9 +348,7 @@ SUBROUTINE INJECT_N_ELECTRONS_LEFT_WALL(N_to_inject)
   USE ParallelOperationValues
   USE CurrentProblemValues
   USE ElectronInjection
-  USE Diagnostics, ONLY : Rate_energy_leftemit, Rate_number_leftemit
-
-  USE rng_wrapper
+  USE Diagnostics, ONLY : Rate_energy_leftemit, Rate_number_leftemit, NVX_mesh
 
   IMPLICIT NONE
 
@@ -359,6 +360,7 @@ SUBROUTINE INJECT_N_ELECTRONS_LEFT_WALL(N_to_inject)
 
   INTEGER ALLOC_ERR, j
   INTEGER left_node, right_node
+  REAL(8) RAN
 
 ! left wall -------------------------------
 
@@ -381,13 +383,13 @@ SUBROUTINE INJECT_N_ELECTRONS_LEFT_WALL(N_to_inject)
 !
 !        x = (Rank_of_process + (N_of_processes - 1) * (j - 1) - 0.5_8) * Gap_betw_part_left
 !
-        x = well_random_number() * vx * KVx
+        x = RAN(I_random_seed) * vx * KVx
      ELSE
         CALL GetInjMaxwellVelocity(vx)        ! warm beam, get the new x-velocity according to the maxwell distribution 
         vx = vx * SQRT(Beam_energy_eV_left / T_e_eV)    ! renormalize velocity according to the beam's temperature
 ! calculate the new coordinate 
         x = 0.0_8
-!####        x = well_random_number() * vx * KVx
+!####        x = RAN(I_random_seed) * vx * KVx
      END IF
 ! calculate the squared absolute velocity
      v2 = vx * vx + vy * vy + vz * vz
@@ -395,12 +397,13 @@ SUBROUTINE INJECT_N_ELECTRONS_LEFT_WALL(N_to_inject)
      IF (ASSOCIATED(Current_electron)) THEN
         N_inject(1)            = N_inject(1) + 1
         Rate_number_leftemit(1) = Rate_number_leftemit(1) + 1             !
+        NVX_mesh(0, 1) = NVX_mesh(0, 1) + 1.
         Rate_energy_leftemit(1) = Rate_energy_leftemit(1) + v2            !
         Current_electron%X       = x
         Current_electron%VX      = vx
         Current_electron%VY      = vy
         Current_electron%VZ      = vz
-!        Current_electron%AX      = 0.0_8
+        Current_electron%AX      = 0.0_8
         Current_electron%Tag     = eTag_Emit_Left                         ! 
         CALL ADD_EMITTED_E_TO_LEFT_DF(vx, vy, vz)
         ALLOCATE(Current_electron%next, STAT = ALLOC_ERR)
@@ -439,9 +442,7 @@ SUBROUTINE INJECT_N_ELECTRONS_RIGHT_WALL(N_to_inject)
   USE ParallelOperationValues
   USE CurrentProblemValues
   USE ElectronInjection
-  USE Diagnostics, ONLY : Rate_energy_rightemit, Rate_number_rightemit
-
-  USE rng_wrapper
+  USE Diagnostics, ONLY : Rate_energy_rightemit, Rate_number_rightemit, NVX_mesh
 
   IMPLICIT NONE
 
@@ -453,6 +454,7 @@ SUBROUTINE INJECT_N_ELECTRONS_RIGHT_WALL(N_to_inject)
 
   INTEGER ALLOC_ERR, j
   INTEGER left_node, right_node
+  REAL(8) RAN
 
 ! right wall -------------------------------
 
@@ -474,13 +476,13 @@ SUBROUTINE INJECT_N_ELECTRONS_RIGHT_WALL(N_to_inject)
 !  basically, at this point the cold beam is not working properly #############
 !
 !        x = N_cells - (Rank_of_process + (N_of_processes - 1) * (j - 1) - 0.5_8) * Gap_betw_part_right
-        x = N_cells + well_random_number() * vx * KVx
+        x = N_cells + RAN(I_random_seed) * vx * KVx
      ELSE
         CALL GetInjMaxwellVelocity(vx)        ! warm beam, get the new x-velocity according to the maxwell distribution 
         vx = - vx * SQRT(Beam_energy_eV_right / T_e_eV)    ! renormalize velocity according to the beam's temperature
 ! calculate the new coordinate 
         x = DBLE(N_cells)
-!####        x = N_cells + well_random_number() * vx * KVx
+!####        x = N_cells + RAN(I_random_seed) * vx * KVx
      END IF
 ! calculate the squared absolute velocity
      v2 = vx * vx + vy * vy + vz * vz
@@ -488,12 +490,13 @@ SUBROUTINE INJECT_N_ELECTRONS_RIGHT_WALL(N_to_inject)
      IF (ASSOCIATED(Current_electron)) THEN
         N_inject(1)            = N_inject(1) + 1
         Rate_number_rightemit(1) = Rate_number_rightemit(1) + 1             !
+        NVX_mesh(N_cells, 1) = NVX_mesh(N_cells, 1) - 1.
         Rate_energy_rightemit(1) = Rate_energy_rightemit(1) + v2            !
         Current_electron%X       = x
         Current_electron%VX      = vx
         Current_electron%VY      = vy
         Current_electron%VZ      = vz
-!        Current_electron%AX      = 0.0_8
+        Current_electron%AX      = 0.0_8
         Current_electron%Tag     = eTag_Emit_Right                         ! 
         CALL ADD_EMITTED_E_TO_RIGHT_DF(vx, vy, vz)
         ALLOCATE(Current_electron%next, STAT = ALLOC_ERR)

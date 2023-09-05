@@ -1,12 +1,13 @@
 
 SUBROUTINE INITIATE_BEAM_IN_PLASMA
 
+  use mpi
   USE ParallelOperationValues
   USE BeamInPlasma
   USE CurrentProblemValues, ONLY : T_e_eV, BC_flag, U_ext_V, N_of_particles_cell, delta_t_s, N_cells
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   LOGICAL exists
   INTEGER left_unused
@@ -306,13 +307,14 @@ END SUBROUTINE DEALLOCATE_BEAM_ARRAYS
 !
 SUBROUTINE START_BEAM_IN_PLASMA
 
+  use mpi
   USE ParallelOperationValues
   USE CurrentProblemValues
   USE BeamInPlasma
-  USE Diagnostics, ONLY : Rate_energy_leftemit, Rate_number_leftemit
+  USE Diagnostics, ONLY : Rate_energy_leftemit, Rate_number_leftemit, NVX_mesh
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   INTEGER k_start, k_fin
   INTEGER i, j
@@ -379,12 +381,13 @@ SUBROUTINE START_BEAM_IN_PLASMA
 !           electron_reemit_count  = electron_reemit_count + 1
 !           electron_reemit_energy = electron_reemit_energy + v2
            Rate_number_leftemit(1) = Rate_number_leftemit(1) + 1             !
+           NVX_mesh(0, 1) = NVX_mesh(0, 1) + 1.
            Rate_energy_leftemit(1) = Rate_energy_leftemit(1) + v2            !
            Current_electron%X       =  X_ebeam_part(j)
            Current_electron%VX      = VX_ebeam_part(j)
            Current_electron%VY      = 0.0_8
            Current_electron%VZ      = 0.0_8
-!           Current_electron%AX      = 0.0_8
+           Current_electron%AX      = 0.0_8
            Current_electron%Tag     = eTag_Emit_Left                         ! 
 !           CALL ADD_EMITTED_E_TO_LEFT_DF(vx, vy, vz)
            ALLOCATE(Current_electron%next, STAT = ALLOC_ERR)
@@ -409,12 +412,13 @@ SUBROUTINE START_BEAM_IN_PLASMA
 !           electron_reemit_count  = electron_reemit_count + 1
 !           electron_reemit_energy = electron_reemit_energy + v2
            Rate_number_leftemit(2) = Rate_number_leftemit(2) + 1             !
+           NVX_mesh(0, 2) = NVX_mesh(0, 2) + 1.
            Rate_energy_leftemit(2) = Rate_energy_leftemit(2) !+ v2            !
            Current_ion%X       =  X_ebeam_part(j)
            Current_ion%VX      = 0.0_8
            Current_ion%VY      = 0.0_8
            Current_ion%VZ      = 0.0_8
-!           Current_ion%AX      = 0.0_8
+           Current_ion%AX      = 0.0_8
            Current_ion%Tag     = 0 !eTag_Emit_Left                         ! 
 !           CALL ADD_EMITTED_E_TO_LEFT_DF(vx, vy, vz)
            ALLOCATE(Current_ion%next, STAT = ALLOC_ERR)
@@ -510,12 +514,11 @@ END SUBROUTINE BEAM_DISTRIB_IN_VELOCITY
 SUBROUTINE SHUFFLE_BEAM
   
   USE ParallelOperationValues
+  USE CurrentProblemValues, ONLY : I_random_seed
   USE BeamInPlasma
-
-  USE rng_wrapper
-
   IMPLICIT NONE
 
+  REAL RAN
   REAL(8) tmp_value
   INTEGER i, random_i
 
@@ -531,7 +534,7 @@ SUBROUTINE SHUFFLE_BEAM
      DO
 ! The new random value will be retrieved until it will satisfy the desired range
 ! 1 <= random_i <= N_of_part_initial
-        random_i = well_random_number() * N_ebeam_total
+        random_i = RAN(I_random_seed) * N_ebeam_total
         IF ((random_i.GE.1).AND.(random_i.LE.N_ebeam_total)) THEN
            X_ebeam_part(i) = X_ebeam_part(random_i)
            X_ebeam_part(random_i) = tmp_value
@@ -543,7 +546,7 @@ SUBROUTINE SHUFFLE_BEAM
   DO i = 1, N_ebeam_total  
      tmp_value = VX_ebeam_part(i) 
      DO
-        random_i = well_random_number() * N_ebeam_total
+        random_i = RAN(I_random_seed) * N_ebeam_total
         IF ((random_i.GE.1).AND.(random_i.LE.N_ebeam_total)) THEN
            VX_ebeam_part(i)        = VX_ebeam_part(random_i)
            VX_ebeam_part(random_i) = tmp_value

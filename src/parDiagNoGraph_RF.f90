@@ -1,7 +1,8 @@
 !------------------------------
 ! 
 SUBROUTINE INITIATE_DIAGNOSTICS
-    
+
+  use mpi    
   USE ParallelOperationValues
   USE CurrentProblemValues
   USE Diagnostics
@@ -9,7 +10,7 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   LOGICAL exists
   INTEGER ALLOC_ERR !, DEALLOC_ERR
@@ -157,8 +158,6 @@ SUBROUTINE INITIATE_DIAGNOSTICS
         READ (9, '(2x,f10.3)') Ve_x_max
         READ (9, '(A77)') buf ! --dddddd.ddd- Maximal y,z-velocity for e-v_y,z-distribution (in V_therm_e) --")')
         READ (9, '(2x,f10.3)') Ve_yz_max
-        READ (9, '(A77)') buf ! -----ddd----- Ion 2vdfw scaling factor ( 1=no scaling, >1=fine scaling ) ----")')
-        READ (9, '(5x,i3)') N_i2vdf_vel_scl
         READ (9, '(A77)') buf ! ------dd----- Number of breakpoints (no evdfs if<0, all system used if 0) ---")') Creation of local distr. fun-s can be cancelled
         READ (9, '(6x,i2)') N_of_breakpoints
         READ (9, '(A77)') buf ! --dddddd.ddd- Breakpoints (ascend., node number if>0 or millimeters if <0) --")')
@@ -199,7 +198,6 @@ SUBROUTINE INITIATE_DIAGNOSTICS
      N_to_skip_ion       = 100
      Ve_x_max            = 3.0_8
      Ve_yz_max           = 3.0_8
-     N_i2vdf_vel_scl     = 1
      N_of_breakpoints    = 0
 
      IF (Rank_of_process.EQ.0) THEN
@@ -235,8 +233,6 @@ SUBROUTINE INITIATE_DIAGNOSTICS
         WRITE (9, '(2x,f10.3)') Ve_x_max
         WRITE (9, '("--dddddd.ddd- Maximal y,z-velocity for e-v_y,z-distribution (in V_therm_e) --")')
         WRITE (9, '(2x,f10.3)') Ve_yz_max
-        WRITE (9, '("-----ddd----- Ion 2vdfw scaling factor ( 1=no scaling, >1=fine scaling ) ----")')
-        WRITE (9, '(5x,i3)') N_i2vdf_vel_scl
         WRITE (9, '("------dd----- Number of breakpoints (no evdfs if<0, all system used if 0) ---")')
         WRITE (9, '(6x,i2)') N_of_breakpoints
         WRITE (9, '("--dddddd.ddd- Breakpoints (ascend., node number if>0 or millimeters if <0) --")')
@@ -264,10 +260,10 @@ SUBROUTINE INITIATE_DIAGNOSTICS
         probe_node(1:N_of_probes) = probe_location(1:N_of_probes)
 ! write locations to the file
         OPEN (41, FILE = '_probelocs.dat')
-!                        ---nnn------nnnnnn----nn.nnnn
+!                        ---nnn------nnnnnn----nnnnn.nnnn
         WRITE (41, '("# number    x[node]     x[mm]")')
         DO i = 1, N_of_probes
-           WRITE (41, '(3x,i3,6x,i6,4x,f7.4)') i, probe_node(i), 1000.0_8 * probe_node(i) * delta_x_m
+           WRITE (41, '(3x,i3,6x,i6,4x,f10.4)') i, probe_node(i), 1000.0_8 * probe_node(i) * delta_x_m
         END DO
         CLOSE (41, STATUS = 'KEEP')
      END IF
@@ -364,15 +360,11 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
      IF (N_box_Vyz_e.GT.N_box_Vx_e) THEN
         N_box_Vx_i = N_box_Vyz_e
-        N_box_Vyz_i = N_box_Vyz_e
      ELSE
         N_box_Vx_i = N_box_Vx_e
-        N_box_Vyz_i = N_box_Vyz_e
      END IF
      N_box_Vx_i_low  = -N_box_Vx_i                   ! this will save one addition and one sign changing for each ion
      N_box_Vx_i_top  =  N_box_Vx_i + 1               ! 
-     N_box_Vyz_i_low = -N_box_Vyz_i
-     N_box_Vyz_i_top =  N_box_Vyz_i + 1
 
 ! allocate arrays, related with the distribution functions, initiate and write to the files arrays of middles of velocity boxes
      CALL CREATE_DF_ARRAYS
@@ -413,7 +405,12 @@ SUBROUTINE INITIATE_DIAGNOSTICS
   END IF
 
 ! ensure that SaveCheck_step [defined previously in INITIATE_PARAMETERS] is a multiple of WriteOut_step
-  SaveCheck_step = (SaveCheck_step / WriteOut_Step) * WriteOut_step 
+!** but never zero in case checkpoints were requested ** Oct. 2016
+  if (SaveCheck_step.gt.0) then
+    SaveCheck_step = (SaveCheck_step / WriteOut_Step) * WriteOut_step 
+    if (SaveCheck_step.eq.0) SaveCheck_step = WriteOut_step
+  else
+  endif
 
   IF (Rank_of_process.EQ.0) THEN
      PRINT '(/2x,"Diagnostic values will be written into the file with time interval : ",f8.4," ns")', WriteOut_step * delta_t_s * 1.0e9
@@ -450,6 +447,10 @@ SUBROUTINE INITIATE_DIAGNOSTICS
   QVY_mesh = 0.0_8
   QVZ_mesh = 0.0_8
 
+  N_new_cell = 0 !integer
+  P_heat_cell = 0.0_8
+  NVX_mesh = 0.0_8
+
 ! clear the dim-less quantities accumulated only during the last timestep of the averaging period
   Energy_pot       = 0.0_8
   Avg_kin_energy_x = 0.0_8           ! array
@@ -475,16 +476,17 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 ! calculate the factors
   Averaging_factor        = 1.0_8 / WriteAvg_step 
   J_scl_Am2               = Averaging_factor * (N_plasma_m3 / DBLE(N_of_particles_cell)) * e_Cl * (v_Te_ms / DBLE(N_box_vel))
-  N_in_macro              = N_plasma_m3 * delta_x_m / N_of_particles_cell
+  N_in_macro              = N_plasma_m3 * delta_x_m / dble(N_of_particles_cell)
   Factor_energy_eV        = T_e_eV / N_box_vel**2
   Factor_energy_macro_eV  = N_in_macro * Factor_energy_eV
-  Factor_energy_pot_eV    = N_in_macro * (2.0_8 * T_e_eV / N_of_cells_debye) * 0.5_8
+  Factor_energy_pot_eV    = N_in_macro * (2.0_8 * T_e_eV / r_cells_debye) * 0.5_8
+  if (Factor_energy_pot_eV .eq. 0.) write(*,*) 'XOXOXO'
   Factor_rate_ns1         = 1.0_8 / (WriteOut_step * delta_t_s * 1.0e9) 
   Factor_rate_macro_ns1   = N_in_macro * Factor_rate_ns1  
   Factor_rate_eVns1       = Factor_energy_eV * Factor_rate_macro_ns1  
   Factor_Joule_energy_eV  = N_in_macro * (v_Te_ms / N_box_vel) * E_z_ext_Vm * (delta_t_s) 
 
-  f_factor = 0.0_8      ! array (1:2) set zero here in order to avoid problems when N_spec = 1 (i.e. f_factor(2)=0.0_8 always in this case)
+  f_factor = 0.0_8      ! array (1:N_spec) set zero here in order to avoid problems when N_spec = 1 (i.e. f_factor(2)=0.0_8 always in this case)
 
 !  Factor_energy_eV  = 2.0_8 * T_e_eV * N_plasma_m3 * L_debye_m / N_of_particles_debye
 !  Factor_rate_eVns1 = Factor_energy_eV / (WriteAvg_step * delta_t_s * 1.0e9)  
@@ -522,6 +524,9 @@ SUBROUTINE PREPARE_TIME_DEPENDENCE_DATAFILES
      Energy_emit_eV = 0.0_8             ! array
      Energy_coll_eV = 0.0_8             ! array
      Energy_heat_eV = 0.0_8
+     Enr_consumed_Jm2 = 0.0_8           !updated only for capacitive discharge
+     Sigma_electrode = 0.0_8            !same
+
 ! initiate counter for text output skipping. Text is printed when the very first time diagnostics is obtained
 ! and then each TextOut_avg_prds_to_skip diagnostics are performed without text output.
      text_output_counter = TextOut_avg_prds_to_skip
@@ -1168,12 +1173,12 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
 
   INTEGER n       ! index for the bufers of the potential in the midplane and at x=0
   INTEGER s       ! species
-  INTEGER k       ! index of particle
+  INTEGER k, tag, j       ! index of particle
 
-  INTEGER left_node, right_node  !
+  INTEGER left_node, right_node, node  !
   REAL(8) x                      ! temporary variables, used for convenience
   REAL(8) vx, vy, vz             ! 
-  REAL(8) dq_left, dq_right      !
+  REAL(8) dn_left, dn_right, dq_left, dq_right      !
 
   IF (Rank_of_process.EQ.0) THEN          ! the server process is responsible for updating the buffers of the potential
      DO n = length_of_fbufer,2,-1
@@ -1194,15 +1199,16 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
 ! cycle over all particles of block, if the block must be accounted
         DO k = 1, N_part(s)
 ! initiate the temporary variables
-           x          =  species(s)%part(k)%X
+           x          =  X_of_spec(s)%part(k)
            left_node  = INT(x)
            IF (left_node.EQ.N_cells) THEN         ! if particle is at the right node exactly (but not collided yet)
               left_node = left_node - 1
            END IF
            right_node = left_node + 1 
-           vx         = species(s)%part(k)%VX
-           vy         = species(s)%part(k)%VY
-           vz         = species(s)%part(k)%VZ
+           vx         = VX_of_spec(s)%part(k) 
+           vy         = VY_of_spec(s)%part(k) 
+           vz         = VZ_of_spec(s)%part(k) 
+           tag        = Tag_of_spec(s)%part(k)
 
 ! collect the particle data in the diagnostics arrays
            VX2_cell(right_node, s) = VX2_cell(right_node, s) + vx * vx
@@ -1214,9 +1220,11 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
            VZ_cell(right_node, s) = VZ_cell(right_node, s) + vz 
 
            Npart_cell(right_node, s) = Npart_cell(right_node, s) + 1
-
-           dq_left  = Qs(s) * (right_node - x)
-           dq_right = Qs(s) * (x - left_node)
+           
+           dn_right = x - left_node
+           dn_left  = right_node - x
+           dq_left  = Qs(s) * dn_left
+           dq_right = Qs(s) * dn_right
 
            QVX_mesh(left_node) = QVX_mesh(left_node) + dq_left * vx
            QVY_mesh(left_node) = QVY_mesh(left_node) + dq_left * vy
@@ -1225,6 +1233,26 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
            QVX_mesh(right_node) = QVX_mesh(right_node) + dq_right * vx
            QVY_mesh(right_node) = QVY_mesh(right_node) + dq_right * vy
            QVZ_mesh(right_node) = QVZ_mesh(right_node) + dq_right * vz
+
+! **** fluxes are updated in the pusher and various emission functions **********           
+!           NVX_mesh(left_node,s) = NVX_mesh(left_node,s) + dn_left * vx
+!           NVX_mesh(right_node,s) = NVX_mesh(right_node,s) + dn_right * vx
+! calculate x-fluxes so that the number of particles is conserved,
+! right now only works in interior nodes and w/o periodic b.c.: 
+!           if (tag .ge. 1) then
+!             do j = 1, tag
+!               node = left_node - j + 1
+!               if (node.gt.0) NVX_mesh(node,s) = NVX_mesh(node,s) + 1.  ! crossed in positive direction
+!             end do
+!           else 
+!           end if
+!           if (tag .le. -1) then
+!             do j = 1, -tag
+!               node = right_node + j - 1
+!               if (node.lt.N_cells) NVX_mesh(node,s) = NVX_mesh(node,s) - 1. ! crossed in negative direction
+!             end do
+!           else 
+!           end if
 
            IF (T_cntr.EQ.Finish_diag_Tcntr) THEN
 
@@ -1316,6 +1344,10 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_2
      QVY_mesh = 0.0_8
      QVZ_mesh = 0.0_8
 
+     N_new_cell = 0
+     P_heat_cell = 0.0_8
+     NVX_mesh = 0.0_8
+
 ! clear the (energy) quantities accumulated only during the last timestep of the averaging period
      Energy_pot       = 0.0_8    !
      Avg_kin_energy_x = 0.0_8    !
@@ -1375,7 +1407,8 @@ END SUBROUTINE DO_DIAGNOSTICS_STEP_2
 !------------------------------
 ! 
 SUBROUTINE PROCESS_DIAGNOSTIC_DATA
-    
+   
+  use mpi 
   USE ParallelOperationValues
   USE Diagnostics
   USE CurrentProblemValues 
@@ -1385,21 +1418,23 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   INTEGER i     ! node
   INTEGER s     ! species
 !  INTEGER n     ! process
 
   REAL(8) old_Energy_full_eV
-  REAL(8) old_Energy_kin_eV(1:2)
+  REAL(8) old_Energy_kin_eV(1 : N_spec) ! was (1:2)
   REAL(8) old_Energy_pot_eV
   REAL(8) old_Energy_heat_eV
+  REAL(8) t_s, old_Sigma_electrode, dSigma, j_Am2, P_Wm2 !** for capacitive discharge (BC_flag = 4)
 
   REAL(8) time_ns
   REAL(8) GetAverageValue
   REAL(8) GetAverageValueInt
   REAL(8) GetAverageFromBufer
+  REAL(8) U_ext_vst, delta_t_plot, U_midstep_V
 
   INTEGER prie_not_recognized_count        ! number of primary electrons, which were not recognized as former secondary (tag = -+1) or collided (tag=2)
   REAL(8) prie_not_recognized_energy       ! energy -"-
@@ -1419,6 +1454,8 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
   REAL(8) Factor_Qwall_Cm2
 
   REAL(8) J_external_A, J_Ohm_A
+
+  delta_t_plot = delta_t_s * dble(WriteOut_step)
 
   ibufer2 = 0
   dbufer2 = 0.0_8
@@ -1629,7 +1666,27 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
   old_Energy_kin_eV  = Energy_kin_eV
   old_Energy_pot_eV  = Energy_pot_eV
   old_Energy_heat_eV = Energy_heat_eV
-
+  old_Sigma_electrode = Sigma_electrode
+  
+     t_s = dble(T_cntr) * delta_t_s
+     U_app_V =  U_ext_vst(t_s) * U_scl_V
+     U_midstep_V = U_ext_vst(t_s - 0.5 * delta_t_plot) * U_scl_V
+  if (BC_flag.eq.4) then   
+     U_cap_V =  U_app_V - ( F(0) * U_scl_V )
+     Sigma_electrode = eps_0_Fm * eps_layer * (U_cap_V /d_m)
+     dSigma = Sigma_electrode - old_Sigma_electrode
+     Enr_consumed_Jm2 = Enr_consumed_Jm2 + (U_midstep_V * dSigma)
+     j_Am2 = dSigma / (delta_t_plot)
+     P_Wm2 = j_Am2 * U_midstep_V
+     if (old_Sigma_electrode .eq. 0.0_8) then
+        Enr_consumed_Jm2 = 0.0_8 !to start the counter somehow
+        j_Am2 = 0.
+        P_Wm2 = 0.
+     else
+     endif
+  else
+  end if
+  
 ! calculate kinetic energy for electrons and ions: total / average per particle (APP) / APP, X-motion / APP, Y-motion / APP, Z-motion 
   DO s = 1, N_spec
      Avg_kin_energy_x_eV(s) = Factor_energy_eV * MS(s) * Avg_kin_energy_x(s) 
@@ -1648,9 +1705,9 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 ! calculate the potential energy (one common value for all species)
   Energy_pot_eV = Factor_energy_pot_eV * (Energy_pot + Q_left * F(0) + Q_right * F(N_cells))
 
-! a correction for the walls with given potential
-  IF (BC_flag.EQ.0) THEN
-     Energy_pot_eV = Energy_pot_eV + 0.5_8 * eps_0_Fm * U_ext_V * EX(0) * E_scl_Vm / e_Cl
+! a correction for the walls with given potential; does not include energy stored in dielectric layer
+  IF (BC_flag.EQ.0 .or. BC_flag.eq.4) THEN
+     Energy_pot_eV = Energy_pot_eV + 0.5_8 * eps_0_Fm * F(0) * EX(0) * E_scl_Vm / e_Cl
   END IF
 
 ! new full energy of system  
@@ -1770,7 +1827,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
      text_output_counter = 0
   END IF
  
-  time_ns = T_cntr * delta_t_s * 1.0e9
+  time_ns = dble(T_cntr) * delta_t_s * 1.0e9
 !--
 
   OPEN  (50, FILE = 'dim_fullenergy_vst.dat', POSITION = 'APPEND')
@@ -1810,10 +1867,10 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
   WRITE (50, '(2x,f12.5,3(2x,e12.5))') time_ns, Energy_coll_eV(1) + Energy_coll_eV(2), Energy_coll_eV(1), Energy_coll_eV(2)  
   CLOSE (50, STATUS = 'KEEP')
 
-! energy of Joule heating of plasma by accelerating electric field
-  OPEN  (50, FILE = 'dim_energy_heat_vst.dat', POSITION = 'APPEND')         
-  WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Energy_heat_eV
-  CLOSE (50, STATUS = 'KEEP')
+!! energy of Joule heating of plasma by accelerating electric field
+!  OPEN  (50, FILE = 'dim_energy_heat_vst.dat', POSITION = 'APPEND')
+!  WRITE (50, '(7(2x, e12.5))')  time_ns, Energy_heat_eV, Enr_consumed_Jm2, j_Am2, U_app_V, U_cap_V, P_Wm2
+!  CLOSE (50, STATUS = 'KEEP')
 
 ! violation of conservation of energy (%)
   OPEN  (50, FILE = 'dim_energy_cons_violat_vst.dat', POSITION = 'APPEND')  
@@ -1955,6 +2012,14 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
                  & Qs(1) * (Rate_number_leftemit(1) - Rate_number_leftwall(1)) + &
                  & Qs(2) * (Rate_number_leftemit(2) - Rate_number_leftwall(2)) ) * 1.0d-4 * S_electrode_cm2 * e_Cl * 1.0d9 * Factor_rate_macro_ns1
 
+  IF (BC_flag.EQ.0) then
+     j_Am2 = J_external_A / S_electrode_cm2 * 1.0d4
+     P_Wm2 = j_Am2 * U_midstep_V
+     Enr_consumed_Jm2 = Enr_consumed_Jm2 + P_Wm2 * delta_t_plot
+     U_cap_V = 0.0_8
+  else
+  end if
+
   WRITE (50, '(2x,f12.5,10(2x,e12.5))') &
        & time_ns, &
        & Rate_number_leftwall_ns1(1), &
@@ -1969,6 +2034,11 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
        & J_Ohm_A                              ! Ohm's law
 
   prev_Q_left = full_Q_left
+  CLOSE (50, STATUS = 'KEEP')
+
+! energy of Joule heating of plasma by accelerating electric field
+  OPEN  (50, FILE = 'dim_energy_heat_vst.dat', POSITION = 'APPEND')
+  WRITE (50, '(7(2x, e12.5))')  time_ns, Energy_heat_eV, Enr_consumed_Jm2, j_Am2, U_app_V, U_cap_V, P_Wm2
   CLOSE (50, STATUS = 'KEEP')
 
 ! number of particles that hit the right wall: electrons / ions
@@ -2524,6 +2594,23 @@ SUBROUTINE AllocateDiagnosticArrays
      END IF
   END IF
 
+  IF (.NOT.ALLOCATED(NVX_mesh)) THEN
+     ALLOCATE(NVX_mesh(0:N_cells, 1:N_spec), STAT=ALLOC_ERR)
+     IF(ALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in ALLOCATE NVX_mesh !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+  END IF
+
+  IF (.NOT. ALLOCATED(N_new_cell)) THEN
+   ALLOCATE(N_new_cell(1:N_cells), STAT=ALLOC_ERR)
+  END IF
+
+  IF (.NOT. ALLOCATED(P_heat_cell)) THEN
+  ALLOCATE(P_heat_cell(1:N_cells, 1:N_spec), STAT=ALLOC_ERR)
+  END IF
+
 END SUBROUTINE AllocateDiagnosticArrays 
 
 !---------------------------------------
@@ -2634,5 +2721,32 @@ SUBROUTINE DeallocateDiagnosticArrays
         STOP
      END IF
   END IF
+
+ IF (ALLOCATED(NVX_mesh)) THEN
+      DEALLOCATE(NVX_mesh, STAT=DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in DEALLOCATE NVX_mesh !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+   END IF
+
+ IF (ALLOCATED(N_new_cell)) THEN
+      DEALLOCATE(N_new_cell, STAT=DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in DEALLOCATE N_new_cell !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+   END IF
+
+ IF (ALLOCATED(P_heat_cell)) THEN
+      DEALLOCATE(P_heat_cell, STAT=DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in DEALLOCATE P_heat_cell !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+ END IF
 
 END SUBROUTINE DeallocateDiagnosticArrays

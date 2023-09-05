@@ -9,9 +9,8 @@ SUBROUTINE PROCESS_ION_COLLISION_WITH_LEFT_WALL(x, vx, vy, vz, v2, s)
   USE Diagnostics, ONLY : Factor_energy_eV
   USE IonInducedSEEmission
   USE CurrentProblemValues
-
-  USE rng_wrapper
-
+  USE Snapshots, ONLY : index_enr_max, ilwedf, energy_max_eV, delta_enr_eV
+  USE mt19937
   IMPLICIT NONE
 
   REAL(8) x            ! coordinate of particle
@@ -20,8 +19,7 @@ SUBROUTINE PROCESS_ION_COLLISION_WITH_LEFT_WALL(x, vx, vy, vz, v2, s)
   REAL(8) vz           ! VZ of colliding particle
   REAL(8) v2           ! v2=vx^2+vy^2+vz^2
   INTEGER s            ! species
-
-  REAL(8) R                  ! random number 
+  integer index_enr
 
   REAL(8) energy_inc_eV   ! energy of incident particle
 
@@ -38,6 +36,16 @@ SUBROUTINE PROCESS_ION_COLLISION_WITH_LEFT_WALL(x, vx, vy, vz, v2, s)
 
   N_of_lost_ions = N_of_lost_ions + 1
 
+  ! calculate the energy of incident ion
+  energy_inc_eV = v2 * Ms(2) * Factor_energy_eV
+
+  if (energy_inc_eV .le. energy_max_eV) then
+    index_enr = 1 + int(energy_inc_eV/delta_enr_eV)
+    if (index_enr .gt. index_enr_max) index_enr = index_enr_max
+    ilwedf(index_enr) = ilwedf(index_enr) + 1.
+  else
+  endif
+
   IF (Ion_interac_model.EQ.0) RETURN
 
   IF (Ion_interac_model.EQ.1) THEN
@@ -45,14 +53,11 @@ SUBROUTINE PROCESS_ION_COLLISION_WITH_LEFT_WALL(x, vx, vy, vz, v2, s)
      RETURN
   END IF
 
-! calculate the energy of incident ion
-  energy_inc_eV = v2 * Ms(2) * Factor_energy_eV
-
   IF (energy_inc_eV.LT.minE_ionsee_eV) RETURN
 
 ! try to inject a secondary electron
-  R = well_random_number()
-  IF (R.LT.setD_ionsee_true) CALL LEFT_WALL_INJECT_ION_INDUCED_SECONDARY
+  
+  IF ( grnd().LT.setD_ionsee_true ) CALL LEFT_WALL_INJECT_ION_INDUCED_SECONDARY
 
 END SUBROUTINE PROCESS_ION_COLLISION_WITH_LEFT_WALL
 
@@ -63,7 +68,7 @@ SUBROUTINE LEFT_WALL_REFLECT_ION(x, vx, vy, vz, v2, s)
   USE ParallelOperationValues
   USE SEEmission
   USE CurrentProblemValues
-  USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_leftemit, Rate_number_leftemit
+  USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_leftemit, Rate_number_leftemit, NVX_mesh
   IMPLICIT NONE
 
   REAL(8) x             ! coordinate of incident particle, must be beyond the plasma boundaries 
@@ -99,12 +104,13 @@ SUBROUTINE LEFT_WALL_REFLECT_ION(x, vx, vy, vz, v2, s)
      Rate_energy_leftemit(s) = Rate_energy_leftemit(s) + v2     ! for diagnostics
      ion_left_reflect_count  = ion_left_reflect_count + 1       !
      ion_left_reflect_energy = ion_left_reflect_energy + v2     !
+     NVX_mesh(0, s) = NVX_mesh(0, s) + 1.
 
      Current_ion%X   = x_new
      Current_ion%VX  = -vx
      Current_ion%VY  = vy
      Current_ion%VZ  = vz
-!     Current_ion%AX  = 0.0_8
+     Current_ion%AX  = 0.0_8
      Current_ion%Tag = 0            ! later the tag can be modified here in order to mark the collided ion
 
      ALLOCATE(Current_ion%next, STAT = ALLOC_ERR)
@@ -143,16 +149,16 @@ SUBROUTINE LEFT_WALL_INJECT_ION_INDUCED_SECONDARY
   USE SEEmission, ONLY : T_see_true_eV
   USE IonInducedSEEmission
   USE CurrentProblemValues
-  USE Diagnostics, ONLY : Rate_energy_leftemit, Rate_number_leftemit
-
-  USE rng_wrapper
-
+  USE Diagnostics, ONLY : Rate_energy_leftemit, Rate_number_leftemit, NVX_mesh
+  USE MT19937
   IMPLICIT NONE
 
+  REAL RAN
   INTEGER ALLOC_ERR
 
   REAL(8) energy        ! energy of injected (true secondary emitted) electron
   REAL(8) teta, fi      ! angles of injection (emission)
+  real(8) R, costeta, sinteta
   REAL(8) v             ! absolute velocity   - " -
   REAL(8) vx, vy, vz    ! velocity components - " -
   REAL(8) x_new         ! x-coordinate        - " -
@@ -160,20 +166,21 @@ SUBROUTINE LEFT_WALL_INJECT_ION_INDUCED_SECONDARY
   INTEGER right_node    ! right node          - " -
 
 ! get the energy of a secondary electron
-  CALL GetTrueSecondaryEnergy(energy)                ! note that this function is tuned for the electron-induced SEE energy
-  energy = energy * (T_ionsee_eV / T_see_true_eV)
-
+!!  CALL GetTrueSecondaryEnergy(energy)                ! note that this function is tuned for the electron-induced SEE energy
+  CALL GetTrueSecondaryEnergy(energy, costeta, sinteta)
+  energy = 2.0_8 * energy * (T_ionsee_eV / T_see_true_eV) !because of normalization in the function called to get the params
+!!  R = grnd()
+!!  costeta = sqrt(R) !** cosine distribution  
+!!  sinteta = sqrt(1.0_8 - R)
 ! get the absolute velocity of a secondary electron
-  v = SQRT(2.0_8 * energy)
-
+  v = SQRT(energy)
 ! get the angles of backscattering
-  teta = ASIN(well_random_number())                ! assume that the distribution over the teta angle is f(teta) = COS(teta)   
-  fi   = 6.283185307_8 * well_random_number()      
-
+  fi   = 6.283185307_8 * grnd() 
 ! get the velocity components
-  vx = v * COS(teta)
-  vy = v * SIN(teta) * SIN(fi)
-  vz = v * SIN(teta) * COS(fi)
+  vx = v * costeta
+  vy = v * sinteta * SIN(fi)
+  vz = v * sinteta * COS(fi)
+!  energy = v**2
 
 ! decrease the surface charge density
   Q_left = Q_left - Qs(1)
@@ -190,15 +197,16 @@ SUBROUTINE LEFT_WALL_INJECT_ION_INDUCED_SECONDARY
 
      Rate_number_leftemit(1) = Rate_number_leftemit(1) + 1               !
      Rate_energy_leftemit(1) = Rate_energy_leftemit(1) + 0.5_8 * energy  !
+     NVX_mesh(0, 1) = NVX_mesh(0, 1) + 1.0_8
      ionsee_left_count  = ionsee_left_count  + 1                         ! for diagnostics
-     ionsee_left_energy = ionsee_left_energy + 0.5_8 * energy            !
+     ionsee_left_energy = ionsee_left_energy + 0.5_8 * energy            !??
      CALL ADD_EMITTED_E_TO_LEFT_DF(vx, vy, vz)
 
      Current_electron%X   = x_new
      Current_electron%VX  = vx
      Current_electron%VY  = vy
      Current_electron%VZ  = vz
-!     Current_electron%AX  = 0.0_8
+     Current_electron%AX  = 0.0_8
      Current_electron%Tag = eTag_Emit_Left                               ! mark the electron
 
      ALLOCATE(Current_electron%next, STAT = ALLOC_ERR)
@@ -231,12 +239,11 @@ END SUBROUTINE LEFT_WALL_INJECT_ION_INDUCED_SECONDARY
 SUBROUTINE PROCESS_ION_COLLISION_WITH_RIGHT_WALL(x, vx, vy, vz, v2, s)
 
   USE SEEmission, ONLY : N_of_lost_ions, PlasmaSourceFlag, Ion_interac_model
-  USE Diagnostics, ONLY : Factor_energy_eV
+  USE Diagnostics, ONLY : Factor_energy_eV  
+  USE Snapshots, ONLY : index_enr_max, irwedf, energy_max_eV, delta_enr_eV
   USE IonInducedSEEmission
   USE CurrentProblemValues
-
-  USE rng_wrapper
-
+  USE MT19937
   IMPLICIT NONE
 
   REAL(8) x            ! coordinate of particle
@@ -245,12 +252,19 @@ SUBROUTINE PROCESS_ION_COLLISION_WITH_RIGHT_WALL(x, vx, vy, vz, v2, s)
   REAL(8) vz           ! VZ of colliding particle
   REAL(8) v2           ! v2=vx^2+vy^2+vz^2
   INTEGER s            ! species
-
-  REAL(8) R               ! random number 
-
+  integer index_enr
   REAL(8) energy_inc_eV   ! energy of incident particle
 
   N_of_lost_ions = N_of_lost_ions + 1
+! calculate the energy of incident ion
+  energy_inc_eV = v2 * Ms(2) * Factor_energy_eV
+
+  if (energy_inc_eV .le. energy_max_eV) then 
+    index_enr = 1 + int(energy_inc_eV/delta_enr_eV)
+    if (index_enr .gt. index_enr_max) index_enr = index_enr_max
+    irwedf(index_enr) = irwedf(index_enr) + 1.
+  else
+  endif
 
   IF (Ion_interac_model.EQ.0) RETURN
 
@@ -259,14 +273,10 @@ SUBROUTINE PROCESS_ION_COLLISION_WITH_RIGHT_WALL(x, vx, vy, vz, v2, s)
      RETURN
   END IF
 
-! calculate the energy of incident ion
-  energy_inc_eV = v2 * Ms(2) * Factor_energy_eV
-
   IF (energy_inc_eV.LT.minE_ionsee_eV) RETURN
 
 ! try to inject a secondary electron
-  R = well_random_number()
-  IF (R.LT.setD_ionsee_true) CALL RIGHT_WALL_INJECT_ION_INDUCED_SECONDARY
+  IF (grnd().LT.setD_ionsee_true) CALL RIGHT_WALL_INJECT_ION_INDUCED_SECONDARY
 
 END SUBROUTINE PROCESS_ION_COLLISION_WITH_RIGHT_WALL
 
@@ -277,7 +287,7 @@ SUBROUTINE RIGHT_WALL_REFLECT_ION(x, vx, vy, vz, v2, s)
   USE ParallelOperationValues
   USE SEEmission
   USE CurrentProblemValues
-  USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_rightemit, Rate_number_rightemit
+  USE Diagnostics, ONLY : Rate_energy_emit, Rate_energy_rightemit, Rate_number_rightemit, NVX_mesh
   IMPLICIT NONE
 
   REAL(8) x             ! coordinate of incident particle, must be beyond the plasma boundaries 
@@ -313,12 +323,13 @@ SUBROUTINE RIGHT_WALL_REFLECT_ION(x, vx, vy, vz, v2, s)
      Rate_energy_rightemit(s) = Rate_energy_rightemit(s) + v2      ! for diagnostics
      ion_right_reflect_count  = ion_right_reflect_count + 1        !
      ion_right_reflect_energy = ion_right_reflect_energy + v2      !
+     NVX_mesh(N_cells, s) = NVX_mesh(N_cells, s) - 1.
 
      Current_ion%X   = x_new
      Current_ion%VX  = -vx
      Current_ion%VY  = vy
      Current_ion%VZ  = vz
-!     Current_ion%AX  = 0.0_8
+     Current_ion%AX  = 0.0_8
      Current_ion%Tag = 0            ! later the tag can be modified here in order to mark the collided ion
 
      ALLOCATE(Current_ion%next, STAT = ALLOC_ERR)
@@ -362,44 +373,44 @@ SUBROUTINE RIGHT_WALL_INJECT_ION_INDUCED_SECONDARY
   USE SEEmission, ONLY : T_see_true_eV
   USE IonInducedSEEmission
   USE CurrentProblemValues
-  USE Diagnostics, ONLY : Rate_energy_rightemit, Rate_number_rightemit
-
-  USE rng_wrapper
-
+  USE Diagnostics, ONLY : Rate_energy_rightemit, Rate_number_rightemit, NVX_mesh
+  USE MT19937
   IMPLICIT NONE
 
+  REAL RAN
   INTEGER ALLOC_ERR
 
   REAL(8) energy        ! energy of injected (true secondary emitted) electron
-  REAL(8) teta, fi      ! angles of injection (emission)
+  REAL(8) teta, fi, R   ! angles of injection (emission)
   REAL(8) v             ! absolute velocity   - " -
   REAL(8) vx, vy, vz    ! velocity components - " -
   REAL(8) x_new         ! x-coordinate        - " -
+  real(8) sinteta, costeta
   INTEGER left_node     ! left node           - " -
   INTEGER right_node    ! right node          - " -
 
 ! get the energy of a secondary electron
-  CALL GetTrueSecondaryEnergy(energy)                ! note that this function is tuned for the electron-induced SEE energy
-  energy = energy * (T_ionsee_eV / T_see_true_eV) 
-
+!!  CALL GetTrueSecondaryEnergy(energy)                ! note that this function is tuned for the electron-induced SEE energy
+  CALL GetTrueSecondaryEnergy(energy, costeta, sinteta)
+  energy = 2.0_8 * energy * (T_ionsee_eV / T_see_true_eV)
+!!  R = grnd()
+!!  costeta = sqrt(R) !** cosine distribution
+!!  sinteta = sqrt(1.0_8 - R)
 ! get the absolute velocity of a secondary electron
-  v = SQRT(2.0_8 * energy)
-
+  v = SQRT(energy)
 ! get the angles of backscattering
-  teta = ASIN(well_random_number())                ! assume that the distribution over the teta angle is f(teta) = COS(teta)   
-  fi   = 6.283185307_8 * well_random_number()      
-
+  fi   = 6.283185307_8 * grnd()      
 ! get the velocity components
-  vx =-v * COS(teta)
-  vy = v * SIN(teta) * SIN(fi)
-  vz = v * SIN(teta) * COS(fi)
+  vx = -v * costeta
+  vy =  v * sinteta * SIN(fi)
+  vz =  v * sinteta * COS(fi)
+!  energy = v**2
 
 ! decrease the surface charge density
   Q_right =  Q_right - Qs(1)
 
 ! set the new coordinate
   x_new = DBLE(N_cells)
-
 !  left_node = N_cells - 1
 !  right_node = N_cells
 
@@ -409,15 +420,18 @@ SUBROUTINE RIGHT_WALL_INJECT_ION_INDUCED_SECONDARY
 
      Rate_number_rightemit(1) = Rate_number_rightemit(1) + 1                ! 
      Rate_energy_rightemit(1) = Rate_energy_rightemit(1) + 0.5_8 * energy   !
+     NVX_mesh(N_cells, 1) = NVX_mesh(N_cells, 1) - 1.
      ionsee_right_count  = ionsee_right_count  + 1                          ! for diagnostics
-     ionsee_right_energy = ionsee_right_energy + 0.5_8 * energy             !
+     ionsee_right_energy = ionsee_right_energy + 0.5_8 * energy             !??
      CALL ADD_EMITTED_E_TO_RIGHT_DF(vx, vy, vz)
 
      Current_electron%X   = x_new
      Current_electron%VX  = vx
      Current_electron%VY  = vy
      Current_electron%VZ  = vz
-!     Current_electron%AX  = 0.0_8
+     Current_electron%AX  = 0.0_8
+!     Current_electron%AX  = QMs(1) * ( EX(N_cells) * (dble(left_node) - x_new) + EX(N_cells-1) * (x_new - dble(right_node)) ) 
+!     Current_electron%AX  = QMs(1) * EX(N_cells)
      Current_electron%Tag = eTag_Emit_Right                              ! mark the electron
 
      ALLOCATE(Current_electron%next, STAT = ALLOC_ERR)

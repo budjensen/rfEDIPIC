@@ -18,70 +18,49 @@ MODULE CurrentProblemValues
   REAL(8), PARAMETER :: eps_0_Fm = 8.854188d-12      ! The dielectric constant [F/m]
   REAL(8), PARAMETER :: mu_0_Hm  = 1.256637d-6       ! The magnetic constant [H/m]
   REAL(8), PARAMETER :: amu_kg = 1.660565d-27        ! atomic mass unit [kg]
+!** properties of the dielectric layer positioned at -d < x < 0:
+  real(8), parameter :: d_m = 0.01 !thickness of dielectric layer on top of the left electrode
+  real(8), parameter :: eps_layer = 3.9_8
+!!  real(8), parameter :: eps_layer = 1.e10 !*** to test implementation of the boundary condition 
+  real(8) eps_param   
 
   REAL(8) R_ext_ohm       ! resistance of the resistor in the external circuit [ohm] 
   REAL(8) S_electrode_cm2 ! area of an electrode [cm^2]
   REAL(8) E_z_ext_Vm      ! The external accelerating Z-electric field [V/m]
-  REAL(8) B_x_ext_Gs      ! The external radial X-magnetic field [Gauss]
-  REAL(8) B_y_ext_Gs      ! The external radial Y-magnetic field [Gauss]
+!  REAL(8) B_x_ext_Gs      ! The external radial X-magnetic field [Gauss]
+!  REAL(8) B_y_ext_Gs      ! The external radial Y-magnetic field [Gauss]
   REAL(8) U_ext_V         ! The externally maintained potential difference between the metal end plates [V]
-  REAL(8) f_rf_Hz         ! The frequency of the rf power source on the left wall (Hz)
-  REAL(8) U_rf_V          ! The left wall rf power source voltage amplitude (V)
-  REAL(8) t_start_s       ! The ignition time of the left wall's rf power source (s)
   REAL(8) L_plasma_m      ! Plasma's length [m], aproximate, may be modified after mesh distribution
   REAL(8) N_plasma_m3     ! Plasma's density [m^-3], affects scaling
   REAL(8) M_i_amu         ! Mass of single ion [a.m.u.]
   REAL(8) T_e_eV          ! The electron temperature [eV], affects scaling
   REAL(8) T_i_eV          ! The ion temperature [eV]
   REAL(8) T_sim_ns        ! Duration of simulations [ns]
-
-  LOGICAL rf_on                    ! flag shows if there is an rf power source on the left wall
-  LOGICAL ions_magnetized          ! flag shows whether to use the magnetic field in ion motion equations (true) or not (false)
-  LOGICAL ions_sense_Ez            ! if the magnetic field is omitted for ions, they will be accelerated infinitely
-                                   ! in the z-direction if the external electric field E_z_ext_Vm is applied,
-                                   ! for some applications this may be not necessary, so this flag keeps (true) or removes (false) 
-                                   ! the external electric field from the ion motion equation
-                                   !
-                                   ! WARNING, ions_sense_Ez is in effect only if ions_magnetized=false
-
-  LOGICAL trace_z_shift            ! if it is true, shift of an electron in the Z-direction is calculated
-                                   ! and once this shift exceeds a limit value, the particle is thermalized
-                                   ! i.e. it is given a new velocity vector using distribution with parameters (temperatures, drifts)
-                                   ! of the initial EVDF
-
-  REAL(8) max_Z_shift              ! limiting value of the Z-shift which triggers thermalizetion of a particle [dim-less]
-
-  LOGICAL trace_z_shift_ion        ! same as above but for ions
-  REAL(8) max_Z_shift_ion          !
-
-  REAL(8) VZi_0          ! ion Z-velocity at Z=0, use the ion acoustic speed for now
+  real(8) piconst
 
   REAL(8) Tx_e_eV         ! x-electron temperature for anisotropic electron distribution [eV]
   REAL(8) Tz_e_eV         ! z-electron temperature for anisotropic electron distribution [eV]
   REAL(8) N_distrib_m3    ! plasma density for electron distribution [m^-3], affects the number of particles, not the scaling
-  LOGICAL use_ExB_for_electrons  ! these two flags command to use (true) or to not use (false) ExB drift
-  LOGICAL use_ExB_for_ions       ! while setting the initial velocity distributions for electrons and ions
-
-! we keep separate variables for electron and ion drift velocities to make sure that ion velocities may be set to zero
-  REAL(8) Vx_e_drift        ! electron dim-less ExB-drift x-velocity, -Ez/By
-  REAL(8) Vy_e_drift        ! electron dim-less ExB-drift y-velocity,  Ez/Bx
-  REAL(8) Vx_i_drift        ! ion dim-less ExB-drift x-velocity, -Ez/By
-  REAL(8) Vy_i_drift        ! ion dim-less ExB-drift y-velocity,  Ez/Bx
+  REAL(8) Ez_drift_Vm     ! electric field [V/m],   for calculation of the ExB-drift y-velocity, not used in the equations of motion
+  REAL(8) Bx_drift_Gs     ! magnetic field [gauss], for calculation of the ExB-drift y-velocity, not used in the equations of motion
+  REAL(8) Vy_e_drift      ! dim-less electron ExB-drift y-velocity
 
   INTEGER BC_flag                ! Flag, defines the boundary conditions for the potential
   INTEGER N_of_particles_cell    ! Number of macroparticles of one species per cell
   INTEGER N_of_cells_debye       ! Number of minimal cells per electron Debye length
   INTEGER N_max_vel              ! Factor defines the maximal expected electron velocity (in thermal velocities, used for calculation of timestep)
   INTEGER N_max_vel_distrib      ! Factor defines the maximal velocity for initial distribution (in thermal velocities)
+  integer picosec_flag           ! if =1, then N_max_vel is actually the value of time step in picoseconds
 
   INTEGER N_box_vel              ! Number of velocity boxes per unit of initial thermal velocity
                                  ! Note, this value affects the scaling !
+  real(8) r_max_vel, r_cells_debye !if cell size and time step are specified explicitly
 
   REAL(8) W_plasma_s1   ! The electron plasma circular frequency [s^-1]
                         ! we assume that N_e = N_i and we will use only 
                         ! two species now - the electrons and the ions
-  REAL(8) W_cycl_x_s1   ! The electron cyclotron frequency for Bx [s^-1]
-  REAL(8) W_cycl_y_s1   ! The electron cyclotron frequency for By [s^-1]
+!  REAL(8) W_cycl_x_s1   ! The electron cyclotron frequency for Bx [s^-1]
+!  REAL(8) W_cycl_y_s1   ! The electron cyclotron frequency for By [s^-1]
   REAL(8) v_Te_ms       ! The electron thermal velocity [m/s]
   REAL(8) L_debye_m     ! The Debye length [m]
 
@@ -94,17 +73,18 @@ MODULE CurrentProblemValues
   REAL(8) N_scl_m3      ! Scaling factor for particles density [m^-3]
   REAL(8) V_scl_ms      ! Scaling factor for particle velocity [m/s]
 
-  REAL(8) factor_SR     ! Dimensionless factor which appears when there is an external circuit
+  REAL(8) factor_SR, factor_sigma, factor_j   ! Dimensionless factor which appears when there is an external circuit
 
+  REAL(8) U_pp_V        ! peak-to-peak amplitude of RF potential, input value given by U_ext in this version
   REAL(8) U_ext         ! The externally maintained potential difference between the metal end plates [dim_less]
 
   INTEGER Q_left        ! Surface charge on the left  plasma-wall boundary [dim-less]
   INTEGER Q_right       ! Surface charge on the right plasma-wall boundary [dim-less]
   REAL(8) full_Q_left   ! Surface charge on the left  plasma-wall boundary which may account for external circuit effects [dim-less]
   REAL(8) full_Q_right  ! Surface charge on the right plasma-wall boundary which may account for external circuit effects [dim-less]
+  real(8) Q_ext         ! Surface charge deposited at x=0 ("left" )due to external current source [dim-less]
 
-  INTEGER(8) N_of_part_initial   ! Initial number of macroparticles of one species in the whole system
-                                 ! ###NEW### :: note that it is integer(8) now which allows to use much more particles
+  INTEGER N_of_part_initial   ! Initial number of macroparticles of one species
 
   REAL(8) delta_t_s     ! The time step [s] 
   REAL(8) delta_x_m     ! The cell size [m]
@@ -129,15 +109,13 @@ MODULE CurrentProblemValues
                                     ! if 2 then -  particles parameters (x, v, ax, tag) are being read from the checkpoint datafiles
                                     !             * initialization of temporal diagnostics and snapshots occurs in regular manner,
                                     !               i.e. on the basis of data from files "ssc_initial.dat" and "ssc_snapshot.dat" only
-!  CHARACTER(16) check_g_filename    ! name of file, where the general data will be saved at the checkpoint
-!  CHARACTER(16) check_e_filename    ! name of file, where the parameters of electrons will be saved at the checkpoint
-!  CHARACTER(16) check_i_filename    ! name of file, where the parameters of ions will be saved at the checkpoint
+  CHARACTER(16) check_g_filename    ! name of file, where the general data will be saved at the checkpoint
+  CHARACTER(16) check_e_filename    ! name of file, where the parameters of electrons will be saved at the checkpoint
+  CHARACTER(16) check_i_filename    ! name of file, where the parameters of ions will be saved at the checkpoint
 
-!  INTEGER I_random_seed   ! The integer number which will be used by the random number generator through the whole program
-!  INTEGER I_random_seed_2 ! The integer number which will be used by the random number generator through the whole program in specifying type of collision
-!  INTEGER I_random_seed_3 ! The integer number which will be used by the random number generator through the whole program in accounting for the nonuniform neutral density
-!  INTEGER I_random_seed_4 ! The integer number which will be used by the random number generator through the whole program in specifying polar angle of scattering
-!  INTEGER I_random_seed_5 ! The integer number which will be used by the random number generator through the whole program in accounting azimuthal angle of scattering
+  INTEGER I_random_seed   ! The integer number which will be used by the random number generator through the whole program
+
+  integer, dimension(:), allocatable :: seed !for random_number
 
 ! SPECIES ARRAYS, HAVE FIXED DIMENSION (1:N_spec) ***** 
 ! particle parameters ------------------------
@@ -155,28 +133,38 @@ MODULE CurrentProblemValues
   REAL(8) KVx         ! Coefficients for equations of motion (X-PRE-FIN-moving)  !
   REAL(8) K_Q         ! Coefficients used in Poisson's equation
 
-  REAL(8) K_Xi(1:N_spec)   ! Coefficients used in interpolation of effective susceptibility 
+!  REAL(8) K_Xi(1:N_spec)   ! Coefficients used in interpolation of effective susceptibility 
+  REAL(8), ALLOCATABLE :: K_Xi(:,:)   ! Coefficients used in interpolation of effective susceptibility 
 
-  REAL(8)  K11(1:N_spec) ! Coefficients (before V^{n-1/2}) for equations of motion (X-PRE-acceleration)
-  REAL(8)  K12(1:N_spec) ! Coefficients (before V^{n-1/2}) for equations of motion (X,Y-PRE-acceleration)
-  REAL(8)  K13(1:N_spec) ! Coefficients (before V^{n-1/2}) for equations of motion (X,Z-PRE-acceleration)
-  REAL(8)  K22(1:N_spec) ! Coefficients (before V^{n-1/2}) for equations of motion (Y-PRE-acceleration)
-  REAL(8)  K23(1:N_spec) ! Coefficients (before V^{n-1/2}) for equations of motion (Y,Z-PRE-acceleration)
-  REAL(8)  K33(1:N_spec) ! Coefficients (before V^{n-1/2}) for equations of motion (Z-PRE-acceleration)
+  REAL(8) alfa_xy(1:N_spec)   ! coefficients for calculation of alfa_x and alfa_y
 
-  REAL(8)  A11(1:N_spec) ! Coefficients (before Ax^{n-1}) for equations of motion (X-PRE-acceleration)
-  REAL(8)  A21(1:N_spec) ! Coefficients (before Ax^{n-1}) for equations of motion (Y-PRE-acceleration)
-  REAL(8)  A31(1:N_spec) ! Coefficients (before Ax^{n-1}) for equations of motion (Z-PRE-acceleration)
+!  REAL(8)  K11(1:N_spec) ! Coefficients (before V^{n-1/2}) for equations of motion (X-PRE-acceleration)
+!  REAL(8)  K12(1:N_spec) ! Coefficients (before V^{n-1/2}) for equations of motion (X,Y-PRE-acceleration)
+!  REAL(8)  K13(1:N_spec) ! Coefficients (before V^{n-1/2}) for equations of motion (X,Z-PRE-acceleration)
+!  REAL(8)  K22(1:N_spec) ! Coefficients (before V^{n-1/2}) for equations of motion (Y-PRE-acceleration)
+!  REAL(8)  K23(1:N_spec) ! Coefficients (before V^{n-1/2}) for equations of motion (Y,Z-PRE-acceleration)
+!  REAL(8)  K33(1:N_spec) ! Coefficients (before V^{n-1/2}) for equations of motion (Z-PRE-acceleration)
 
-  REAL(8)  A13(1:N_spec) ! Coefficients with Ez_external for equations of motion (X-PRE-acceleration)
-  REAL(8)  A23(1:N_spec) ! Coefficients with Ez_external for equations of motion (Y-PRE-acceleration)
-  REAL(8)  A33(1:N_spec) ! Coefficients with Ez_external for equations of motion (Z-PRE-acceleration)
+!  REAL(8)  A11(1:N_spec) ! Coefficients (before Ax^{n-1}) for equations of motion (X-PRE-acceleration)
+!  REAL(8)  A21(1:N_spec) ! Coefficients (before Ax^{n-1}) for equations of motion (Y-PRE-acceleration)
+!  REAL(8)  A31(1:N_spec) ! Coefficients (before Ax^{n-1}) for equations of motion (Z-PRE-acceleration)
 
-  REAL(8) KvEx(1:N_spec) ! Coefficients before Ex^{n+1} for final VX correction
-  REAL(8) KvEy(1:N_spec) ! Coefficients before Ex^{n+1} for final VY correction
-  REAL(8) KvEz(1:N_spec) ! Coefficients before Ex^{n+1} for final VZ correction
+!  REAL(8)  A13(1:N_spec) ! Coefficients with Ez_external for equations of motion (X-PRE-acceleration)
+!  REAL(8)  A23(1:N_spec) ! Coefficients with Ez_external for equations of motion (Y-PRE-acceleration)
+!  REAL(8)  A33(1:N_spec) ! Coefficients with Ez_external for equations of motion (Z-PRE-acceleration)
 
-  REAL(8) KxEx(1:N_spec) ! Coefficients before Ex^{n+1} for final X correction
+  REAL(8) A_123_1             ! factor for coefficients before Ax^{n-1} for equations of motion (PRE-acceleration)
+  REAL(8) A_123_3(1:N_spec)   ! factors for coefficients with Ez_external for equations of motion (X-PRE-acceleration)
+
+!  REAL(8) KvEx(1:N_spec) ! Coefficients before Ex^{n+1} for final VX correction
+!  REAL(8) KvEy(1:N_spec) ! Coefficients before Ex^{n+1} for final VY correction
+!  REAL(8) KvEz(1:N_spec) ! Coefficients before Ex^{n+1} for final VZ correction
+
+  REAL(8) KvE_xyz(1:N_spec)  ! factors for coefficients before Ex^{n+1} for final velocity correction
+
+!  REAL(8) KxEx(1:N_spec) ! Coefficients before Ex^{n+1} for final X correction
+
+  REAL(8) factor_KxEx  ! factor for coefficients before Ex^{n+1} for final X correction
 
 ! service data -------------------------------
 
@@ -202,45 +190,41 @@ MODULE CurrentProblemValues
 
 ! allocatable array types --------------------
 
-!  TYPE dalloc_array
-!     REAL(8), POINTER :: part(:)
-!  END TYPE dalloc_array
+  TYPE dalloc_array
+     REAL(8), POINTER :: part(:)
+  END TYPE dalloc_array
 
-!  TYPE ialloc_array
-!     INTEGER, POINTER :: part(:)
-!  END TYPE ialloc_array
+  TYPE ialloc_array
+     INTEGER, POINTER :: part(:)
+  END TYPE ialloc_array
+
+!  TYPE macroparticle
+!     REAL(8) X
+!     REAL(8) VX
+!     REAL(8) VY
+!     REAL(8) VZ
+!     REAL(8) AX
+!     INTEGER Tag
+!     REAL(8) old_VX
+!  END TYPE macroparticle
+!
+!  TYPE macroparticle_array
+!     TYPE(macroparticle), POINTER :: part(:)
+!  END TYPE macroparticle_array
+!
+!  TYPE(macroparticle_array), ALLOCATABLE :: species(:)
+!
+!### should work like this: species(s)%part(k)%X
 
 ! particles dynamics ------------------------- 
 
-!integer, allocatable :: collided(:)
-!integer, allocatable :: selected(:)
-
-!  TYPE(dalloc_array), ALLOCATABLE :: X_of_spec(:)       ! Array of pointers on arrays of X-coordinate of particles of blocks
-!  TYPE(dalloc_array), ALLOCATABLE :: VX_of_spec(:)      ! Array of pointers on arrays of X-velocity of particles of blocks
-!  TYPE(dalloc_array), ALLOCATABLE :: VY_of_spec(:)      ! Array of pointers on arrays of Y-velocity of particles of blocks
-!  TYPE(dalloc_array), ALLOCATABLE :: VZ_of_spec(:)      ! Array of pointers on arrays of Z-velocity of particles of blocks
-!  TYPE(dalloc_array), ALLOCATABLE :: AX_of_spec(:)      ! Array of pointers on arrays of smoothed X-acceleration of particles of blocks
-!  TYPE(ialloc_array), ALLOCATABLE :: Tag_of_spec(:)     ! Array of pointers on arrays of tag of particles of blocks
-!  TYPE(dalloc_array), ALLOCATABLE :: prev_VX_of_spec(:) ! Array of pointers on arrays of old X-velocity of particles of blocks
-
-  TYPE macroparticle
-     REAL(8) X
-     REAL(8) Z
-     REAL(8) VX
-     REAL(8) VY
-     REAL(8) VZ
-     REAL(8) AX
-     INTEGER Tag
-     REAL(8) prev_VX
-  END TYPE macroparticle
-
-  TYPE macroparticle_array
-     TYPE(macroparticle), ALLOCATABLE :: part(:)
-  END TYPE macroparticle_array
-
-  TYPE(macroparticle_array), ALLOCATABLE :: species(:)
-!
-!### should work like this: species(s)%part(k)%X
+  TYPE(dalloc_array), ALLOCATABLE :: X_of_spec(:)       ! Array of pointers on arrays of X-coordinate of particles of blocks
+  TYPE(dalloc_array), ALLOCATABLE :: VX_of_spec(:)      ! Array of pointers on arrays of X-velocity of particles of blocks
+  TYPE(dalloc_array), ALLOCATABLE :: VY_of_spec(:)      ! Array of pointers on arrays of Y-velocity of particles of blocks
+  TYPE(dalloc_array), ALLOCATABLE :: VZ_of_spec(:)      ! Array of pointers on arrays of Z-velocity of particles of blocks
+  TYPE(dalloc_array), ALLOCATABLE :: AX_of_spec(:)      ! Array of pointers on arrays of smoothed X-acceleration of particles of blocks
+  TYPE(ialloc_array), ALLOCATABLE :: Tag_of_spec(:)     ! Array of pointers on arrays of tag of particles of blocks
+  TYPE(dalloc_array), ALLOCATABLE :: prev_VX_of_spec(:) ! Array of pointers on arrays of old X-velocity of particles of blocks
 
 ! LINKED LIST FOR INJECTED PARTICLES *****************
 
@@ -249,7 +233,7 @@ MODULE CurrentProblemValues
      REAL(8) VX
      REAL(8) VY
      REAL(8) VZ
-!     REAL(8) AX
+     REAL(8) AX
      INTEGER Tag
      TYPE (injected_particle), POINTER :: Next
   END TYPE injected_particle
@@ -367,7 +351,7 @@ MODULE MCCollisions
   INTEGER i_n_2_count               ! i-n, charge exchange, model 1
   INTEGER i_t_3_count               ! i-turbulence, model 1               !@#$
 
-! LINKED LIST, which store the numbers of particles participating in collisions
+! LINKED LIST, which stores the numbers of particles participating in collisions
 
   TYPE binary_tree
      INTEGER number
@@ -643,8 +627,6 @@ MODULE Diagnostics
   INTEGER N_of_saved_records        ! counter of records in each data file (versus time)
   INTEGER Save_check_Tcntr          ! value of T_cntr when we create a checkpoint, must always coincide with one of Finish_diag_Tcntr values
 
-  INTEGER T_cntr_to_continue        ! value of T_cntr when a checkpoint was created, this checkpoint will be used to continue or start a simulation
-
   INTEGER N_of_probes                           ! number of probes for time dependencies
 
   INTEGER, ALLOCATABLE :: probe_node(:)         ! locations of probes where time dependencies will be saved (numbers of nodes)
@@ -668,6 +650,11 @@ MODULE Diagnostics
   REAL(8), ALLOCATABLE :: QVX_mesh(:)           ! - " - electrical current density in X-direction
   REAL(8), ALLOCATABLE :: QVY_mesh(:)           ! - " - electrical current density in Y-direction
   REAL(8), ALLOCATABLE :: QVZ_mesh(:)           ! - " - electrical current density in Z-direction
+
+!*** diagnostic arrays for ion/electron fluxes and ionization rate, 04/28/14:
+  INTEGER, ALLOCATABLE :: N_new_cell(:)  !counter of ion-electron pair creation
+  REAL(8), ALLOCATABLE :: NVX_mesh(:,:)  !ion and electron fluxes, assigned to nodes
+  real(8), ALLOCATABLE :: P_heat_cell(:,:)!09/09/14, power deposited into neutral gas due to collisions with each species 
 
 ! energy values, dimensional
   REAL(8) Energy_full_eV                        ! full energy of system, [eV]
@@ -727,6 +714,8 @@ MODULE Diagnostics
   REAL(8) Rate_energy_coll_eVns1(1:N_spec)           ! rate of change of (1=electrons,2=ions) energy due to collisions with neutral particles, [eV/ns]
 
   REAL(8) Rate_energy_heat_eVns1                ! rate of change of energy due to Joule heating, [eV/ns]
+
+  real(8) U_app_V, U_cap_V, Sigma_electrode, Enr_consumed_Jm2 !** to calculate power for capacitive discharge 
 
 ! energy rates, dim-less
   REAL(8) Rate_energy_wall(1:N_spec)                 ! rate of change of energy of (1=electrons,2=ions) due to collisions with the walls
@@ -794,8 +783,6 @@ MODULE Snapshots
   REAL(8) Ve_x_max               ! Maximal x-velocity (normal) for electron velocity distribution (initially given in V_therm)
   REAL(8) Ve_yz_max              ! Maximal y,z-velocity (parallel) for electron velocity distribution (initially given in V_therm)
 
-  INTEGER N_i2vdf_vel_scl        ! Scaling factor for fine graining of ion velocity distribution function in _i2vdfw.dat files
-
   INTEGER N_box_Vx_e             ! (Total number of velocity boxes - 1) for positive x-velocity (normal) for electrons
   INTEGER N_box_Vyz_e            ! (Total number of velocity boxes - 1) for positive y,z-velocity (parallel) for electrons
   INTEGER N_box_Vx_e_low         ! = -N_box_Vx_e                   !
@@ -804,13 +791,12 @@ MODULE Snapshots
   INTEGER N_box_Vyz_e_top        ! =  N_box_Vyz_e + 1              !
 
   INTEGER N_box_Vx_i             ! (Number of velocity boxes - 1) for positive x-velocity (normal) for ions
-  INTEGER N_box_Vyz_i            ! (Total number of velocity boxes - 1) for positive y,z-velocity (parallel) for ions
-                                                                   ! Above line added on 7-25-23 for _####_i2vdfw.dat
   INTEGER N_box_Vx_i_low         ! = -N_box_Vx_i                   ! this will save one addition and one sign changing for each ion
-  INTEGER N_box_Vx_i_top         ! =  N_box_Vx_i + 1               ! 
-  INTEGER N_box_Vyz_i_low        ! = -N_box_Vyz_i                  ! Added on 7-25-23 for _####_i2vdfw.dat
-  INTEGER N_box_Vyz_i_top        ! =  N_box_Vyz_i + 1              ! Added on 7-25-23 for _####_i2vdfw.dat
+  INTEGER N_box_Vx_i_top         ! =  N_box_Vx_i + 1
 
+  integer index_enr_max                         ! for ion d.f. at the boundaries, irwedf(1:index_enr_max) &  ilwedf(...)
+  real(8) energy_max_eV, delta_enr_eV           !
+  
   INTEGER, ALLOCATABLE :: Tcntr_snapshot(:)     ! timesteps when the snapshot files are written
 
   INTEGER, ALLOCATABLE :: Vdf_location_bnd(:)   ! Spatial boundaries, defining the locations for calculation of VDFs (numbers of nodes)
@@ -845,27 +831,14 @@ MODULE Snapshots
   INTEGER, ALLOCATABLE :: ebr_vxdf_loc(:,:)       ! distribution of electrons over v_x at certain location inside the plasma
   INTEGER, ALLOCATABLE :: ebr_vydf_loc(:,:)       ! distribution of electrons over v_y at certain location inside the plasma
   INTEGER, ALLOCATABLE :: ebr_vzdf_loc(:,:)       ! distribution of electrons over v_z at certain location inside the plasma
+  
+!*** diagnostic array for ion distribution at the right wall, 08/01/14: 
+  real(8), allocatable :: irwedf(:), ilwedf(:)                
 
-  REAL(8), ALLOCATABLE :: ivx_mid_of_box(:)     ! middles of   x-velocity boxes (in units of V_th_e), ions
-  REAL(8), ALLOCATABLE :: ivyz_mid_of_box(:)    ! middles of y,z-velocity boxes in (in units of V_th_e), ions
+  REAL(8), ALLOCATABLE :: ivx_mid_of_box(:)     ! middles of x-velocity boxes (in units of V_th_e), ions
   INTEGER, ALLOCATABLE :: i_vxdf_loc(:,:)       ! distribution of ions over v_x at certain location inside the plasma
   INTEGER, ALLOCATABLE :: i_vydf_loc(:,:)       ! distribution of ions over v_y at certain location inside the plasma
   INTEGER, ALLOCATABLE :: i_vzdf_loc(:,:)       ! distribution of ions over v_z at certain location inside the plasma
-
-                                                     ! Six lines below were added in 7-2023 for _####_i2vdfw.dat
-  REAL(8), ALLOCATABLE :: ivx_mid_of_box_i2vdfw(:)   ! middles of   x-velocity boxes (in units of V_th_e) for _i2vdfw files, ions
-                                                     !  this is the same length as ivx_mid_of_box, but more finely grained
-                                                     !  (as defined in the file ssc_diagnostics.dat)
-  REAL(8), ALLOCATABLE :: ivyz_mid_of_box_i2vdfw(:)  ! middles of y,z-velocity boxes in (in units of V_th_e) for _i2vdfw files, ions
-                                                     !  this is the same length as ivyz_mid_of_box, but more finely grained
-                                                     !  (as defined in the file ssc_diagnostics.dat)
-  INTEGER, ALLOCATABLE :: ip_2vdf_lw(:,:)            ! 2-d (|v_norm|,|v_par|) distribution of incident (primary) ions at the  left wall
-  INTEGER, ALLOCATABLE :: ip_2vdf_rw(:,:)            ! 2-d (|v_norm|,|v_par|) distribution of incident (primary) ions at the right wall
-  ! INTEGER, ALLOCATABLE :: is_2vdf_lw(:,:)            ! 2-d (|v_norm|,|v_par|) distribution of emitted ions at the left wall
-  ! INTEGER, ALLOCATABLE :: is_2vdf_rw(:,:)            ! 2-d (|v_norm|,|v_par|) distribution of emitted (secondary) ions at the right wall
-                                                     ! The bottom two lines were taken out because ions leaving the wall are not 
-                                                     ! interesting right now. This could change if you are interested in ion reflection at
-                                                     ! a wall. You may want to modify variable names then...
 
 END MODULE Snapshots
 

@@ -2,13 +2,14 @@
 !
 SUBROUTINE INITIATE_COULOMB_COLLISIONS
 
+  use mpi
   USE ParallelOperationValues 
   USE LangevinCollisions
   USE CurrentProblemValues
 
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   LOGICAL exists
   CHARACTER (77) buf
@@ -88,8 +89,10 @@ SUBROUTINE INITIATE_COULOMB_COLLISIONS
      
   CALL ALLOCATE_LANGEVIN_ARRAYS
 
+!!  Factor_F_drag = 2.0_8 * (DBLE(T_skip_Lang) * (DBLE(N_box_vel))**3) / &
+!!                & (DBLE(N_max_vel) * DBLE(N_of_cells_debye) * DBLE(N_of_particles_cell) * N_plasma_m3 * L_debye_m**3)
   Factor_F_drag = 2.0_8 * (DBLE(T_skip_Lang) * (DBLE(N_box_vel))**3) / &
-                & (DBLE(N_max_vel) * DBLE(N_of_cells_debye) * DBLE(N_of_particles_cell) * N_plasma_m3 * L_debye_m**3)
+                & (r_max_vel * r_cells_debye * DBLE(N_of_particles_cell) * N_plasma_m3 * L_debye_m**3)
 
   Factor_D_1_sqrt = SQRT(0.333333333333_8 * Factor_F_drag) / (DBLE(N_box_vel))  ! divide by N_box_vel here
                                                                                 ! to account (after taking the square root) 
@@ -138,14 +141,15 @@ END SUBROUTINE ALLOCATE_LANGEVIN_ARRAYS
 !--------------------------------------------------------------------------
 !
 SUBROUTINE PROCESS_COLLISIONS_EL_EL_LNGV
-
+ 
+  use mpi
   USE ParallelOperationValues
   USE LangevinCollisions
   USE CurrentProblemValues 
   
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   INTEGER k                                       ! index of particle
   INTEGER n_of_loc                                ! index of location (left node of cell containing the particle)
@@ -186,11 +190,11 @@ SUBROUTINE PROCESS_COLLISIONS_EL_EL_LNGV
 ! cycle over all electrons of this process
      DO k = 1, N_part(1)
 ! define index of location
-        n_of_loc  = INT(species(1)%part(k)%X)
+        n_of_loc  = INT(X_of_spec(1)%part(k))
 ! calculate the electron velocity in the electron flow frame 
-        wx = species(1)%part(k)%VX - Vx_avg(n_of_loc)
-        wy = species(1)%part(k)%VY - Vy_avg(n_of_loc)
-        wz = species(1)%part(k)%VZ - Vz_avg(n_of_loc)
+        wx = VX_of_spec(1)%part(k) - Vx_avg(n_of_loc)
+        wy = VY_of_spec(1)%part(k) - Vy_avg(n_of_loc)
+        wz = VZ_of_spec(1)%part(k) - Vz_avg(n_of_loc)
         abs_w = SQRT(wx*wx + wy*wy + wz*wz)      
 ! interpolate drag force coefficient and velocity diffusion coefficients
         indx_w = INT(abs_w)
@@ -207,10 +211,10 @@ SUBROUTINE PROCESS_COLLISIONS_EL_EL_LNGV
 
 ! ### future work: since the coefficients below are local, it is reasonable to include the densities into the coefficients
 
-        drag_force = drag_force * Density_e_sqrt(INT(species(1)%part(k)%X))**2   ! we store the root of the density -
+        drag_force = drag_force * Density_e_sqrt(INT(X_of_spec(1)%part(k)))**2   ! we store the root of the density -
                                                                                  ! one extra "*" is faster than three "sqrt"
-        diffus_1   = diffus_1   * Density_e_sqrt(INT(species(1)%part(k)%X))
-        diffus_3   = diffus_3   * Density_e_sqrt(INT(species(1)%part(k)%X))
+        diffus_1   = diffus_1   * Density_e_sqrt(INT(X_of_spec(1)%part(k)))
+        diffus_3   = diffus_3   * Density_e_sqrt(INT(X_of_spec(1)%part(k)))
 
 ! process the possible zero-velocity particle correctly
         IF (abs_w.EQ.0.0_8) THEN
@@ -243,8 +247,9 @@ SUBROUTINE PROCESS_COLLISIONS_EL_EL_LNGV
 ! note, SUBROUTINE PrepareMaxwellDistribIntegral must be called before once, now it is called in  SUBROUTINE INITIATE_MC_COLLISIONS 
 ! Also, here Q1-3 are obtained as the values normalized by [v_th_e / N_box_vel], while they are supposed to be in units of v_th_e
 ! this extra factor should be accounted for in CALCULATE_COEFFICIENTS_LNGV
-        CALL GetMaxwellVelocity(Q1) 
-        CALL GetMaxwellVelocity(Q2) 
+!!        CALL GetMaxwellVelocity(Q1) 
+!!        CALL GetMaxwellVelocity(Q2) 
+        CALL GetMaxwell2d(Q1, Q2)
         CALL GetMaxwellVelocity(Q3) 
 
 ! transform the random gaussian velocity to the velocity increment (scale and turn), 
@@ -261,15 +266,15 @@ SUBROUTINE PROCESS_COLLISIONS_EL_EL_LNGV
         IF (Accounted_Langevin.EQ.2) THEN
            
 ! calculate the absolute electron velocity (assume that ions are at rest for now) 
-           wx = species(1)%part(k)%VX !- Vx_avg
-           wy = species(1)%part(k)%VY !- Vy_avg
-           wz = species(1)%part(k)%VZ !- Vz_avg
+           wx = VX_of_spec(1)%part(k) !- Vx_avg
+           wy = VY_of_spec(1)%part(k) !- Vy_avg
+           wz = VZ_of_spec(1)%part(k) !- Vz_avg
            abs_w = SQRT(wx * wx + wy * wy + wz * wz)      
 ! we use electron density for simplicity (although in future it should be changed for the ion density)
 ! below 0.039788736 = 1/(8*pi)
 !       0.488602512 = SQRT{3/(4*pi)}
-           drag_force = - 0.039788736_8 * Factor_F_drag   * Log_coul(n_of_loc) * Density_e_sqrt(INT(species(1)%part(k)%X))**2  
-           diffus_1   =   0.488602512_8 * Factor_D_1_sqrt * SQRT(Log_coul(n_of_loc)) * Density_e_sqrt(INT(species(1)%part(k)%X))
+           drag_force = - 0.039788736_8 * Factor_F_drag   * Log_coul(n_of_loc) * Density_e_sqrt(INT(X_of_spec(1)%part(k)))**2  
+           diffus_1   =   0.488602512_8 * Factor_D_1_sqrt * SQRT(Log_coul(n_of_loc)) * Density_e_sqrt(INT(X_of_spec(1)%part(k)))
 ! below the threshold velocity the langevin coefficient are set constant
 ! for now we neglect the modification of Langevin coefficients by the ion EVDF at low
 ! electron energy
@@ -284,9 +289,9 @@ SUBROUTINE PROCESS_COLLISIONS_EL_EL_LNGV
 ! process the possible zero-velocity particle correctly
            IF (abs_w.EQ.0.0_8) THEN
 ! the velocity change due to drag force is zero
-!              dvx_drag = dvx_drag + 0.0_8 
-!              dvy_drag = dvy_drag + 0.0_8
-!              dvz_drag = dvz_drag + 0.0_8
+              dvx_drag = dvx_drag + 0.0_8 
+              dvy_drag = dvy_drag + 0.0_8
+              dvz_drag = dvz_drag + 0.0_8
 ! Calculate the trigonometric functions 
               SinTeta = 0.0_8
               CosTeta = 1.0_8
@@ -309,8 +314,9 @@ SUBROUTINE PROCESS_COLLISIONS_EL_EL_LNGV
               CosFi = -wy / perp_w
            END IF
 
-           CALL GetMaxwellVelocity(Q1) 
-           CALL GetMaxwellVelocity(Q2) 
+           CALL GetMaxwell2D(Q1, Q2)           
+!!           CALL GetMaxwellVelocity(Q1) 
+!!           CALL GetMaxwellVelocity(Q2) 
            Q1 = Q1 * diffus_1 
            Q2 = Q2 * diffus_1 
 
@@ -321,12 +327,12 @@ SUBROUTINE PROCESS_COLLISIONS_EL_EL_LNGV
         END IF !-----------------------------------------------------------------------------------------------------------<<<
 
 ! calculate the velocity of particle after collision
-        species(1)%part(k)%VX = species(1)%part(k)%VX + dvx_drag + dvx_dif
-        species(1)%part(k)%VY = species(1)%part(k)%VY + dvy_drag + dvy_dif
-        species(1)%part(k)%VZ = species(1)%part(k)%VZ + dvz_drag + dvz_dif
+        VX_of_spec(1)%part(k) = VX_of_spec(1)%part(k) + dvx_drag + dvx_dif
+        VY_of_spec(1)%part(k) = VY_of_spec(1)%part(k) + dvy_drag + dvy_dif
+        VZ_of_spec(1)%part(k) = VZ_of_spec(1)%part(k) + dvz_drag + dvz_dif
 
 ! collect the electron energy after collision IN THIS CELL ONLY, NO NEIGHBORS
-        energy_after(n_of_loc) = energy_after(n_of_loc) + (species(1)%part(k)%VX**2 + species(1)%part(k)%VY**2 + species(1)%part(k)%VZ**2)
+        energy_after(n_of_loc) = energy_after(n_of_loc) + (VX_of_spec(1)%part(k)**2 + VY_of_spec(1)%part(k)**2 + VZ_of_spec(1)%part(k)**2)
 
      END DO
 
@@ -344,10 +350,10 @@ SUBROUTINE PROCESS_COLLISIONS_EL_EL_LNGV
 
 ! renormalize all electron velocities to ensure the energy conservation
      DO k = 1, N_part(1)
-        n_of_loc  = INT(species(1)%part(k)%X)
-        species(1)%part(k)%VX = species(1)%part(k)%VX * alpha(n_of_loc)
-        species(1)%part(k)%VY = species(1)%part(k)%VY * alpha(n_of_loc)
-        species(1)%part(k)%VZ = species(1)%part(k)%VZ * alpha(n_of_loc)
+        n_of_loc  = INT(X_of_spec(1)%part(k))
+        VX_of_spec(1)%part(k) = VX_of_spec(1)%part(k) * alpha(n_of_loc)
+        VY_of_spec(1)%part(k) = VY_of_spec(1)%part(k) * alpha(n_of_loc)
+        VZ_of_spec(1)%part(k) = VZ_of_spec(1)%part(k) * alpha(n_of_loc)
      END DO
 
   ELSE  !----------------------------------------------------------------------------- SERVER
@@ -380,13 +386,14 @@ END SUBROUTINE PROCESS_COLLISIONS_EL_EL_LNGV
 !
 SUBROUTINE CALCULATE_COEFFICIENTS_LNGV
 
+  use mpi
   USE LangevinCollisions
   USE CurrentProblemValues
   USE ParallelOperationValues
   
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
+!  INCLUDE 'mpif.h'
 
   INTEGER k      ! particle index
   INTEGER j
@@ -416,7 +423,7 @@ SUBROUTINE CALCULATE_COEFFICIENTS_LNGV
   REAL(8) average_energy_eV
   REAL(8) average_density_m3
   REAL(8) debye_length_m
-  REAL(8) w
+  REAL(8) w, factor
   REAL(8) max_rho
 
   REAL(8), ALLOCATABLE :: rbufer(:), rbufer2(:)
@@ -454,14 +461,14 @@ SUBROUTINE CALCULATE_COEFFICIENTS_LNGV
 
      DO k = 1, N_part(1)
 ! define location of particle
-        n_of_loc  = INT(species(1)%part(k)%X)
+        n_of_loc  = INT(X_of_spec(1)%part(k))
 ! collect the electron energy before collision IN THIS CELL ONLY, NO NEIGHBORS !!!
-        energy_before(n_of_loc) = energy_before(n_of_loc) + (species(1)%part(k)%VX**2 + species(1)%part(k)%VY**2 + species(1)%part(k)%VZ**2)
+        energy_before(n_of_loc) = energy_before(n_of_loc) + (VX_of_spec(1)%part(k)**2 + VY_of_spec(1)%part(k)**2 + VZ_of_spec(1)%part(k)**2)
 ! collect the electron velocity and number of particles over several neighbor cells (to reduce noise)
         DO n = MAX(0,n_of_loc-added_cells), MIN(n_of_loc+added_cells,N_cells-1)
-           Vx_avg(n) = Vx_avg(n) + species(1)%part(k)%VX
-           Vy_avg(n) = Vy_avg(n) + species(1)%part(k)%VY      
-           Vz_avg(n) = Vz_avg(n) + species(1)%part(k)%VZ
+           Vx_avg(n) = Vx_avg(n) + VX_of_spec(1)%part(k)
+           Vy_avg(n) = Vy_avg(n) + VY_of_spec(1)%part(k)         
+           Vz_avg(n) = Vz_avg(n) + VZ_of_spec(1)%part(k)
            N_part_in_loc(n) = N_part_in_loc(n)+1
         END DO
      END DO
@@ -529,14 +536,14 @@ SUBROUTINE CALCULATE_COEFFICIENTS_LNGV
      Fd_wy = 0
      Fd_wz = 0
      DO k = 1, N_part(1)            
-        n_of_loc = INT(species(1)%part(k)%X)
+        n_of_loc = INT(X_of_spec(1)%part(k))
 
         IF ((n_of_loc.LT.0).OR.(n_of_loc.GE.N_cells)) CYCLE
 !        IF ((left_node.LT.N_of_left_node_Lang).OR.(left_node.GE.N_of_right_node_Lang)) CYCLE
 
-        indx_wx = MIN( INT( ABS(species(1)%part(k)%VX - Vx_avg(n_of_loc)) ), N_box_w_Lang-1 )
-        indx_wy = MIN( INT( ABS(species(1)%part(k)%VY - Vy_avg(n_of_loc)) ), N_box_w_Lang-1 )
-        indx_wz = MIN( INT( ABS(species(1)%part(k)%VZ - Vz_avg(n_of_loc)) ), N_box_w_Lang-1 )
+        indx_wx = MIN( INT( ABS(VX_of_spec(1)%part(k) - Vx_avg(n_of_loc)) ), N_box_w_Lang-1 )
+        indx_wy = MIN( INT( ABS(VY_of_spec(1)%part(k) - Vy_avg(n_of_loc)) ), N_box_w_Lang-1 )
+        indx_wz = MIN( INT( ABS(VZ_of_spec(1)%part(k) - Vz_avg(n_of_loc)) ), N_box_w_Lang-1 )
 
 !        indx_wx = INT( ABS(VX_of_spec(1)%part(k) - Vx_avg(n_of_loc)) )
 !        indx_wy = INT( ABS(VY_of_spec(1)%part(k) - Vy_avg(n_of_loc)) )
@@ -647,20 +654,25 @@ SUBROUTINE CALCULATE_COEFFICIENTS_LNGV
         END DO
 
 ! calculate the electron flow velocity and coulomb logarithm
-        IF (N_part_in_loc(n_of_loc).GT.0) THEN
+        IF (N_part_in_loc(n_of_loc).GT.3) THEN
            Vx_avg(n_of_loc) = Vx_avg(n_of_loc) / N_part_in_loc(n_of_loc)
            Vy_avg(n_of_loc) = Vy_avg(n_of_loc) / N_part_in_loc(n_of_loc)
            Vz_avg(n_of_loc) = Vz_avg(n_of_loc) / N_part_in_loc(n_of_loc)
 ! calculate the Coulomb Logarithm
            average_energy_eV  = average_energy_eV * T_e_eV / ( N_box_vel * N_box_vel * DBLE(N_part_in_loc(n_of_loc)) )
            average_density_m3 = N_plasma_m3 * DBLE(N_part_in_loc(n_of_loc)) / DBLE(N_cells_in_loc*N_of_particles_cell)
-           debye_length_m     = SQRT(2.0_8 * average_energy_eV * eps_0_Fm / (e_Cl * average_density_m3))
-           Log_coul(n_of_loc) = LOG(3.141592654_8 * eps_0_Fm * average_energy_eV * debye_length_m / e_Cl) 
+!!           debye_length_m     = SQRT(2.0_8 * average_energy_eV * eps_0_Fm / (e_Cl * average_density_m3))
+!!           Log_coul(n_of_loc) = LOG(3.141592654_8 * eps_0_Fm * average_energy_eV * debye_length_m / e_Cl) 
+! *** redefined to be the same as in the runaway code:        
+           debye_length_m     = SQRT(0.666667_8 * average_energy_eV * eps_0_Fm / (e_Cl * average_density_m3))
+           Log_coul(n_of_loc) = LOG(0.5_8 * 3.141592654_8 * eps_0_Fm * 0.666667_8 * average_energy_eV * debye_length_m / e_Cl) 
+           IF (Log_coul(n_of_loc).lt.1. .or. Log_coul(n_of_loc).GT.10.) Log_coul(n_of_loc) = 0.
         ELSE
            Vx_avg(n_of_loc) = 0.0_8
            Vy_avg(n_of_loc) = 0.0_8
            Vz_avg(n_of_loc) = 0.0_8
-           Log_coul(n_of_loc) = 10.0_8
+           Log_coul(n_of_loc) = 0.0_8 !was 10, not suitable for cathode fall
+!           Log_coul(n_of_loc) = 10.0_8
         END IF
 ! calculate the threshold velocity for ion-electron collisions
 ! we calculate the threshold as the velocity value when the correction due to the e-i drag force
@@ -714,8 +726,14 @@ SUBROUTINE CALCULATE_COEFFICIENTS_LNGV
         Fd_w_integral = 0.0_8
         DO j = 1, N_box_w_Lang   
            Fd_w_integral = Fd_w_integral + (DBLE(j)-0.5_8)**2 * Fd_w(j, n_of_loc) 
-        END DO                                                                    ! 
-        Fd_w(1:N_box_w_Lang, n_of_loc) = Fd_w(1:N_box_w_Lang, n_of_loc) / (Fd_w_integral * 12.56637061_8)  ! (4*pi*integral = 1), here dw = 1
+        END DO                                                                     
+        IF (Fd_w_integral.eq.0.) then
+          factor = 0.
+        else
+          factor = 1. / Fd_w_integral
+        end if 
+
+        Fd_w(1:N_box_w_Lang, n_of_loc) = Fd_w(1:N_box_w_Lang, n_of_loc) * factor / 12.56637061_8  ! (4*pi*integral = 1), here dw = 1
 ! tabulate integrals #1,2,4
         Int_1 = 0.0_8 
         Int_2 = 0.0_8                                                             
