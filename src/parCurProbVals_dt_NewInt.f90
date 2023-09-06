@@ -17,6 +17,7 @@ SUBROUTINE INITIATE_PARAMETERS
   INTEGER i, s
   INTEGER itmp
 
+  INTEGER flag_rf                         ! flag for if rf is on or off at the left wall
   REAL(8) L_plasma_deb                    ! plasma length in debye lengths                  ! ####### ######### ######## was INTEGER ######## ###### ######
 
   INTEGER ierr
@@ -51,8 +52,15 @@ SUBROUTINE INITIATE_PARAMETERS
      END IF
 
      READ (9, '(A77)') buf !============================ SYSTEM CONFIGURATION ===========================")')
-     READ (9, '(A77)') buf !-------d----- BC: Left wall potential is fixed/floating/ext.circuit {0/1/2}--")')
+     READ (9, '(A77)') buf !------------- BC: Left wall potential is ------------------------------------")')
+     READ (9, '(A77)') buf !--            0 = fixed, or connected to RF if the next option is on       --")')
+     READ (9, '(A77)') buf !--            1 = floating                                                 --")')
+     READ (9, '(A77)') buf !--            2 = connected to external circuit                            --")')
+     READ (9, '(A77)') buf !--            3 = Electrode current is specified                           --")')
+     READ (9, '(A77)') buf !-------d----- 4 = RF potential applied directly or with dielectric layer ----")')
      READ (9, '(7x,i1)') BC_flag
+     READ (9, '(A77)') buf !-------d----- Left wall is RF biased (1/0=Yes/No) ---------------------------")')
+     READ (9, '(7x,i1)') flag_rf
      READ (9, '(A77)') buf !--dddddd.ddd- Resistance of the resistor in the external circuit (ohm) ------")')
      READ (9, '(2x,f10.3)') R_ext_ohm
      READ (9, '(A77)') buf !--dddddd.ddd- Electrode area (cm^2) -----------------------------------------")')
@@ -61,6 +69,12 @@ SUBROUTINE INITIATE_PARAMETERS
      READ (9, '(2x,f10.3)') E_z_ext_Vm
      READ (9, '(A77)') buf !--dddddd.ddd- Left wall potential/battery voltage (V) -----------------------")')
      READ (9, '(2x,f10.3)') U_ext_V
+     READ (9, '(A77)') buf !--#d.dddE#dd- Left wall RF frequency (Hz) -----------------------------------")')
+     READ (9, '(2x,e10.3)') f_rf_Hz
+     READ (9, '(A77)') buf !--dddddd.ddd- Left wall RF amplitude (V) ------------------------------------")')
+     READ (9, '(2x,f10.3)') U_rf_V
+     READ (9, '(A77)') buf !--#d.dddE#dd- Left wall RF start time (s) -----------------------------------")')
+     READ (9, '(2x,e10.3)') t_start_s
      READ (9, '(A77)') buf !--dddddd.ddd- Plasma layer width (m, beam wavelengths if negative) ----------")')
      READ (9, '(2x,f11.4)') L_plasma_m
      READ (9, '(A77)') buf !--dddddd.ddd- Ion mass (a.m.u.) ---------------------------------------------")')
@@ -96,11 +110,15 @@ SUBROUTINE INITIATE_PARAMETERS
   ELSE                                   ! if file does not exist
 
 !======================= System configuration =====================
-     BC_flag         = 0 
+     BC_flag         = 0
+     flag_rf         = 1
      R_ext_ohm       = 0.0_8
      S_electrode_cm2 = 400.0_8
      E_z_ext_Vm      = 10000.0_8
      U_ext_V         = 0.0_8      ! 
+     f_rf_Hz         = 1.356d7
+     U_rf_V          = 250.0_8
+     t_start_s       = 0.0_8
      L_plasma_m      = 0.02_8
      M_i_amu         = 131.0_8    ! Xenon
      T_i_eV          = 1.0_8
@@ -124,8 +142,15 @@ SUBROUTINE INITIATE_PARAMETERS
         PRINT '(2x,"Process ",i3," : Create ssc_initial.dat file . . .")', Rank_of_process
 
         WRITE (9, '("============================ SYSTEM CONFIGURATION ===========================")')
-        WRITE (9, '("-------d----- BC: Left wall potential is fixed/floating/ext.circuit {0/1/2}--")')
+        WRITE (9, '("------------- BC: Left wall potential is ------------------------------------")')
+        WRITE (9, '("--            0 = fixed, or connected to RF if the next option is on       --")')
+        WRITE (9, '("--            1 = floating                                                 --")')
+        WRITE (9, '("--            2 = connected to external circuit                            --")')
+        WRITE (9, '("--            3 = Electrode current is specified                           --")')
+        WRITE (9, '("-------d----- 4 = RF potential applied directly or with dielectric layer ----")')
         WRITE (9, '(7x,i1)') BC_flag
+        WRITE (9, '("-------d----- Left wall is RF biased (1/0=Yes/No) ---------------------------")')
+        WRITE (9, '(7x,i1)') flag_rf
         WRITE (9, '("--dddddd.ddd- Resistor in the external circuit (ohm) ------------------------")')
         WRITE (9, '(2x,f10.3)') R_ext_ohm
         WRITE (9, '("--dddddd.ddd- Electrode area (cm^2) -----------------------------------------")')
@@ -134,6 +159,12 @@ SUBROUTINE INITIATE_PARAMETERS
         WRITE (9, '(2x,f10.3)') E_z_ext_Vm
         WRITE (9, '("--dddddd.ddd- Left wall potential/battery voltage (V) -----------------------")')
         WRITE (9, '(2x,f10.3)') U_ext_V
+        WRITE (9, '("--#d.dddE#dd- Left wall RF frequency (Hz) -----------------------------------")')
+        WRITE (9, '(2x,e10.3)') f_rf_Hz
+        WRITE (9, '("--dddddd.ddd- Left wall RF amplitude (V) ------------------------------------")')
+        WRITE (9, '(2x,f10.3)') U_rf_V
+        WRITE (9, '("--#d.dddE#dd- Left wall RF start time (s) -----------------------------------")')
+        WRITE (9, '(2x,e10.3)') t_start_s
         WRITE (9, '("--dddddd.ddd- Plasma layer width (m, beam wavelengths if negative) ----------")')
         WRITE (9, '(2x,f11.4)') L_plasma_m
         WRITE (9, '("--dddddd.ddd- Ion mass (a.m.u., m_e if negative) ----------------------------")')
@@ -191,6 +222,31 @@ SUBROUTINE INITIATE_PARAMETERS
      STOP
   END IF
 
+  IF (flag_rf.EQ.0) THEN
+     rf_on = .FALSE.
+     ! Check if the BC condition 4 is used. If yes, then terminate the program
+     ! NOTE: BC 4 with no rf may not break the code, but it has not been verified and was not intended to be used
+     IF (BC_flag.EQ.4) THEN
+       IF (Rank_of_process.EQ.0) THEN
+         PRINT '("INITIATE_PARAMETERS: ERROR: BC condition 4 requres left wall rf to be on")'
+         PRINT '("terminating the program")'
+       END IF
+       STOP
+     END IF
+  ELSE
+     rf_on = .TRUE.
+     IF (f_rf_Hz.LT.0.0_8) THEN
+        IF (Rank_of_process.EQ.0) THEN
+           PRINT '("INITIATE_PARAMETERS: ERROR: rf battery on the left wall requires positive rf frequency")'
+           PRINT '("the present value of f_rf_Hz is ",e12.5," Hz")', f_rf_Hz
+           PRINT '("terminating the program")'
+        END IF
+     STOP
+     END IF
+  END IF
+
+
+  
   INQUIRE (FILE = 'ssc_anisotropy.dat', EXIST = exists)
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
@@ -296,7 +352,6 @@ SUBROUTINE INITIATE_PARAMETERS
   V_scl_ms    = v_Te_ms / DBLE(N_box_vel)
 
   U_ext = U_ext_V / U_scl_V
-  U_pp_V = U_ext_V 
 
   Max_T_cntr  = 1.0d-9 * T_sim_ns / delta_t_s                               ! Number of time steps
 

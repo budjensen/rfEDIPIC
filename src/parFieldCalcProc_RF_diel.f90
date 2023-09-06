@@ -291,24 +291,29 @@ END SUBROUTINE CALCULATE_STR_LONG_ELECTR_FIELD
 !
 REAL(8) FUNCTION U_ext_vst(t_s)
 
-  USE CurrentProblemValues, ONLY : U_ext, U_scl_V, U_pp_V
+  USE CurrentProblemValues, ONLY : U_ext, U_scl_V, rf_on, U_rf_V, f_rf_Hz, t_start_s
 
   IMPLICIT NONE
 
-!!  REAL(8), PARAMETER :: U_pp_V =  100.0_8 !** twice the amplitude !**now set in the module
-  REAL(8), PARAMETER :: f_rf_Hz = 5.5d7 !4.5d7 !4.0d7 !2.712d7 !5.0d7 !6.0d7 !1.356d7
-  REAL(8), PARAMETER :: t_start_s = 0.0d-8
-
   REAL(8) t_s
 
-!!  U_ext_vst = U_ext !the constant component U_ext is specified in the input file
+  IF (rf_on) THEN
+    
+    U_ext_vst = U_ext
 
-!  IF (t_s.LT.t_start_s) RETURN
+    IF (t_s.LT.t_start_s) RETURN
 
-  U_ext_vst =  (0.5 * U_pp_V / U_scl_V) * SIN(6.283185307_8 * (t_s - t_start_s) * f_rf_Hz)
+    U_ext_vst = U_ext + (U_rf_V / U_scl_V) * SIN(6.283185307_8 * (t_s - t_start_s) * f_rf_Hz)
+
+  ELSE
+    U_ext_vst = U_ext
+
+  END IF
 
 END FUNCTION U_ext_vst
 
+!-----------------------------------------------
+!
 !REAL(8) FUNCTION j_Am2_vst(t_s)
 !
 !  IMPLICIT NONE

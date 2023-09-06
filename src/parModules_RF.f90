@@ -30,6 +30,12 @@ MODULE CurrentProblemValues
 !  REAL(8) B_x_ext_Gs      ! The external radial X-magnetic field [Gauss]
 !  REAL(8) B_y_ext_Gs      ! The external radial Y-magnetic field [Gauss]
   REAL(8) U_ext_V         ! The externally maintained potential difference between the metal end plates [V]
+  REAL(8) f_rf_Hz         ! The frequency of the rf power source on the left wall (Hz)
+  REAL(8) U_rf_V          ! The left wall rf power source voltage amplitude (V)
+  REAL(8) t_start_s       ! The ignition time of the left wall's rf power source (s)
+
+  LOGICAL rf_on           ! flag, turns on/off the rf power source on the left wall
+
   REAL(8) L_plasma_m      ! Plasma's length [m], aproximate, may be modified after mesh distribution
   REAL(8) N_plasma_m3     ! Plasma's density [m^-3], affects scaling
   REAL(8) M_i_amu         ! Mass of single ion [a.m.u.]
@@ -75,7 +81,6 @@ MODULE CurrentProblemValues
 
   REAL(8) factor_SR, factor_sigma, factor_j   ! Dimensionless factor which appears when there is an external circuit
 
-  REAL(8) U_pp_V        ! peak-to-peak amplitude of RF potential, input value given by U_ext in this version
   REAL(8) U_ext         ! The externally maintained potential difference between the metal end plates [dim_less]
 
   INTEGER Q_left        ! Surface charge on the left  plasma-wall boundary [dim-less]
