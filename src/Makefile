@@ -21,7 +21,7 @@ OBJ := parMT19937.o \
        parBeamInjection_newflux.o \
        parBeamInPlasma_newflux.o \
        parCheckpoint.o \
-       parCollisionProc_Argon.o \
+       parCollisionProc.o \
        parCurProbVals_dt_NewInt.o \
        parDiagNoGraph_RF.o \
        parFieldCalcProc_RF_diel.o \
