@@ -279,7 +279,7 @@ SUBROUTINE CollideElectron_1(num, energy_eV)
 ! below is the corrected expression from Okhrimovsky et al., Phys.Rev.E, 65, 037402 (2002).
 !  CosKsi = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_eV / 27.21_8) * (1.0_8 - DBLE(R)))
   SELECT CASE (Neutral_flag)
-    CASE (0))  ! Helium
+    CASE (0)  ! Helium
         s = SQRT(energy_eV)
         f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
                                                           ! this approximates 
@@ -506,8 +506,18 @@ SUBROUTINE CollideElectron_2(num, energy_eV) !, random_seed)
 
 !!  s = sqrt(energy_sc_eV)
 !!  f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)
-  f_okh = 1.
-  CosKsi = dble( 1.- 2. * R * (1. - f_okh) / (1.+ f_okh * (1. - 2. * R)) )
+  ! f_okh = 1.
+
+  SELECT CASE (Neutral_flag)
+    CASE (0)  ! Helium
+      s = SQRT(energy_eV)
+      f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
+                                                        ! this approximates 
+    CASE (1)  ! Argon
+      f_okh = 1.0_8                                     ! Argon (should this be 1 or 0?)
+  END SELECT
+
+  CosKsi = dble( 1. - 2. * R * (1. - f_okh) / (1.+ f_okh * (1. - 2. * R)) )
 
   CosKsi = MAX(MIN(0.999999999999_8, CosKsi), -0.999999999999_8)   !############ to avoid an unlikely situation when |CosKsi|>1
   Ksi = ACOS(CosKsi)
@@ -758,9 +768,18 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
 
 !! s = sqrt(energy_sc_eV)
 !! f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)
-  f_okh = 1.
+  ! f_okh = 1.
 ! eps = 4. * energy_sc_eV / enr0_eV !screened Coulomb, adjustable
 ! f_okh = eps / (1. + eps) 
+
+  SELECT CASE (Neutral_flag)
+    CASE (0)  ! Helium
+      s = SQRT(energy_eV)
+      f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
+                                                        ! this approximates 
+    CASE (1)  ! Argon
+      f_okh = 1.0_8                                     ! Argon (should this be 1 or 0?)
+  END SELECT
 
  CosKsi_sc = dble( 1.- 2. * R * (1. - f_okh)/(1. + f_okh * (1. - 2. * R)) )
 
