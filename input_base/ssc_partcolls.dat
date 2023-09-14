@@ -1,4 +1,6 @@
 ================= NEUTRAL COMPONENT PARAMETERS ====================
+-------d----- Neutral gas species ( 1 = Argon, 0 = Helium ) -------
+       0
 --dddddd.ddd- Mass (a.m.u.) ---------------------------------------
       39.948 
 --#d.dddE#dd- Density (m^-3) --------------------------------------

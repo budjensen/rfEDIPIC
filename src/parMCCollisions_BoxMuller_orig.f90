@@ -32,6 +32,8 @@ SUBROUTINE INITIATE_MC_COLLISIONS
      PRINT '(2x,"Process ",i3," : ssc_partcolls.dat file is found. Reading the data file...")', Rank_of_process
 
      READ (9, '(A67)') buf !================= NEUTRAL COMPONENT PARAMETERS ====================")')
+     READ (9, '(A67)') buf !-------d----- Neutral gas species ( 1 = Argon, 0 = Helium ) -------")')
+     READ (9, '(7x,i1)') Neutral_flag
      READ (9, '(A67)') buf !--dddddd.ddd- Mass (a.m.u.) ---------------------------------------")')
      READ (9, '(2x,f10.3)') M_neutral_amu 
      READ (9, '(A67)') buf !--#d.dddE#dd- Density (m^-3) --------------------------------------")')
@@ -74,6 +76,7 @@ SUBROUTINE INITIATE_MC_COLLISIONS
      
   ELSE
 
+     Neutral_flag           = 1           ! 1 = Argon, 0 = Helium
      M_neutral_amu          = 131.0_8
      N_neutral_m3           = 2.0e18
      T_neutral_eV           = 0.1_8 
@@ -100,6 +103,8 @@ SUBROUTINE INITIATE_MC_COLLISIONS
         PRINT '(/2x,"Process ",i3," : Create ssc_partcolls.dat file . . .")', Rank_of_process
 
         WRITE (9, '("================= NEUTRAL COMPONENT PARAMETERS ====================")')
+        WRITE (9, '("-------d----- Neutral gas species ( 1 = Argon, 0 = Helium ) -------")')
+        WRITE (9, '(7x,i1)') Neutral_flag
         WRITE (9, '("--dddddd.ddd- Mass (a.m.u.) ---------------------------------------")')
         WRITE (9, '(2x,f10.3)') M_neutral_amu 
         WRITE (9, '("--#d.dddE#dd- Density (m^-3) --------------------------------------")')
@@ -212,6 +217,26 @@ SUBROUTINE INITIATE_MC_COLLISIONS
         PRINT '(/2x,"Colliding portion (%): ",f8.5)', 100.0 * maxColfrac_spec(s)
      END DO
 
+     SELECT CASE (Neutral_flag)
+        CASE (0)
+          PRINT '(/2x,"Using Helium collision parameters for CollideElectron_# and CollideIon_# functions.")'
+          ! Check if the inputted masses are consistent with the neutral flag
+          IF ((M_neutral_amu.LT.4.000_8).OR.(M_neutral_amu.GT.4.020_8)) THEN ! boundaries chosen without a specific tolerance in mind
+            PRINT '(/2x,"Error! Mass of the neutral gas is not consistent with the neutral flag (helium).")'
+            PRINT '(/2x,"You inputted: ",f10.3," a.m.u.")', M_neutral_amu
+            PRINT '(2x,"Program will run, but be warned :(")'
+          END IF
+
+        CASE (1)
+          PRINT '(/2x,"Using Argon collision parameters for CollideElectron_# and CollideIon_# functions.")'
+          ! Check if the inputted masses are consistent with the neutral flag
+          IF ((M_neutral_amu.LT.39.930_8).OR.(M_neutral_amu.GT.39.960)) THEN ! boundaries chosen without a specific tolerance in mind
+            PRINT '(/2x,"Error! Mass of the neutral gas is not consistent with the neutral flag (argon).")'
+            PRINT '(/2x,"You inputted: ",f10.3," a.m.u.")', M_neutral_amu
+            PRINT '(2x,"Program will run, but be warned :(")'
+          END IF
+
+     END SELECT
   END IF
 
   e_n_1_count = 0; e_n_2_count = 0; e_n_3_count = 0; i_n_1_count = 0; i_n_2_count = 0

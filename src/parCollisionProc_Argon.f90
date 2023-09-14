@@ -278,9 +278,14 @@ SUBROUTINE CollideElectron_1(num, energy_eV)
 ! the formula above was in the older code and it was based on Surendra's differential cross section
 ! below is the corrected expression from Okhrimovsky et al., Phys.Rev.E, 65, 037402 (2002).
 !  CosKsi = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_eV / 27.21_8) * (1.0_8 - DBLE(R)))
-!!  s = sqrt(energy_eV)
-!!  f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)
-  f_okh = 0.0_8  
+  SELECT CASE (Neutral_flag)
+    CASE (0))  ! Helium
+        s = SQRT(energy_eV)
+        f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
+                                                          ! this approximates 
+    CASE (1)  ! Argon
+        f_okh = 0.0_8                                     ! Argon
+  END SELECT
   CosKsi = dble( 1.- 2. * R * (1. - f_okh) / (1. + f_okh * (1. - 2. * R)) )
 
   CosKsi = MAX(MIN(0.999999999999_8, CosKsi), -0.999999999999_8)   !############ to avoid an unlikely situation when |CosKsi|>1
@@ -685,10 +690,12 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
 
   if (x0.lt.0.0_8.or.x0.gt.dble(N_cells)) return !safety pre-caution
 
-  B_of_Einc_eV = 10.0_8 
-                  ! is constant for Einc < 70 eV, Argon, approximate
-!!  B_of_Einc_eV = 15.8_8 !** Helium
-! above value is for Helium (Opal, Peterson and Beatty)
+  SELECT CASE (Neutral_flag)
+    CASE (0)  ! Helium
+        B_of_Einc_eV = 15.8_8 !** Helium (Opal, Peterson and Beatty)
+    CASE (1)  ! Argon
+        B_of_Einc_eV = 10.0_8 ! is constant for Einc < 70 eV, Argon, approximate
+  END SELECT
 
 !  enr0_eV = 150.0_8 !screening parameter value utilized by Johan in ionizing collisions
 
@@ -1132,15 +1139,23 @@ REAL(8) FUNCTION Frequency_IN_s1_2(energy_eV)
   IMPLICIT NONE
   REAL energy_eV, V_rel_ms, sigma_ct_m2, sigma_ct_m2_1eV, gammaR, factor, energy_eff_eV, estar_eV, sigma_star_m2
   gammaR = 10.
- 
-!  sigma_ct_m2_1eV = 2.8e-19
-  sigma_ct_m2_1eV = 5.53e-19 !!** Argon gas
+
+  SELECT CASE (Neutral_flag)
+    CASE (0)  ! Helium
+      sigma_ct_m2_1eV = 2.8e-19 !!** Helium gas
+    CASE (1)  ! Argon
+      sigma_ct_m2_1eV = 5.53e-19 !!** Argon gas
+  END SELECT
   
 ! charge exchange cross-section for helium, per BM Smirnov:
     energy_eff_eV = energy_eV
     if (energy_eV .le. 1.e-4) energy_eff_eV = 1.e-4
-!    factor = ( 1. - (1./gammaR) * 0.5 * log(energy_eff_eV) ) ** 2
-    factor = (1.0_8 - 0.0543 * log(energy_eff_eV)) ** 2 !!** Argon gas, per Maiorov
+    SELECT CASE (Neutral_flag)
+      CASE (0)  ! Helium
+        factor = ( 1. - (1./gammaR) * 0.5 * log(energy_eff_eV) ) ** 2 !!** Helium gas
+      CASE (1)  ! Argon
+        factor = (1.0_8 - 0.0543 * log(energy_eff_eV)) ** 2 !!** Argon gas, per Maiorov
+    END SELECT
     sigma_ct_m2 = sigma_ct_m2_1eV * factor
     if (sigma_ct_m2 .ge. 1.e-18) sigma_ct_m2 = 1.e-18
     V_rel_ms = SQRT( (2. * e_Cl * energy_eV ) / (M_neutral_amu * amu_kg ) )
