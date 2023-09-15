@@ -1483,7 +1483,7 @@ REAL(8) FUNCTION density(x)
 
 !  density = 0.25_8
 
-  density = density * (-6.0_8 * (x / N_cells - 0.5_8)**2 + 2.0_8) * (2 / 3) ! 2/3 normalization factor
+!  density = density * (-6.0_8 * (x / N_cells - 0.5_8)**2 + 2.0_8) * (2.0_8 / 3.0_8) ! 2/3 normalization factor
 
 
 !density  = 0.0_8  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

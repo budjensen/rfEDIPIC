@@ -774,7 +774,7 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
 
   SELECT CASE (Neutral_flag)
     CASE (0)  ! Helium
-      s = SQRT(energy_eV)
+      s = SQRT(energy_inc_eV)
       f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
                                                         ! this approximates 
     CASE (1)  ! Argon

@@ -236,6 +236,10 @@ SUBROUTINE INITIATE_MC_COLLISIONS
             PRINT '(2x,"Program will run, but be warned :(")'
           END IF
 
+        CASE DEFAULT 
+          PRINT '(/2x,"ERROR: No case met in Neutral_flag!!!")'
+          STOP
+
      END SELECT
   END IF
 
@@ -298,7 +302,7 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
 !!           READ (9, '(4x,f9.3,2x,e10.3)') Energy_en_elast_eV(j), CrSect_en_elast_m2(j)
 
             read (9,*) Energy_en_elast_eV(j), CrSect_en_elast_m2(j)
-            CrSect_en_elast_m2(j) =  CrSect_en_elast_m2(j) * 1.e-20 !** for Hayashi data
+!            CrSect_en_elast_m2(j) =  CrSect_en_elast_m2(j) * 1.e-20 !** for Hayashi data
 
 !           print '(4x,f8.2,3x,e9.2)', Energy_en_elast_eV(j), CrSect_en_elast_m2(j)
         END DO
