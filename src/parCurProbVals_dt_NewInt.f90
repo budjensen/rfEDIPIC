@@ -90,8 +90,8 @@ SUBROUTINE INITIATE_PARAMETERS
      READ (9, '(2x,i6)') N_of_particles_cell
      READ (9, '(A77)') buf !--dddddd----- Number of cells per Debye length ------------------------------")')
      READ (9, '(2x,i6)') N_of_cells_debye ! *** if negative, gives absolute value of cell size in micrometers ***
-     READ (9, '(A77)') buf !------dd--d--- Maximal expected velocity (in V_therm_e) ----------------------")')
-     READ (9, '(6x,i2, 2x, i1)') N_max_vel, picosec_flag ! *** picosec_flag = n>0 means delta_t [ps] = N_max_vel*10^(n-1)
+     READ (9, '(A77)') buf !----dddd--d--- Maximal expected velocity (in V_therm_e) ----------------------")')
+     READ (9, '(4x,i4, 2x, i1)') N_max_vel, picosec_flag ! *** picosec_flag = n>0 means delta_t [ps] = N_max_vel*10^(n-1)
      READ (9, '(A77)') buf !--dddddd----- Number of velocity boxes per unit of V_therm ------------------")')
      READ (9, '(2x,i6)') N_box_vel
      READ (9, '(A77)') buf !============================ SIMULATION CONTROL =============================")')
@@ -180,8 +180,8 @@ SUBROUTINE INITIATE_PARAMETERS
         WRITE (9, '(2x,i6)') N_of_particles_cell
         WRITE (9, '("--dddddd----- Number of cells per Debye length ------------------------------")')
         WRITE (9, '(2x,i6)') N_of_cells_debye
-        WRITE (9, '("------dd----- Maximal expected velocity (in V_therm_e) ----------------------")')
-        WRITE (9, '(6x,i2)') N_max_vel
+        WRITE (9, '("----dddd----- Maximal expected velocity (in V_therm_e) ----------------------")')
+        WRITE (9, '(4x,i4)') N_max_vel
         WRITE (9, '("--dddddd----- Number of velocity boxes per unit of V_therm ------------------")')
         WRITE (9, '(2x,i6)') N_box_vel
         WRITE (9, '("============================ SIMULATION CONTROL =============================")')
@@ -331,10 +331,6 @@ SUBROUTINE INITIATE_PARAMETERS
     delta_t_s = delta_x_m / (dble(N_max_vel) * v_Te_ms)
     r_max_vel = dble(N_max_vel)
   end if
-
-  energy_max_eV = 100. !max. energy for ion dist. at right wall
-  delta_enr_eV = 0.25    !energy interval for ion dist. at right wall
-  index_enr_max = 1 + int (energy_max_eV/delta_enr_eV)
 
   IF ((R_ext_ohm.GT.0.0_8).AND.(S_electrode_cm2.GT.0.0_8)) THEN
      factor_SR = (delta_x_m * delta_t_s) / (1.0d-4 * S_electrode_cm2 * R_ext_ohm * eps_0_Fm)

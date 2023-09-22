@@ -75,7 +75,7 @@ PROGRAM MainProg
      CALL DO_DIAGNOSTICS_STEP_1                                             ! server and clients, with differences
      CALL CREATE_SNAPSHOT                                                   ! server and clients, with differences    
      CALL DO_DIAGNOSTICS_STEP_2                                             ! server and clients, with differences
-     CALL SAVE_CHECKPOINT                                                   ! server and clients, with differences 
+     IF (SaveCheck_step.GE.0) CALL SAVE_CHECKPOINT                          ! server and clients, with differences 
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)                                 ! all, synchronization
 

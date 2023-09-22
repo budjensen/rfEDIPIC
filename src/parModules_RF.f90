@@ -786,9 +786,19 @@ MODULE Snapshots
   INTEGER N_to_skip_ion                         ! -""- for ions
 
   INTEGER N_of_all_vdf_locs                     ! number of locations for calculations of velocity distribution functions (VDF)
+  INTEGER N_of_all_edf_locs                     ! number of locations for calculations of energy distribution functions (EDF)
 
   REAL(8) Ve_x_max               ! Maximal x-velocity (normal) for electron velocity distribution (initially given in V_therm)
   REAL(8) Ve_yz_max              ! Maximal y,z-velocity (parallel) for electron velocity distribution (initially given in V_therm)
+
+  REAL(8) Ee_max_eV              ! Maximal energy for electron energy distribution (initially given in eV)
+  REAL(8) Ei_max_eV              ! Maximal energy for ion energy distribution (initially given in eV)
+  REAL(8) Ei_wall_max_eV         ! Maximal energy for ion energy distribution at the wall (initially given in eV)
+  INTEGER N_E_bins               ! Number of energy bins for electron and ion energy distributions (bin indexes run 1:N_E_bins)
+
+  REAL(8) delta_Ee_eV            ! Energy step for electron energy distribution (initially given in eV)
+  REAL(8) delta_Ei_eV            ! Energy step for ion energy distribution (initially given in eV)
+  REAL(8) delta_Ei_wall_eV       ! Energy step for ion energy distribution at the wall (initially given in eV)
 
   INTEGER N_box_Vx_e             ! (Total number of velocity boxes - 1) for positive x-velocity (normal) for electrons
   INTEGER N_box_Vyz_e            ! (Total number of velocity boxes - 1) for positive y,z-velocity (parallel) for electrons
@@ -800,13 +810,11 @@ MODULE Snapshots
   INTEGER N_box_Vx_i             ! (Number of velocity boxes - 1) for positive x-velocity (normal) for ions
   INTEGER N_box_Vx_i_low         ! = -N_box_Vx_i                   ! this will save one addition and one sign changing for each ion
   INTEGER N_box_Vx_i_top         ! =  N_box_Vx_i + 1
-
-  integer index_enr_max                         ! for ion d.f. at the boundaries, irwedf(1:index_enr_max) &  ilwedf(...)
-  real(8) energy_max_eV, delta_enr_eV           !
   
   INTEGER, ALLOCATABLE :: Tcntr_snapshot(:)     ! timesteps when the snapshot files are written
 
   INTEGER, ALLOCATABLE :: Vdf_location_bnd(:)   ! Spatial boundaries, defining the locations for calculation of VDFs (numbers of nodes)
+  INTEGER, ALLOCATABLE :: Edf_location_bnd(:)   ! Spatial boundaries, defining the locations for calculation of EDFs (numbers of nodes)
 
   LOGICAL Accumulate_wall_df                    ! flag, showing whether it is necessary (or not) to add particles to the wall distribution functions
 
@@ -814,6 +822,10 @@ MODULE Snapshots
 
   REAL(8), ALLOCATABLE :: evx_mid_of_box(:)     ! middles of   x-velocity boxes (in units of V_th_e), electrons
   REAL(8), ALLOCATABLE :: evyz_mid_of_box(:)    ! middles of y,z-velocity boxes (in units of V_th_e), electrons
+
+  REAL(8), ALLOCATABLE :: eedf_mid_of_box_eV(:)      ! middles of energy boxes (in units of eV), electrons
+  REAL(8), ALLOCATABLE :: iedf_mid_of_box_eV(:)      ! middles of energy boxes (in units of eV), ions
+  REAL(8), ALLOCATABLE :: iedf_wall_mid_of_box_eV(:) ! middles of energy boxes (in units of eV), ions at the wall
 
   INTEGER, ALLOCATABLE :: ep_2vdf_lw(:,:)       ! 2-d (|v_norm|,|v_par|) distribution of incident (primary) electrons at the  left wall
   INTEGER, ALLOCATABLE :: ep_2vdf_rw(:,:)       ! 2-d (|v_norm|,|v_par|) distribution of incident (primary) electrons at the right wall
@@ -840,12 +852,15 @@ MODULE Snapshots
   INTEGER, ALLOCATABLE :: ebr_vzdf_loc(:,:)       ! distribution of electrons over v_z at certain location inside the plasma
   
 !*** diagnostic array for ion distribution at the right wall, 08/01/14: 
-  real(8), allocatable :: irwedf(:), ilwedf(:)                
+  real(8), allocatable :: irwedf(:), ilwedf(:)  ! ion distribution colliding with the right and left walls, respectively
 
   REAL(8), ALLOCATABLE :: ivx_mid_of_box(:)     ! middles of x-velocity boxes (in units of V_th_e), ions
   INTEGER, ALLOCATABLE :: i_vxdf_loc(:,:)       ! distribution of ions over v_x at certain location inside the plasma
   INTEGER, ALLOCATABLE :: i_vydf_loc(:,:)       ! distribution of ions over v_y at certain location inside the plasma
   INTEGER, ALLOCATABLE :: i_vzdf_loc(:,:)       ! distribution of ions over v_z at certain location inside the plasma
+
+  INTEGER, allocatable :: e_edf_loc(:,:)        ! distribution of ions over energy at certain location inside the plasma
+  INTEGER, allocatable :: i_edf_loc(:,:)        ! distribution of ions over energy at certain location inside the plasma
 
 END MODULE Snapshots
 

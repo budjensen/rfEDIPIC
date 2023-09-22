@@ -6,7 +6,7 @@ SUBROUTINE REQUEST_WALL_DF_FOR_SNAPSHOT
   USE CurrentProblemValues, ONLY : T_cntr
   USE Diagnostics, ONLY : WriteAvg_step, WriteOut_step
   IMPLICIT NONE
-  
+
 !  INTEGER ALLOC_ERR
 
 ! quit if all snapshots were created or if due to any reasons counter of snapshots is larger than the declared number of snapshots (e.g. no snapshots) 
@@ -741,13 +741,15 @@ SUBROUTINE CREATE_SNAPSHOT
 
 !!** disabled  CALL SNAP_ELECTRON_2D_VDF_WALLS
   CALL SNAP_LOCAL_ELECTRON_VDFS
+  CALL SNAP_LOCAL_ELECTRON_EDFS
   CALL SNAP_ELECTRON_PHASE_PLANES
 
   IF (N_spec.EQ.2) THEN
 
      CALL SNAP_LOCAL_ION_VDFS
+     CALL SNAP_LOCAL_ION_EDFS
      CALL SNAP_ION_PHASE_PLANE
-     CALL SNAP_ION_EDF_RW
+     CALL SNAP_ION_EDF_RW_LW
 
   END IF
 
@@ -2054,6 +2056,18 @@ SUBROUTINE CREATE_DF_ARRAYS
      evyz_mid_of_box(i) = (DBLE(i) - 0.5_8) / DBLE(N_box_vel)
   END DO
 
+  ! create and store the middles of the velocity boxes for the velocity distributions (in units of electron thermal velocity !!!)
+  ALLOCATE(eedf_mid_of_box_eV(1:N_E_bins), STAT=ALLOC_ERR)
+  IF(ALLOC_ERR.NE.0)THEN
+     PRINT *, 'Error in ALLOCATE eedf_mid_of_box_eV !!!'
+     PRINT *, 'The program will be terminated now :('
+     STOP
+  END IF
+
+  DO i = 1, N_E_bins
+     eedf_mid_of_box_eV(i) = (DBLE(i) - 0.5_8) * delta_Ee_eV
+  END DO
+
 !  IF (Rank_of_process.EQ.0) THEN
 !! the two files below are necessary for processing of distributions, depending only on the absolute value of electron velocity
 !     OPEN (99, FILE = 'dim_mid_evnorm.dat')
@@ -2249,16 +2263,25 @@ SUBROUTINE CREATE_DF_ARRAYS
   ebr_vydf_loc = 0
   ebr_vzdf_loc = 0
 
+  ALLOCATE(e_edf_loc(1:N_E_bins,1:N_of_all_edf_locs), STAT=ALLOC_ERR)
+  IF(ALLOC_ERR.NE.0)THEN
+     PRINT *, 'Error in ALLOCATE e_edf_loc !!!'
+     PRINT *, 'The program will be terminated now :('
+     STOP
+  END IF
+
+  e_edf_loc = 0
+
 !---------
   IF (N_spec.ge.2) THEN   ! if ions are accounted in simulation
      
-     ALLOCATE(irwedf(1 : index_enr_max), STAT=ALLOC_ERR)
+     ALLOCATE(irwedf(1 : N_E_bins), STAT=ALLOC_ERR)
      IF(ALLOC_ERR.NE.0)THEN
         PRINT *, 'Error in ALLOCATE irwedf !!!'
         PRINT *, 'The program will be terminated now :('
         STOP
      END IF
-     ALLOCATE(ilwedf(1 : index_enr_max), STAT=ALLOC_ERR)
+     ALLOCATE(ilwedf(1 : N_E_bins), STAT=ALLOC_ERR)
      IF(ALLOC_ERR.NE.0)THEN
         PRINT *, 'Error in ALLOCATE ilwedf !!!'
         PRINT *, 'The program will be terminated now :('
@@ -2278,6 +2301,29 @@ SUBROUTINE CREATE_DF_ARRAYS
         ivx_mid_of_box(i) = (DBLE(i) - 0.5_8) / (DBLE(N_box_vel) * SQRT(Ms(2)))
      END DO
      
+     ALLOCATE(iedf_mid_of_box_eV(1:N_E_bins), STAT=ALLOC_ERR)
+     IF(ALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in ALLOCATE iedf_mid_of_box_eV !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+   
+     ALLOCATE(iedf_wall_mid_of_box_eV(1:N_E_bins), STAT=ALLOC_ERR)
+     IF(ALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in ALLOCATE iedf_wall_mid_of_box_eV !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+   
+     DO i = 1, N_E_bins
+        iedf_mid_of_box_eV(i) = (DBLE(i) - 0.5_8) * delta_Ei_eV
+     END DO
+   
+     DO i = 1, N_E_bins
+        iedf_wall_mid_of_box_eV(i) = (DBLE(i) - 0.5_8) * delta_Ei_wall_eV
+     END DO
+   
+
 !     IF (Rank_of_process.EQ.0) THEN
 !        OPEN (99, FILE = 'dim_mid_ivx.dat')
 !        DO i = N_box_Vx_i_low, N_box_Vx_i_top
@@ -2310,6 +2356,15 @@ SUBROUTINE CREATE_DF_ARRAYS
      i_vxdf_loc = 0
      i_vydf_loc = 0
      i_vzdf_loc = 0
+
+     ALLOCATE(i_edf_loc(1:N_E_bins,1:N_of_all_edf_locs), STAT=ALLOC_ERR)
+     IF(ALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in ALLOCATE i_edf_loc !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+
+     i_edf_loc = 0
     
   END IF
 
@@ -2517,6 +2572,13 @@ SUBROUTINE FINISH_SNAPSHOTS
         PRINT *, 'Error in DEALLOCATE Vdf_location_bnd !!!'
      END IF
   END IF
+
+  IF (ALLOCATED(Edf_location_bnd)) THEN
+     DEALLOCATE(Edf_location_bnd, STAT=DEALLOC_ERR)
+     IF(DEALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in DEALLOCATE Vdf_location_bnd !!!'
+     END IF
+  END IF
 !-----------
   IF (ALLOCATED(evx_mid_of_box)) THEN
      DEALLOCATE(evx_mid_of_box, STAT=DEALLOC_ERR)
@@ -2531,6 +2593,33 @@ SUBROUTINE FINISH_SNAPSHOTS
      DEALLOCATE(evyz_mid_of_box, STAT=DEALLOC_ERR)
      IF(DEALLOC_ERR.NE.0)THEN
         PRINT *, 'Error in DEALLOCATE evyz_mid_of_box !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+  END IF
+
+  IF (ALLOCATED(eedf_mid_of_box_eV)) THEN
+     DEALLOCATE(eedf_mid_of_box_eV, STAT=DEALLOC_ERR)
+     IF(DEALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in DEALLOCATE eedf_mid_of_box_eV !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+  END IF
+
+  IF (ALLOCATED(iedf_mid_of_box_eV)) THEN
+     DEALLOCATE(iedf_mid_of_box_eV, STAT=DEALLOC_ERR)
+     IF(DEALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in DEALLOCATE iedf_mid_of_box_eV !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+  END IF
+
+  IF (ALLOCATED(iedf_wall_mid_of_box_eV)) THEN
+     DEALLOCATE(iedf_wall_mid_of_box_eV, STAT=DEALLOC_ERR)
+     IF(DEALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in DEALLOCATE iedf_wall_mid_of_box_eV !!!'
         PRINT *, 'The program will be terminated now :('
         STOP
      END IF
@@ -2698,9 +2787,29 @@ SUBROUTINE FINISH_SNAPSHOTS
      END IF
   END IF
 
+  IF (ALLOCATED(e_edf_loc)) THEN
+     DEALLOCATE(e_edf_loc, STAT=DEALLOC_ERR)
+     IF(DEALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in DEALLOCATE e_edf_loc !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+  END IF
+
+  IF (ALLOCATED(i_edf_loc)) THEN
+     DEALLOCATE(i_edf_loc, STAT=DEALLOC_ERR)
+     IF(DEALLOC_ERR.NE.0)THEN
+        PRINT *, 'Error in DEALLOCATE i_edf_loc !!!'
+        PRINT *, 'The program will be terminated now :('
+        STOP
+     END IF
+  END IF
+
 END SUBROUTINE FINISH_SNAPSHOTS
 
-SUBROUTINE SNAP_ION_EDF_RW
+!------------------------------------------------------
+
+SUBROUTINE SNAP_ION_EDF_RW_LW
 !*** energy distribution of ions impacting the right wall 05/19/14
   use mpi
   USE ParallelOperationValues
@@ -2721,7 +2830,7 @@ SUBROUTINE SNAP_ION_EDF_RW
   INTEGER ALLOC_ERR, DEALLOC_ERR, ierr
 
   IF (.NOT.ALLOCATED(rbufer)) THEN
-     ALLOCATE(rbufer(1:index_enr_max), STAT=ALLOC_ERR) 
+     ALLOCATE(rbufer(1:N_E_bins), STAT=ALLOC_ERR) 
      IF(ALLOC_ERR.NE.0)THEN
         PRINT '(2x,"Process ",i3," : SNAP_LOCAL_ION_VDFS : Error in ALLOCATE rbufer !!!")', Rank_of_process
         PRINT '(2x,"The program will be terminated now :(")'
@@ -2730,7 +2839,7 @@ SUBROUTINE SNAP_ION_EDF_RW
   END IF
 
   IF (.NOT.ALLOCATED(rbufer2)) THEN
-     ALLOCATE(rbufer2(1:index_enr_max), STAT=ALLOC_ERR)
+     ALLOCATE(rbufer2(1:N_E_bins), STAT=ALLOC_ERR)
      IF(ALLOC_ERR.NE.0)THEN
         PRINT '(2x,"Process ",i3," : SNAP_LOCAL_ION_VDFS : Error in ALLOCATE rbufer2 !!!")', Rank_of_process
         PRINT '(2x,"The program will be terminated now :(")'
@@ -2739,24 +2848,24 @@ SUBROUTINE SNAP_ION_EDF_RW
    END IF
 
   IF (Rank_of_process.GT.0) THEN  !transmit data to server
-     rbufer(1:index_enr_max)  = irwedf(1:index_enr_max)
-     rbufer2(1:index_enr_max) = 0.0_8
-     CALL MPI_REDUCE(rbufer, rbufer2, index_enr_max, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+     rbufer(1:N_E_bins)  = irwedf(1:N_E_bins)
+     rbufer2(1:N_E_bins) = 0.0_8
+     CALL MPI_REDUCE(rbufer, rbufer2, N_E_bins, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-     rbufer(1:index_enr_max)  = ilwedf(1:index_enr_max)
-     rbufer2(1:index_enr_max) = 0.0_8
-     CALL MPI_REDUCE(rbufer, rbufer2, index_enr_max, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+     rbufer(1:N_E_bins)  = ilwedf(1:N_E_bins)
+     rbufer2(1:N_E_bins) = 0.0_8
+     CALL MPI_REDUCE(rbufer, rbufer2, N_E_bins, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
   ELSE  !receive data from clients
      rbufer  = 0.0_8
      rbufer2 = 0.0_8
-     CALL MPI_REDUCE(rbufer2, rbufer, index_enr_max, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-     irwedf(1:index_enr_max) = rbufer(1:index_enr_max)
+     CALL MPI_REDUCE(rbufer2, rbufer, N_E_bins, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+     irwedf(1:N_E_bins) = rbufer(1:N_E_bins)
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
      rbufer  = 0.0_8
      rbufer2 = 0.0_8
-     CALL MPI_REDUCE(rbufer2, rbufer, index_enr_max, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-     ilwedf(1:index_enr_max) = rbufer(1:index_enr_max)
+     CALL MPI_REDUCE(rbufer2, rbufer, N_E_bins, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+     ilwedf(1:N_E_bins) = rbufer(1:N_E_bins)
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
   END IF
   
@@ -2766,9 +2875,9 @@ SUBROUTINE SNAP_ION_EDF_RW
   ilwedf_filename(2:5) = snapnumber_txt  
   OPEN (99, FILE = irwedf_filename)
   OPEN (98, FILE = ilwedf_filename)
-  DO index_enr = 1, index_enr_max
-     WRITE (99, '(2(1x,e12.5))') (dble(index_enr)-0.5_8) * delta_enr_eV, irwedf(index_enr) 
-     WRITE (98, '(2(1x,e12.5))') (dble(index_enr)-0.5_8) * delta_enr_eV, ilwedf(index_enr)
+  DO index_enr = 1, N_E_bins
+     WRITE (99, '(2(1x,e12.5))') iedf_wall_mid_of_box_eV(index_enr), irwedf(index_enr) 
+     WRITE (98, '(2(1x,e12.5))') iedf_wall_mid_of_box_eV(index_enr), ilwedf(index_enr)
      END DO
   
   CLOSE (99, STATUS = 'KEEP')
@@ -2780,7 +2889,7 @@ SUBROUTINE SNAP_ION_EDF_RW
 IF (ALLOCATED(rbufer)) THEN
      DEALLOCATE(rbufer, STAT = DEALLOC_ERR)
      IF(DEALLOC_ERR.NE.0)THEN
-        PRINT '(2x,"Process ",i3," : SNAP_ION_EDF_RW: Error in DEALLOCATE rbufer !!!")', Rank_of_process
+        PRINT '(2x,"Process ",i3," : SNAP_ION_EDF_RW_LW: Error in DEALLOCATE rbufer !!!")', Rank_of_process
         PRINT *, 'The program will be terminated now :('
         STOP
      END IF
@@ -2789,10 +2898,318 @@ IF (ALLOCATED(rbufer)) THEN
   IF (ALLOCATED(rbufer2)) THEN
      DEALLOCATE(rbufer2, STAT = DEALLOC_ERR)
      IF(DEALLOC_ERR.NE.0)THEN
-        PRINT '(2x,"Process ",i3," : SNAP_ION_EDF_RW: Error in DEALLOCATE rbufer2 !!!")', Rank_of_process
+        PRINT '(2x,"Process ",i3," : SNAP_ION_EDF_RW_LW: Error in DEALLOCATE rbufer2 !!!")', Rank_of_process
         PRINT *, 'The program will be terminated now :('
         STOP
      END IF
   END IF  
 
-END SUBROUTINE SNAP_ION_EDF_RW
+END SUBROUTINE SNAP_ION_EDF_RW_LW
+
+!------------------------------------------------------
+! produces the local ion energy distribution functions 
+SUBROUTINE SNAP_LOCAL_ION_EDFS
+
+   use mpi
+   USE ParallelOperationValues
+   USE Snapshots
+   USE CurrentProblemValues
+   USE Diagnostics, ONLY : Factor_energy_eV 
+  
+   IMPLICIT NONE
+ 
+ !  INCLUDE 'mpif.h'
+ 
+   INTEGER k               ! particle index
+   INTEGER index_enr       ! index of energy box
+   INTEGER loc             ! index of current location
+   INTEGER cell            ! index of cell where the particle is
+ 
+   REAL(8) v2              ! velocity magnitude squared (dim-less)
+   REAL(8) energy_eV       ! particle energy in eV
+
+   CHARACTER(15) iedf_filename
+ 
+   INTEGER N_in_loc(1:N_of_all_edf_locs)     ! number of particles inside the regions, where the distribution function is calculated
+                                             ! these values are used for normalization
+                                             ! As of now, we use the same locations for edf and vdf creation
+   REAL(8) temp_arr(1:N_of_all_edf_locs)
+ 
+   INTEGER, ALLOCATABLE :: ibufer(:)
+   INTEGER, ALLOCATABLE :: ibufer2(:)
+   INTEGER ALLOC_ERR, DEALLOC_ERR, ierr
+ 
+   IF (N_of_all_edf_locs.LT.1) RETURN     ! quit if creation of local distributions was not requested
+ 
+   IF (.NOT.ALLOCATED(ibufer)) THEN
+      ALLOCATE(ibufer(1:N_E_bins), STAT=ALLOC_ERR)   ! Assume that 2 * N_E_bins is larger than the number of locations
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT '(2x,"Process ",i3," : SNAP_LOCAL_ION_EDFS : Error in ALLOCATE ibufer !!!")', Rank_of_process
+         PRINT '(2x,"The program will be terminated now :(")'
+         STOP
+      END IF
+   END IF
+ 
+ IF (.NOT.ALLOCATED(ibufer2)) THEN
+      ALLOCATE(ibufer2(1:N_E_bins), STAT=ALLOC_ERR)   ! Assume that 2 * N_E_bins is larger than the number of locations
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT '(2x,"Process ",i3," : SNAP_LOCAL_ION_EDFS : Error in ALLOCATE ibufer2 !!!")', Rank_of_process
+         PRINT '(2x,"The program will be terminated now :(")'
+         STOP
+      END IF
+   END IF
+ 
+   IF (Rank_of_process.GT.0) THEN                         ! client >>>
+ 
+      N_in_loc = 0
+ 
+      ! calculate arrays of distribution functions
+      DO k = 1, N_part(2)
+
+         v2 = VX_of_spec(2)%part(k)**2 + VY_of_spec(2)%part(k)**2 + VZ_of_spec(2)%part(k)**2
+         energy_eV = v2 * Ms(2) * Factor_energy_eV
+
+         IF (energy_eV .le. Ei_max_eV) THEN
+            index_enr = 1 + int(energy_eV/delta_Ei_eV) 
+            IF (index_enr .gt. N_E_bins) index_enr = N_E_bins
+         END IF
+
+         cell = INT(X_of_spec(2)%part(k))
+         DO loc = 1, N_of_all_edf_locs
+            IF (cell.LE.Edf_location_bnd(loc)) THEN
+
+               i_edf_loc(index_enr, loc) = i_edf_loc(index_enr, loc) + 1
+               N_in_loc(loc) = N_in_loc(loc) + 1
+
+               EXIT
+            END IF
+         END DO
+ 
+      END DO
+ ! transmit data to the server
+ ! N_in_loc
+      ibufer(1:N_of_all_edf_locs)  = N_in_loc(1:N_of_all_edf_locs)
+      ibufer2(1:N_of_all_edf_locs) = 0
+      CALL MPI_REDUCE(ibufer, ibufer2, N_of_all_edf_locs, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+ 
+ ! distributions . . .
+      DO loc = 1, N_of_all_edf_locs          ! cycle over locations
+ ! i_edf_loc    
+         ibufer(1:N_E_bins)  = i_edf_loc(1:N_E_bins, loc)
+         ibufer2(1:N_E_bins) = 0
+         CALL MPI_REDUCE(ibufer, ibufer2, N_E_bins, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+      END DO
+ 
+   ELSE                                                                                     ! server >>>
+ 
+ ! receive data from clients
+ ! N_in_loc
+      ibufer  = 0
+      ibufer2 = 0
+      CALL MPI_REDUCE(ibufer2, ibufer, N_of_all_edf_locs, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+      N_in_loc(1:N_of_all_edf_locs) = ibufer(1:N_of_all_edf_locs)
+      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+ ! distributions . . .
+      DO loc = 1, N_of_all_edf_locs          ! cycle over locations
+ ! i_edf_loc    
+         ibufer  = 0
+         ibufer2 = 0
+         CALL MPI_REDUCE(ibufer2, ibufer, N_E_bins, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         i_edf_loc(1:N_E_bins, loc) = ibufer(1:N_E_bins)
+         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+      END DO
+ 
+ ! Write the EDFs
+      iedf_filename = '_TTTT_iedf.dat'
+      iedf_filename(2:5) = snapnumber_txt
+      OPEN (99, FILE = iedf_filename)
+      WRITE (99, '("# col   1 is the midpoint Energy [in units of eV]")')
+      WRITE (99, '("#----------")')
+      DO loc = 1, N_of_all_edf_locs
+         WRITE (99, '("# col ",i3," is the ion EDF(Vx) in location ",i2," with ",i8," macroparticles")') loc+1, loc, N_in_loc(loc)
+      END DO
+      WRITE (99, '("#----------")')
+      DO index_enr = 1, N_E_bins
+         temp_arr(1:N_of_all_edf_locs) = DBLE(i_edf_loc(index_enr, 1:N_of_all_edf_locs))
+         WRITE (99, '(1x,e13.6,99(1x,e12.5))') iedf_mid_of_box_eV(index_enr), temp_arr(1:N_of_all_edf_locs)
+      END DO
+      CLOSE (99, STATUS = 'KEEP')
+   END IF
+ 
+   i_edf_loc = 0 ! cleared to accumulate again for the next snapshot, if any
+ 
+   IF (ALLOCATED(ibufer)) THEN
+      DEALLOCATE(ibufer, STAT = DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT '(2x,"Process ",i3," : SNAP_LOCAL_ION_EDFS : Error in DEALLOCATE ibufer !!!")', Rank_of_process
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+   END IF
+ 
+   IF (ALLOCATED(ibufer2)) THEN
+      DEALLOCATE(ibufer2, STAT = DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT '(2x,"Process ",i3," : SNAP_LOCAL_ION_EDFS : Error in DEALLOCATE ibufer2 !!!")', Rank_of_process
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+   END IF
+ 
+END SUBROUTINE SNAP_LOCAL_ION_EDFS
+
+!------------------------------------------------------
+! produces the local electron energy distribution functions 
+SUBROUTINE SNAP_LOCAL_ELECTRON_EDFS
+
+   use mpi
+   USE ParallelOperationValues
+   USE Snapshots
+   USE CurrentProblemValues
+   USE Diagnostics, ONLY : Factor_energy_eV 
+  
+   IMPLICIT NONE
+ 
+ !  INCLUDE 'mpif.h'
+ 
+   INTEGER k               ! particle index
+   INTEGER index_enr       ! index of energy box
+   INTEGER loc             ! index of current location
+   INTEGER cell            ! index of cell where the particle is
+ 
+   REAL(8) v2              ! velocity magnitude squared (dim-less)
+   REAL(8) energy_eV       ! particle energy in eV
+
+   CHARACTER(15) eedf_filename
+ 
+   INTEGER N_in_loc(1:N_of_all_edf_locs)     ! number of particles inside the regions, where the distribution function is calculated
+                                             ! these values are used for normalization
+                                             ! As of now, we use the same locations for edf and vdf creation
+   REAL(8) temp_arr(1:N_of_all_edf_locs)
+ 
+   INTEGER, ALLOCATABLE :: ibufer(:)
+   INTEGER, ALLOCATABLE :: ibufer2(:)
+   INTEGER ALLOC_ERR, DEALLOC_ERR, ierr
+ 
+   IF (N_of_all_edf_locs.LT.1) RETURN     ! quit if creation of local distributions was not requested
+ 
+   IF (.NOT.ALLOCATED(ibufer)) THEN
+      ALLOCATE(ibufer(1:N_E_bins), STAT=ALLOC_ERR)   ! Assume that 2 * N_E_bins is larger than the number of locations
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT '(2x,"Process ",i3," : SNAP_LOCAL_ELECTRON_EDFS : Error in ALLOCATE ibufer !!!")', Rank_of_process
+         PRINT '(2x,"The program will be terminated now :(")'
+         STOP
+      END IF
+   END IF
+ 
+ IF (.NOT.ALLOCATED(ibufer2)) THEN
+      ALLOCATE(ibufer2(1:N_E_bins), STAT=ALLOC_ERR)   ! Assume that 2 * N_E_bins is larger than the number of locations
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT '(2x,"Process ",i3," : SNAP_LOCAL_ELECTRON_EDFS : Error in ALLOCATE ibufer2 !!!")', Rank_of_process
+         PRINT '(2x,"The program will be terminated now :(")'
+         STOP
+      END IF
+   END IF
+ 
+   IF (Rank_of_process.GT.0) THEN                         ! client >>>
+ 
+      N_in_loc = 0
+ 
+      ! calculate arrays of distribution functions
+      DO k = 1, N_part(1)
+
+         v2 = VX_of_spec(1)%part(k)**2 + VY_of_spec(1)%part(k)**2 + VZ_of_spec(1)%part(k)**2
+         energy_eV = v2 * Ms(1) * Factor_energy_eV
+
+         IF (energy_eV .le. Ee_max_eV) THEN
+            index_enr = 1 + int(energy_eV/delta_Ee_eV) 
+            IF (index_enr .gt. N_E_bins) index_enr = N_E_bins
+         END IF
+
+         cell = INT(X_of_spec(1)%part(k))
+         DO loc = 1, N_of_all_edf_locs
+            IF (cell.LE.Edf_location_bnd(loc)) THEN
+
+               e_edf_loc(index_enr, loc) = e_edf_loc(index_enr, loc) + 1
+               N_in_loc(loc) = N_in_loc(loc) + 1
+
+               EXIT
+            END IF
+         END DO
+ 
+      END DO
+ ! transmit data to the server
+ ! N_in_loc
+      ibufer(1:N_of_all_edf_locs)  = N_in_loc(1:N_of_all_edf_locs)
+      ibufer2(1:N_of_all_edf_locs) = 0
+      CALL MPI_REDUCE(ibufer, ibufer2, N_of_all_edf_locs, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+ 
+ ! distributions . . .
+      DO loc = 1, N_of_all_edf_locs          ! cycle over locations
+ ! e_edf_loc    
+         ibufer(1:N_E_bins)  = e_edf_loc(1:N_E_bins, loc)
+         ibufer2(1:N_E_bins) = 0
+         CALL MPI_REDUCE(ibufer, ibufer2, N_E_bins, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+      END DO
+ 
+   ELSE                                                                                     ! server >>>
+ 
+ ! receive data from clients
+ ! N_in_loc
+      ibufer  = 0
+      ibufer2 = 0
+      CALL MPI_REDUCE(ibufer2, ibufer, N_of_all_edf_locs, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+      N_in_loc(1:N_of_all_edf_locs) = ibufer(1:N_of_all_edf_locs)
+      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+ ! distributions . . .
+      DO loc = 1, N_of_all_edf_locs          ! cycle over locations
+ ! e_edf_loc    
+         ibufer  = 0
+         ibufer2 = 0
+         CALL MPI_REDUCE(ibufer2, ibufer, N_E_bins, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         e_edf_loc(1:N_E_bins, loc) = ibufer(1:N_E_bins)
+         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+      END DO
+ 
+ ! Write the EDFs
+      eedf_filename = '_TTTT_eedf.dat'
+      eedf_filename(2:5) = snapnumber_txt
+      OPEN (99, FILE = eedf_filename)
+      WRITE (99, '("# col   1 is the midpoint Energy [in units of eV]")')
+      WRITE (99, '("#----------")')
+      DO loc = 1, N_of_all_edf_locs
+         WRITE (99, '("# col ",i3," is the electron EDF(Vx) in location ",i2," with ",i8," macroparticles")') loc+1, loc, N_in_loc(loc)
+      END DO
+      WRITE (99, '("#----------")')
+      DO index_enr = 1, N_E_bins
+         temp_arr(1:N_of_all_edf_locs) = DBLE(e_edf_loc(index_enr, 1:N_of_all_edf_locs))
+         WRITE (99, '(1x,e13.6,99(1x,e12.5))') eedf_mid_of_box_eV(index_enr), temp_arr(1:N_of_all_edf_locs)
+      END DO
+      CLOSE (99, STATUS = 'KEEP')
+   END IF
+ 
+   e_edf_loc = 0 ! cleared to accumulate again for the next snapshot, if any
+ 
+   IF (ALLOCATED(ibufer)) THEN
+      DEALLOCATE(ibufer, STAT = DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT '(2x,"Process ",i3," : SNAP_LOCAL_ELECTRON_EDFS : Error in DEALLOCATE ibufer !!!")', Rank_of_process
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+   END IF
+ 
+   IF (ALLOCATED(ibufer2)) THEN
+      DEALLOCATE(ibufer2, STAT = DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT '(2x,"Process ",i3," : SNAP_LOCAL_ELECTRON_EDFS : Error in DEALLOCATE ibufer2 !!!")', Rank_of_process
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+   END IF
+ 
+END SUBROUTINE SNAP_LOCAL_ELECTRON_EDFS

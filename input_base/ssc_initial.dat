@@ -37,7 +37,7 @@
      100
 --dddddd----- Number of cells per Debye length. ** If <0 then abs. value gives delta_x in microns ** 
      -64  
-------dd--d-- Max. expected velocity (in V_therm_e) (** or delta_t [ps] if picosec_flag=1 **), picosec_flag
+----dddd--d-- Max. expected velocity (in V_therm_e) (** or delta_t [ps] if picosec_flag=1 **), picosec_flag
       10  1
 --dddddd----- Number of velocity boxes per unit of V_therm ------------------
      256 

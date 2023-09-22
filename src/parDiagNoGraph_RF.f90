@@ -32,12 +32,18 @@ SUBROUTINE INITIATE_DIAGNOSTICS
                                     ! N_of_all_vdf_locs = N_of_breakpoints + 1
                                     ! if N_of_breakpoints < 0 no local distributions will be created
                                     ! if N_of_breakpoints = 0 distribution will be created using all particles
+  INTEGER N_of_E_breakpoints        ! approximate number of breakpoints - right boundaries of
+                                    ! locations for calculation of energy distribution functions (EDF)
+                                    ! N_of_all_edf_locs = N_of_E_breakpoints + 1
+                                    ! if N_of_E_breakpoints < 0 no local distributions will be created
+                                    ! if N_of_E_breakpoints = 0 distribution will be created using all particles
   REAL(8) X_breakpoint              ! breakpoint coordinate
   
   INTEGER N_of_probes_given         ! number of lines in data file where probe locations are described
 
   INTEGER timestep(1:9999)          ! array for temporary storage of moments (timesteps) of snapshots
   INTEGER breakpoint(1:200)         ! array for temporary storage of locations (node numbers) of breakpoints ## (double the size to filter
+  INTEGER breakpoint_E(1:200)       ! array for temporary storage of locations (node numbers) of breakpoints ##  input with multiple errors)
   INTEGER probe_location(1:2000)    ! array for temporary storage of locations (node numbers) of probes      ##  input with multiple errors) 
 
   CHARACTER (77) buf
@@ -94,21 +100,33 @@ SUBROUTINE INITIATE_DIAGNOSTICS
         READ (9, '(12x,f10.3,12x,f10.3,14x,i4)') Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps    !!!
 ! try the next group of snapshots if some stupid guy used the group with zero snapshots
         IF (Aprx_n_of_snaps.LT.1) CYCLE
+
 ! get the timestep, coinciding with the diagnostic output timestep and closest to Aprx_snap_start_ns
+        ! Calculate start timestep specified in the file
         T1 = Aprx_snap_start_ns / (delta_t_s * 1.0e9)
+
+        ! If the start timestep is less than the first timestep for diagnostic output specified in the file,
+        ! then use the first timestep for diagnostic output
         IF (T1.LT.(WriteStart_step + WriteAvg_step - 1)) T1 = WriteStart_step + WriteAvg_step - 1
+
+        ! Calculate the number of write steps between the start timestep and the first timestep for diagnostic output
         N1 = (T1 - (WriteStart_step + WriteAvg_step - 1)) / WriteOut_step
+
+        ! 
         T1 = WriteStart_step + N1 * WriteOut_step + WriteAvg_step - 1
+
 ! get the timestep, coinciding with the diagnostic output timestep and closest to Aprx_snap_finish_ns
         T2 = Aprx_snap_finish_ns / (delta_t_s * 1.0e9)
         IF (T2.LT.(WriteStart_step + WriteAvg_step - 1)) T2 = WriteStart_step + WriteAvg_step - 1
         N2 = (T2 - (WriteStart_step + WriteAvg_step - 1)) / WriteOut_step
         T2 = WriteStart_step + N2 * WriteOut_step + WriteAvg_step - 1
+
 ! adjust, if necessary, the start timesteps if it is before (less than) the finish timestep for the previous set of snapshots T2_old
         IF (T1.LE.T2_old) THEN 
            T1 = T2_old + WriteOut_step
            N1 = N2_old + 1
         END IF
+
 ! adjust, if necessary, the finish timestep if it is after (larger than) the last simulation timestep
         DO WHILE (T2.GT.Max_T_cntr)
            T2 = T2 - WriteOut_step
@@ -176,6 +194,34 @@ SUBROUTINE INITIATE_DIAGNOSTICS
            breakpoint(N_of_all_vdf_locs) = N_cells
         END IF
 
+        READ (9, '(A77)') buf ! ************** ENERGY DISTRIBUTION FUNCTIONS CREATION CONTROL ***************")')
+        READ (9, '(A77)') buf ! --dddddd.ddd- Maximal energy for electron e-distribution (in eV) ------------")')
+        READ (9, '(2x,f10.3)') Ee_max_eV
+        READ (9, '(A77)') buf ! --dddddd.ddd- Maximal energy for ion e-distribution (in eV) -----------------")')
+        READ (9, '(2x,f10.3)') Ei_max_eV
+        READ (9, '(A77)') buf ! ------dd----- Number of breakpoints (no edfs if<0, all system used if 0) ----")')
+        READ (9, '(6x,i2)') N_of_E_breakpoints
+        READ (9, '(A77)') buf ! --dddddd.ddd- Breakpoints (ascend., node number if>0 or millimeters if <0) --")')
+
+        DO i = 1, N_of_E_breakpoints
+           READ (9, '(2x,f10.3)') X_breakpoint
+           IF (X_breakpoint.LT.0.0_8) X_breakpoint = 0.001_8 * ABS(X_breakpoint) / delta_x_m   ! if negative - convert from millimeters
+           IF (INT(X_breakpoint).EQ.0)  CYCLE                          ! must include at least one cell
+           IF (INT(X_breakpoint).GE.N_cells) CYCLE                     ! must be less than the right plasma boundary to avoid ambiguity
+           N_of_all_edf_locs = N_of_all_edf_locs + 1
+           breakpoint_E(N_of_all_edf_locs) = INT(X_breakpoint)
+        END DO
+! Save the right plasma boundary as the last breakpoint, if creation of local distribution functions was not cancelled completely
+        IF (N_of_breakpoints.GE.0) THEN
+           N_of_all_edf_locs = N_of_all_edf_locs + 1
+           breakpoint_E(N_of_all_edf_locs) = N_cells
+        END IF
+
+        READ (9, '(A77)') buf ! --dddddd.ddd- Maximal energy for ion wall e-distribution (in eV) ------------")')
+        READ (9, '(2x,f10.3)') Ei_wall_max_eV
+        READ (9, '(A77)') buf ! -----ddd----- Number of bins for e-distributions (>0) -----------------------")')
+        READ (9, '(5x,i3)') N_E_bins
+
      END IF
 
   ELSE
@@ -199,6 +245,11 @@ SUBROUTINE INITIATE_DIAGNOSTICS
      Ve_x_max            = 3.0_8
      Ve_yz_max           = 3.0_8
      N_of_breakpoints    = 0
+     Ee_max_eV           = 100.0_8
+     Ei_max_eV           = 20.0_8
+     N_of_E_breakpoints  = 0
+     Ei_wall_max_eV      = 100.0_8
+     N_E_bins            = 50
 
      IF (Rank_of_process.EQ.0) THEN
 
@@ -236,6 +287,18 @@ SUBROUTINE INITIATE_DIAGNOSTICS
         WRITE (9, '("------dd----- Number of breakpoints (no evdfs if<0, all system used if 0) ---")')
         WRITE (9, '(6x,i2)') N_of_breakpoints
         WRITE (9, '("--dddddd.ddd- Breakpoints (ascend., node number if>0 or millimeters if <0) --")')
+        WRITE (9, '("************** ENERGY DISTRIBUTION FUNCTIONS CREATION CONTROL ***************")')
+        WRITE (9, '("--dddddd.ddd- Maximal energy for electron e-distribution (in eV) ------------")')
+        WRITE (9, '(2x,f10.3)') Ee_max_eV
+        WRITE (9, '("--dddddd.ddd- Maximal energy for ion e-distribution (in eV) -----------------")')
+        WRITE (9, '(2x,f10.3)') Ei_max_eV
+        WRITE (9, '("------dd----- Number of breakpoints (no edfs if<0, all system used if 0) ----")')
+        WRITE (9, '(6x,i2)') N_of_E_breakpoints
+        WRITE (9, '("--dddddd.ddd- Breakpoints (ascend., node number if>0 or millimeters if <0) --")')
+        WRITE (9, '("--dddddd.ddd- Maximal energy for ion wall e-distribution (in eV) ------------")')
+        WRITE (9, '(2x,f10.3)') Ei_wall_max_eV
+        WRITE (9, '("-----ddd----- Number of bins for e-distributions (>0) -----------------------")')
+        WRITE (9, '(5x,i3)') N_E_bins
 
      END IF
 
@@ -314,9 +377,9 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
 ! report about the status of local distribution functions creation ===========================
      IF (N_of_all_vdf_locs.EQ.0) THEN
-        IF (Rank_of_process.EQ.0) PRINT '(2x,"No local distribution functions will be created in snapshots ...")'
+        IF (Rank_of_process.EQ.0) PRINT '(2x,"No local velocity distribution functions will be created in snapshots ...")'
      ELSE
-        IF (Rank_of_process.EQ.0) PRINT '(2x,"The distribution functions will be calculated in ",i3," locations")', &
+        IF (Rank_of_process.EQ.0) PRINT '(2x,"The velocity distribution functions will be calculated in ",i3," locations")', &
                                                                                                   & N_of_all_vdf_locs
 ! allocate the array of boundaries of locations for calculation of VDF in snapshots
         IF (.NOT.ALLOCATED(Vdf_location_bnd)) THEN
@@ -366,6 +429,49 @@ SUBROUTINE INITIATE_DIAGNOSTICS
      N_box_Vx_i_low  = -N_box_Vx_i                   ! this will save one addition and one sign changing for each ion
      N_box_Vx_i_top  =  N_box_Vx_i + 1               ! 
 
+! report about the status of local energy distribution functions creation ===========================
+     IF (N_of_all_edf_locs.EQ.0) THEN
+        IF (Rank_of_process.EQ.0) PRINT '(2x,"No local energy distribution functions will be created in snapshots ...")'
+     ELSE
+        IF (Rank_of_process.EQ.0) PRINT '(2x,"The energy distribution functions will be calculated in ",i3," locations")', &
+                                                                                                  & N_of_all_edf_locs
+! allocate the array of boundaries of locations for calculation of VDF in snapshots
+        IF (.NOT.ALLOCATED(Edf_location_bnd)) THEN
+           ALLOCATE(Edf_location_bnd(1:N_of_all_edf_locs), STAT=ALLOC_ERR)
+           IF(ALLOC_ERR.NE.0)THEN
+              PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Edf_location_bnd !!!")', Rank_of_process
+              PRINT  '(2x,"Program will be terminated now :(")'
+              STOP
+           END IF
+        END IF
+! move the calculated locations for EDF from the temporary array to the allocated array 
+        Edf_location_bnd(1:N_of_all_edf_locs) = breakpoint_E(1:N_of_all_edf_locs)
+! for server process only:
+        IF (Rank_of_process.EQ.0) THEN
+! write locations to the file
+           OPEN (41, FILE = '_edflocations.dat')
+!                       "---***---#*.*****E#**---#*.*****E#**------******------******"
+           WRITE (41, '("# number   left(mm)       right(mm)     left node   right node")')
+           WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') 1, &
+                                                    & 0.0, &
+                                                    & 1000.0_8 * Edf_location_bnd(1) * delta_x_m, &
+                                                    & 0, &
+                                                    & Edf_location_bnd(1)
+           DO i = 2, N_of_all_edf_locs
+              WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') i, &
+                                                    & 1000.0_8 * Edf_location_bnd(i-1) * delta_x_m, &
+                                                    & 1000.0_8 * Edf_location_bnd(i) * delta_x_m, &
+                                                    & Edf_location_bnd(i-1), &
+                                                    & Edf_location_bnd(i)
+           END DO
+           CLOSE (41, STATUS = 'KEEP')
+        END IF
+     END IF
+   
+     delta_Ee_eV = Ee_max_eV / N_E_bins
+     delta_Ei_eV = Ei_max_eV / N_E_bins
+     delta_Ei_wall_eV = Ei_wall_max_eV / N_E_bins
+
 ! allocate arrays, related with the distribution functions, initiate and write to the files arrays of middles of velocity boxes
      CALL CREATE_DF_ARRAYS
 
@@ -413,9 +519,9 @@ SUBROUTINE INITIATE_DIAGNOSTICS
   endif
 
   IF (Rank_of_process.EQ.0) THEN
-     PRINT '(/2x,"Diagnostic values will be written into the file with time interval : ",f8.4," ns")', WriteOut_step * delta_t_s * 1.0e9
-     PRINT  '(2x,"First data will start collecting at the moment                    : ",f8.4," ns")',  WriteStart_step * delta_t_s * 1.0e9
-     PRINT  '(2x,"Averaging will be carried out during the following time interval : ",f8.4," ns")',   WriteAvg_step * delta_t_s * 1.0e9
+     PRINT '(/2x,"Diagnostic values will be written into the file with time interval : ",f9.4," ns")', WriteOut_step * delta_t_s * 1.0e9
+     PRINT  '(2x,"First data will start collecting at the moment                    : ",f9.4," ns")',  WriteStart_step * delta_t_s * 1.0e9
+     PRINT  '(2x,"Averaging will be carried out during the following time interval : ",f13.4," ns")',   WriteAvg_step * delta_t_s * 1.0e9
      IF (SaveCheck_step.GT.0) THEN
         PRINT '(2x,"Checkpoints will be created with time interval                  : ",f9.4," ns")',  SaveCheck_step * delta_t_s * 1.0e9
      ELSE

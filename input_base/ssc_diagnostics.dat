@@ -40,3 +40,18 @@
      -70.000
      -90.000
     -110.000
+************** ENERGY DISTRIBUTION FUNCTIONS CREATION CONTROL ***************
+--dddddd.ddd- Maximal energy for electron e-distribution (in eV) ------------
+      80.000
+--dddddd.ddd- Maximal energy for ion e-distribution (in eV) -----------------
+      10.000
+------dd----- Number of breakpoints (no edfs if<0, all system used if 0) ----
+       3
+--dddddd.ddd- Breakpoints (ascend., node number if>0 or millimeters if <0) --
+     -70.000
+     -90.000
+    -110.000
+--dddddd.ddd- Maximal energy for ion wall e-distribution (in eV) ------------
+     100.000
+-----ddd----- Number of bins for e-distributions (>0) -----------------------
+      50
