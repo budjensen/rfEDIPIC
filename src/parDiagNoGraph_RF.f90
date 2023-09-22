@@ -617,6 +617,8 @@ SUBROUTINE PREPARE_TIME_DEPENDENCE_DATAFILES
 !  INTEGER i_dummy
   REAL    r_dummy, arr_dummy(1:99)
 
+  INTEGER temp_N_of_records
+
   IF (Rank_of_process.NE.0) RETURN   
 
 ! if particles are initialized NOT from the checkpoint datafiles                  (Restore_from_checkpoint = 0)
@@ -1017,9 +1019,25 @@ SUBROUTINE PREPARE_TIME_DEPENDENCE_DATAFILES
 
 ! PLASMA DENSITIES, POTENTIAL, ELECTRIC FIELD, IN PROBES
 
+     ! Ran into an error restarting from a checkpoint file with zero probes (9/22/23). If there are no probes in the
+     !   original simulation the probe data files are length zero. This causes an error when trying to read the first 
+     !   1:N_of_saved_records data files.
+     ! The following line of code checks for a component of this error and skips the reading of the data files if 
+     !   there are no probes in the continued run:
+     !
+     !  **** IF ((exists).AND.(N_of_probes.GT.0)) THEN ***
+     !
+     ! This is not a fool proof fix. If you initially ran with no probes, but now run with probes you will still try
+     !   read the first 1:N_of_saved_records lines of the probe data files. This will cause an error.
+     ! A way to fix this would be to write the probe data files with a header line that contains the number of probes,
+     !   or to write the prior number of probes into the snapshot file, thus allowing us to check how many probes
+     !   were used in the prior simulation. If the number of probes was noon-zero, we could proceed with reading the
+     !   probe data files. If the number of probes was zero, we could skip the reading of the probe data files and append
+     !   any probe data from the continued simulation onto blank files.
+
 ! electrons
      INQUIRE (FILE = 'dim_Ne_vst.dat', EXIST = exists)
-     IF (exists) THEN                                                       
+     IF ((exists).AND.(N_of_probes.GT.0)) THEN                                                       
         OPEN (50, FILE = 'dim_Ne_vst.dat', STATUS = 'OLD')                  
         DO i = 1, N_of_saved_records
            READ (50, '(2x,f12.5,999(1x,e12.5))') r_dummy !, arr_dummy(1:N_of_probes)
@@ -1030,7 +1048,7 @@ SUBROUTINE PREPARE_TIME_DEPENDENCE_DATAFILES
 
 ! ions
      INQUIRE (FILE = 'dim_Ni_vst.dat', EXIST = exists)
-     IF (exists) THEN                                                       
+     IF ((exists).AND.(N_of_probes.GT.0)) THEN                                                       
         OPEN (50, FILE = 'dim_Ni_vst.dat', STATUS = 'OLD')                  
         DO i = 1, N_of_saved_records
            READ (50, '(2x,f12.5,999(1x,e12.5))') r_dummy !, arr_dummy(1:N_of_probes)
@@ -1041,7 +1059,7 @@ SUBROUTINE PREPARE_TIME_DEPENDENCE_DATAFILES
 
 ! potential
      INQUIRE (FILE = 'dim_F_vst.dat', EXIST = exists)
-     IF (exists) THEN                                                       
+     IF ((exists).AND.(N_of_probes.GT.0)) THEN                                                       
         OPEN (50, FILE = 'dim_F_vst.dat', STATUS = 'OLD')                
         DO i = 1, N_of_saved_records
            READ (50, '(2x,f12.5,999(1x,e12.5))') r_dummy !, arr_dummy(1:N_of_probes) 
@@ -1052,7 +1070,7 @@ SUBROUTINE PREPARE_TIME_DEPENDENCE_DATAFILES
 
 ! electric field
      INQUIRE (FILE = 'dim_Ex_vst.dat', EXIST = exists)
-     IF (exists) THEN                                                       
+     IF ((exists).AND.(N_of_probes.GT.0)) THEN                                                       
         OPEN (50, FILE = 'dim_Ex_vst.dat', STATUS = 'OLD')                
         DO i = 1, N_of_saved_records
            READ (50, '(2x,f12.5,999(1x,e12.5))') r_dummy !, arr_dummy(1:N_of_probes) 
