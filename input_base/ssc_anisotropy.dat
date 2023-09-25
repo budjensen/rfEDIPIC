@@ -1,12 +1,12 @@
 ============== Parameters of anisotropic electron distribution ==============
 --dddddd.ddd- X-temperature (eV) --------------------------------------------
-       3.000
+       2.585
 --dddddd.ddd- Z-temperature (eV) --------------------------------------------
-       3.000
+       2.585
 ------dd----- Maximal velocity for initial distribution (in V_therm_e) ------
-       3
+       4
 --#d.dddE#dd- Plasma density (m^-3), does not affect scaling ----------------
-   1.000E+15
+   2.560E+14
 =============== To calculate the drift velocity one must set: ===============
 --dddddd.ddd- E_z (V/m), not to be used in the equation of motion -----------
        0.000

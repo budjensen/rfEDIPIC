@@ -15,37 +15,37 @@
 --dddddd.ddd- External z-electric field parallel to walls (V/m) -------------
        0.000
 --dddddd.ddd- Left wall potential/battery voltage (V) -----------------------
-     200.000
+       0.000
 --#d.dddE#dd- Left wall RF frequency (Hz) -----------------------------------
    1.356E+7
 --dddddd.ddd- Left wall RF amplitude (V) ------------------------------------
-     150.000
+     450.000
 --#d.dddE#dd- Left wall RF start time (s) -----------------------------------
    0.000E-9
 --dddddd.dddd-Plasma layer width (m, beam wavelengths if negative) ----------
-       0.0320
+       0.0670
 --dddddd.ddd- Ion mass (a.m.u., m_e if negative) ----------------------------
-      39.948 
+       4.017 
 --dddddd.ddd- Ion temperature (eV) ------------------------------------------
        0.026
 ======================= PARAMETERS DEFINING SCALE VALUES ====================
 --#d.dddE#dd- Plasma density (m^-3) -----------------------------------------
-   1.000E+15
+   2.560E+14
 --dddddd.ddd- Electron temperature (eV) -------------------------------------
-       1.000
+       2.585
 --dddddd----- Number of macroparticles per cell -----------------------------
-     100
+     512
 --dddddd----- Number of cells per Debye length. ** If <0 then abs. value gives delta_x in microns ** 
-     -64  
+    -523 
 ----dddd--d-- Max. expected velocity (in V_therm_e) (** or delta_t [ps] if picosec_flag=1 **), picosec_flag
-      10  1
+      18  1
 --dddddd----- Number of velocity boxes per unit of V_therm ------------------
-     256 
+     128 
 ============================ SIMULATION CONTROL =============================
 --dddddd.ddd- Duration of simulation (ns) -----------------------------------
-   60000.000
+   94395.280
 --dddddd----- Step for saving checkpoints (timesteps, skip if <=0) ----------
-  100000
+  409600
 --dddddd----- Seed for random numbers generator -----------------------------
   713287
 ------------- Method of initialization --------------------------------------
