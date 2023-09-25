@@ -585,43 +585,84 @@ SUBROUTINE CREATE_SNAPSHOT
 
              factor_eV = 0.5_8 * m_e_kg / e_Cl
 
-        WRITE (99, '(29(1x,e14.7))') &
-             & n * delta_x_m, &   ! 1
-             & F(n) * U_scl_V, &       ! 2
-             & EX(n) * E_scl_Vm, &     ! 3
-             & Ne_m3, &           ! 4
-             & Ni_m3, &           ! 5
-!             & Jx_Am2, &               ! 6
-             & (qi_m2s - qe_m2s) * e_Cl, & ! 6
-             & Jy_Am2, &               ! 7
-             & Jz_Am2, &               ! 8
-             & Vex_ms, &          !  9
-             & Vey_ms, &          ! 10
-             & Vez_ms, &          ! 11
-!             & Wex_eV - Vex_ms**2 * Ms(1) * factor_eV, &     ! 12
-!             & Wey_eV - Vey_ms**2 * Ms(1) * factor_eV, &     ! 13
-!             & Wez_eV - Vez_ms**2 * Ms(1) * factor_eV, &     ! 14
-             & Wex_eV, &      ! 12
-             & Wey_eV, &      ! 13
-             & Wez_eV, &      ! 14
-             & Vix_ms, &          ! 15
-             & Viy_ms, &          ! 16
-             & Viz_ms, &          ! 17
-!             & Wix_eV - Vix_ms**2 * Ms(2) * factor_eV, &     ! 18
-!             & Wiy_eV - Viy_ms**2 * Ms(2) * factor_eV, &     ! 19
-!             & Wiz_eV - Viz_ms**2 * Ms(2) * factor_eV, &     ! 20
-             & Wix_eV, &     ! 18
-             & Wiy_eV, &     ! 19
-             & Wiz_eV, &     ! 20
-             & Bx_gauss(DBLE(n)), &   ! 21
-             & By_gauss(DBLE(n)), &   ! 22
-             & ionization_rate, &     ! 23       
-             & ionization_sum, &      ! 24
-             & qi_m2s, &              ! 25
-             & qe_m2s, &              ! 26
-             & P_heat_cell(n, 1) * Ms(1) * factor_Watt_cm3, & !27
-             & P_heat_cell(n, 2) * Ms(2) * factor_Watt_cm3, & !28
-             & full_Q_left                                    !29
+        IF (n.EQ.0) THEN
+          WRITE (99, '(29(1x,e14.7))') &
+               & n * delta_x_m, &   ! 1
+               & F(n) * U_scl_V, &       ! 2
+               & EX(n) * E_scl_Vm, &     ! 3
+               & Ne_m3, &           ! 4
+               & Ni_m3, &           ! 5
+!              & Jx_Am2, &               ! 6
+               & (qi_m2s - qe_m2s) * e_Cl, & ! 6
+               & Jy_Am2, &               ! 7
+               & Jz_Am2, &               ! 8
+               & Vex_ms, &          !  9
+               & Vey_ms, &          ! 10
+               & Vez_ms, &          ! 11
+!              & Wex_eV - Vex_ms**2 * Ms(1) * factor_eV, &     ! 12
+!              & Wey_eV - Vey_ms**2 * Ms(1) * factor_eV, &     ! 13
+!              & Wez_eV - Vez_ms**2 * Ms(1) * factor_eV, &     ! 14
+               & Wex_eV, &      ! 12
+               & Wey_eV, &      ! 13
+               & Wez_eV, &      ! 14
+               & Vix_ms, &          ! 15
+               & Viy_ms, &          ! 16
+               & Viz_ms, &          ! 17
+!              & Wix_eV - Vix_ms**2 * Ms(2) * factor_eV, &     ! 18
+!              & Wiy_eV - Viy_ms**2 * Ms(2) * factor_eV, &     ! 19
+!              & Wiz_eV - Viz_ms**2 * Ms(2) * factor_eV, &     ! 20
+               & Wix_eV, &     ! 18
+               & Wiy_eV, &     ! 19
+               & Wiz_eV, &     ! 20
+               & Bx_gauss(DBLE(n)), &   ! 21
+               & By_gauss(DBLE(n)), &   ! 22
+               & ionization_rate, &     ! 23       
+               & ionization_sum, &      ! 24
+               & qi_m2s, &              ! 25
+               & qe_m2s, &              ! 26
+               & 0.0_8, & !27 !!!! 9-22-23 - This use to print n=0, which was not allocated
+               & 0.0_8, & !28 !!!! Now we just print P_heat_cell(n=0)=0, which is not a big deal (I hope)
+               & full_Q_left                                    !29
+        ELSE
+
+          WRITE (99, '(29(1x,e14.7))') &
+               & n * delta_x_m, &   ! 1
+               & F(n) * U_scl_V, &       ! 2
+               & EX(n) * E_scl_Vm, &     ! 3
+               & Ne_m3, &           ! 4
+               & Ni_m3, &           ! 5
+   !             & Jx_Am2, &               ! 6
+               & (qi_m2s - qe_m2s) * e_Cl, & ! 6
+               & Jy_Am2, &               ! 7
+               & Jz_Am2, &               ! 8
+               & Vex_ms, &          !  9
+               & Vey_ms, &          ! 10
+               & Vez_ms, &          ! 11
+   !             & Wex_eV - Vex_ms**2 * Ms(1) * factor_eV, &     ! 12
+   !             & Wey_eV - Vey_ms**2 * Ms(1) * factor_eV, &     ! 13
+   !             & Wez_eV - Vez_ms**2 * Ms(1) * factor_eV, &     ! 14
+               & Wex_eV, &      ! 12
+               & Wey_eV, &      ! 13
+               & Wez_eV, &      ! 14
+               & Vix_ms, &          ! 15
+               & Viy_ms, &          ! 16
+               & Viz_ms, &          ! 17
+   !             & Wix_eV - Vix_ms**2 * Ms(2) * factor_eV, &     ! 18
+   !             & Wiy_eV - Viy_ms**2 * Ms(2) * factor_eV, &     ! 19
+   !             & Wiz_eV - Viz_ms**2 * Ms(2) * factor_eV, &     ! 20
+               & Wix_eV, &     ! 18
+               & Wiy_eV, &     ! 19
+               & Wiz_eV, &     ! 20
+               & Bx_gauss(DBLE(n)), &   ! 21
+               & By_gauss(DBLE(n)), &   ! 22
+               & ionization_rate, &     ! 23       
+               & ionization_sum, &      ! 24
+               & qi_m2s, &              ! 25
+               & qe_m2s, &              ! 26
+               & P_heat_cell(n, 1) * Ms(1) * factor_Watt_cm3, & !27 !!!! 9-22-23 - This use to print n=0, which was not allocated
+               & P_heat_cell(n, 2) * Ms(2) * factor_Watt_cm3, & !28 !!!! Now we just print P_heat_cell(n=0)=0, which is not a big deal (I hope)
+               & full_Q_left                                    !29
+        END IF
 
      END DO
      CLOSE (99, STATUS = 'KEEP')
@@ -2928,6 +2969,10 @@ SUBROUTINE SNAP_LOCAL_ION_EDFS
    REAL(8) v2              ! velocity magnitude squared (dim-less)
    REAL(8) energy_eV       ! particle energy in eV
 
+   REAL(8) doublecell      ! particle position in double precision
+   INTEGER endloc
+   INTEGER N_all_temp
+
    CHARACTER(15) iedf_filename
  
    INTEGER N_in_loc(1:N_of_all_edf_locs)     ! number of particles inside the regions, where the distribution function is calculated
@@ -2975,6 +3020,20 @@ SUBROUTINE SNAP_LOCAL_ION_EDFS
          END IF
 
          cell = INT(X_of_spec(2)%part(k))
+
+         ! If cell greater than Edf_location_bnd(endloc), then the particle is outside the last location
+         ! If this is the case, print a warning that includes the process number, and the particle number
+         ! Then skip the particle and move on to the next one
+         IF (cell.GE.Edf_location_bnd(N_of_all_edf_locs)) THEN
+            PRINT '(2x,"Process ",i3," : SNAP_LOCAL_ION_EDFS : Warning: particle ",i8," is outside the last location !!!")', &
+                   & Rank_of_process, k
+            PRINT '(2x,"The particle location is: cell = ",i8," !!!")', cell
+            CYCLE
+         END IF
+         ! Note that this if statement above is not necessary if the particles are not allowed to leave the domain (which they are not)
+         ! But, it seeemed like a compiler optimization error due to -O2 flags, so I added it just in case. Seems to work just fine now.
+         !  - 9/25/23
+
          DO loc = 1, N_of_all_edf_locs
             IF (cell.LE.Edf_location_bnd(loc)) THEN
 
@@ -2984,7 +3043,7 @@ SUBROUTINE SNAP_LOCAL_ION_EDFS
                EXIT
             END IF
          END DO
- 
+
       END DO
  ! transmit data to the server
  ! N_in_loc
