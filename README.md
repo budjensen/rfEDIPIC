@@ -1,10 +1,12 @@
 # rfEDIPIC
 
 This is a modified version of the EDIPIC code from Dmytro Sydorenko. This version of the code directly incorporates
-into the inpu files the functionality to have an RF biased left wall.
+into the input files the functionality to have an RF biased left wall.
 
 ### Other Modifications
 
+- Output EDF data at each snapshot
+- (_in progress_) Second model of electron-neutral excitation collisions
 - (_in progress_) Output IADF data at each snapshot
 
 ### Compiling Instructions (from the original github repo)

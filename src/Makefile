@@ -49,6 +49,10 @@ dedipic : $(OBJ)
 %.o : %.c
 	$(CC) $(CFLAGS) -c $<
 
+debug: FFLAGS += -g  # Add debugging flags to FFLAGS
+debug: CFLAGS += -g  # Add debugging flags to CFLAGS
+debug: dedipic       # Build the debug version
+
 clean:
 	rm -f *.mod *.o dedipic
 
