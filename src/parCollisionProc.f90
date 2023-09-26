@@ -755,32 +755,25 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
   END IF
 
 ! Calculate the energy of the ejected electron
-  R = grnd()
-!  R = RANF()
-  energy_ej_eV = B_of_Einc_eV * TAN(R * ATAN( 0.5_8 * (energy_inc_eV - Thresh_en_ioniz_eV) / B_of_Einc_eV ))  
-! note, theoretically, for R<=1, the value of energy_ej_eV should never exceed (energy_inc_eV - Thresh_en_ioniz_eV)/2
-! but below we shall enforce this manually
+  IF (Collision_flag_Turner.EQ.1) THEN
+     energy_ej_eV = 0.5_8 * (energy_inc_eV - Thresh_en_ioniz_eV)
+     energy_sc_eV = energy_inc_eV - Thresh_en_ioniz_eV - energy_ej_eV
+  ELSE
+     R = grnd()
+     !  R = RANF()
+     energy_ej_eV = B_of_Einc_eV * TAN(R * ATAN( 0.5_8 * (energy_inc_eV - Thresh_en_ioniz_eV) / B_of_Einc_eV ))  
+     ! note, theoretically, for R<=1, the value of energy_ej_eV should never exceed (energy_inc_eV - Thresh_en_ioniz_eV)/2
+     ! but below we shall enforce this manually
 
-! I added the line below to be sure that the energy of ejected electron is always
-! (a) non-zero and (b) below half of energy difference [incident - threshold]
-! note, 5d-7 = 1d-6/2, where 1d-6 is the minimal positive energy difference [incident - threshold]
-  energy_ej_eV = MAX(5.0d-7, MIN(energy_ej_eV, 0.5_8 * (energy_inc_eV - Thresh_en_ioniz_eV)))
+     ! I added the line below to be sure that the energy of ejected electron is always
+     ! (a) non-zero and (b) below half of energy difference [incident - threshold]
+     ! note, 5d-7 = 1d-6/2, where 1d-6 is the minimal positive energy difference [incident - threshold]
+      energy_ej_eV = MAX(5.0d-7, MIN(energy_ej_eV, 0.5_8 * (energy_inc_eV - Thresh_en_ioniz_eV)))
 
-!  if (energy_ej_eV.gt.(0.5_8 * (energy_inc_eV - Thresh_en_ioniz_eV))) then
-!     PRINT '(/2x,"Process ",i3," : Error in CollideElectron_3:")', Rank_of_process
-!     PRINT  '(2x,"energy of  ",f10.3,"(eV) is greater than ",f6.2,"(eV)")', energy_ej_eV, &
-!                                              & 0.5_8 * (energy_inc_eV - Thresh_en_ioniz_eV)
-!     PRINT  '(2x,"The energy conservation law can be violated")'
-!     PRINT  '(2x,"The program will be terminated now :(")'
-!     STOP
-!  END IF
-
-! Calculate the energy of the scattered (incident) electron
-  energy_sc_eV = energy_inc_eV - Thresh_en_ioniz_eV - energy_ej_eV
-
+     ! Calculate the energy of the scattered (incident) electron
+     energy_sc_eV = energy_inc_eV - Thresh_en_ioniz_eV - energy_ej_eV
+  END IF
 !##### it is expected that here neither energy_ej_eV nor energy_sc_eV are zeros (both should be not less than 5d-7 eV) #####
-
-!print *, energy_inc_eV, energy_sc_eV, energy_ej_eV
 
 ! Calculate the scattering angle Ksi for the incident electron ! [Vahedi]: use the modified energy "energy_sc_eV" here
   R = grnd()
