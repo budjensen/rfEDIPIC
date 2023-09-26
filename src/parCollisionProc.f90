@@ -48,7 +48,7 @@ SUBROUTINE COLLIDE_ELECTRON(c_kind, part_num, energy_eV)
         e_t_4_count = e_t_4_count + 1                                                                !@#$
         RETURN                                                                                       !@#$
 
-     CASE (4)       ! Excitation, model 2                                                            !@#$
+     CASE (5)       ! Excitation, model 2                                                            !@#$
 
 !!        CALL Add_to_stored_list(part_num)
         CALL CollideElectron_5(part_num) !@                                                          !@#$
@@ -328,7 +328,7 @@ SUBROUTINE CollideElectron_1(num, energy_eV)
      a = Vx / V_xy
      b = Vy / V_xy
      Vx_s = Vx * CosKsi + (SinFi * V * b + CosFi * Vz * a) * SinKsi
-     Vy_s = Vy * lksjdf;lkasdf; - (SinFi * V * a - CosFi * Vz * b) * SinKsi
+     Vy_s = Vy * CosKsi - (SinFi * V * a - CosFi * Vz * b) * SinKsi
      Vz_s = Vz * CosKsi - V_xy * CosFi * SinKsi
   ELSE
      Vx_s = ABS(Vz) * SinKsi * CosFi
