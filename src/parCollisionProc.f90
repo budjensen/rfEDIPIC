@@ -48,6 +48,13 @@ SUBROUTINE COLLIDE_ELECTRON(c_kind, part_num, energy_eV)
         e_t_4_count = e_t_4_count + 1                                                                !@#$
         RETURN                                                                                       !@#$
 
+     CASE (4)       ! Excitation, model 2                                                            !@#$
+
+!!        CALL Add_to_stored_list(part_num)
+        CALL CollideElectron_5(part_num) !@                                                          !@#$
+        e_n_5_count = e_n_5_count + 1                                                                !@#$
+        RETURN   
+
    END SELECT
 
 END SUBROUTINE COLLIDE_ELECTRON
@@ -116,6 +123,7 @@ REAL(8) FUNCTION FREQUENCY_OF_COLLISION(energy_eV, active_coll, s)
   REAL(8) Frequency_EN_s1_2
   REAL(8) Frequency_EN_s1_3
   REAL(8) Frequency_ET_s1_4                                                           !@#$
+  REAL(8) Frequency_EN_s1_5
 
   REAL(8) Frequency_IN_s1_1
   REAL(8) Frequency_IN_s1_2
@@ -135,6 +143,9 @@ REAL(8) FUNCTION FREQUENCY_OF_COLLISION(energy_eV, active_coll, s)
         CASE (4)       ! Turbulence, model 1                                       !@#$
            FREQUENCY_OF_COLLISION = Frequency_ET_s1_4(energy_eV) * delta_t_s       !@#$
            RETURN                                                                  !@#$
+        CASE (5)       ! Excitation, model 2
+           FREQUENCY_OF_COLLISION = Frequency_EN_s1_5(energy_eV) * delta_t_s
+           RETURN
      END SELECT
   END IF
 
@@ -317,7 +328,7 @@ SUBROUTINE CollideElectron_1(num, energy_eV)
      a = Vx / V_xy
      b = Vy / V_xy
      Vx_s = Vx * CosKsi + (SinFi * V * b + CosFi * Vz * a) * SinKsi
-     Vy_s = Vy * CosKsi - (SinFi * V * a - CosFi * Vz * b) * SinKsi
+     Vy_s = Vy * lksjdf;lkasdf; - (SinFi * V * a - CosFi * Vz * b) * SinKsi
      Vz_s = Vz * CosKsi - V_xy * CosFi * SinKsi
   ELSE
      Vx_s = ABS(Vz) * SinKsi * CosFi
@@ -514,7 +525,7 @@ SUBROUTINE CollideElectron_2(num, energy_eV) !, random_seed)
       f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
                                                         ! this approximates 
     CASE (1)  ! Argon
-      f_okh = 1.0_8                                     ! Argon (should this be 1 or 0?)
+      f_okh = 1.0_8                                     ! Argon
   END SELECT
 
   CosKsi = dble( 1. - 2. * R * (1. - f_okh) / (1.+ f_okh * (1. - 2. * R)) )
@@ -778,7 +789,7 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
       f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
                                                         ! this approximates 
     CASE (1)  ! Argon
-      f_okh = 1.0_8                                     ! Argon (should this be 1 or 0?)
+      f_okh = 1.0_8                                     ! Argon
   END SELECT
 
  CosKsi_sc = dble( 1.- 2. * R * (1. - f_okh)/(1. + f_okh * (1. - 2. * R)) )
@@ -1045,6 +1056,220 @@ SUBROUTINE CollideElectron_4(num)       !@#$
 ! energy is not changed here
 
 END SUBROUTINE CollideElectron_4
+!=====================================================================================================
+
+!******************* excitation (inelastic) electron-neutral collisions, model 2 *********************
+! FREQUENCY 
+!
+REAL(8) FUNCTION Frequency_EN_s1_5(energy_eV)
+
+  USE MCCollisions, ONLY : N_en_excit_2, Energy_en_excit_2_eV, CrSect_en_excit_2_m2, N_neutral_m3, Thresh_en_excit_2_eV
+  USE CurrentProblemValues, ONLY : m_e_kg, e_Cl
+
+  IMPLICIT NONE
+
+  REAL energy_eV, aa, bb
+  REAL crsect_m2
+  INTEGER j
+
+  REAL(8) fj_s1, fjp1_s1
+
+  IF (energy_eV.LE.(Thresh_en_excit_2_eV+1.0d-6)) THEN
+     Frequency_EN_s1_5 = 0.0_8
+     RETURN
+  END IF
+
+  IF (energy_eV.GT.Energy_en_excit_2_eV(N_en_excit_2)) THEN
+
+!     Frequency_EN_s1_2 = N_neutral_m3 * CrSect_en_excit_2_m2(N_en_excit_2) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
+! *** adjustment, 06/06/14:
+     aa = energy_eV/Energy_en_excit_2_eV(N_en_excit_2)
+     bb = 1./aa  
+     Frequency_EN_s1_5 = bb * N_neutral_m3 * CrSect_en_excit_2_m2(N_en_excit_2) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
+  
+  ELSE 
+
+     DO j = 1, N_en_excit_2 - 1
+       IF ((energy_eV.GE.Energy_en_excit_2_eV(j)).AND.(energy_eV.LE.Energy_en_excit_2_eV(j+1))) EXIT
+     END DO
+
+     j = MIN(j, N_en_excit_2 - 1)
+     
+     IF (Energy_en_excit_2_eV(j).EQ.Energy_en_excit_2_eV(j+1)) THEN
+
+        Frequency_EN_s1_5 = N_neutral_m3 * CrSect_en_excit_2_m2(j+1) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
+        
+     ELSE
+
+!!        fj_s1   = N_neutral_m3 * CrSect_en_excit_2_m2(j)   * SQRT(2.0_8 * Energy_en_excit_2_eV(j)   * e_Cl / m_e_kg)
+!!        fjp1_s1 = N_neutral_m3 * CrSect_en_excit_2_m2(j+1) * SQRT(2.0_8 * Energy_en_excit_2_eV(j+1) * e_Cl / m_e_kg)
+
+!***** LSP-like interpolation instead:
+        fj_s1   = N_neutral_m3 * CrSect_en_excit_2_m2(j)   * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
+        fjp1_s1 = N_neutral_m3 * CrSect_en_excit_2_m2(j+1) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
+
+! note, we interpolate the frequency, not the cross section
+! when the cross-section is interpolated, the curve frequency(energy) may become non-monotonic due to contribution of factor sqrt(energy)
+        Frequency_EN_s1_5 = fj_s1 + (energy_eV - Energy_en_excit_2_eV(j)) * (fjp1_s1 - fj_s1) / (Energy_en_excit_2_eV(j+1) - Energy_en_excit_2_eV(j))
+                                          
+     END IF                                     
+  
+  END IF
+
+  RETURN
+
+END FUNCTION Frequency_EN_s1_5
+!
+! COLLISION PROCESSING -------------------------------------------------------------------------------
+!
+SUBROUTINE CollideElectron_5(num, energy_eV) !, random_seed)
+
+  USE ParallelOperationValues
+  USE MCCollisions
+  USE CurrentProblemValues
+  USE Diagnostics, ONLY : Rate_energy_coll
+  USE ElectronInjection, ONLY : UseSmartTagsFlag
+  USE mt19937
+  IMPLICIT NONE
+
+  INTEGER num          ! ordering number of particle 
+  REAL(8) energy_eV    ! initial particle energy [eV]
+  REAL(8) energy_sc_eV ! particle energy after scattering [eV]
+
+  REAL RAN
+
+  REAL(8) R                ! random number             
+  REAL(8) Ksi              ! scattering angle (relative to the initial direction)
+  REAL(8) CosKsi, SinKsi     
+  REAL(8) Fi               ! azimuthal scattering angle 
+  REAL(8) CosFi, SinFi     
+  REAL(8) Vx0, Vy0, Vz0, Vx_n, Vy_n, Vz_n
+  REAL(8) Vx, Vy, Vz       ! velocity components, in neutral rest frame before scattering
+  REAL(8) Vx_s, Vy_s, Vz_s ! velocity components, after scattering
+  REAL(8) V, V_xy, a, b            
+  REAL(8) alpha            ! coefficient, accounting the electron energy drop
+
+  REAL(8) energy_change    ! change of energy of colliding electron
+  real(8) s, f_okh, enr0_eV, eps
+
+!  REAL(8) threshold_eV                        ! the excitation threshold, Argon, approximate
+!  threshold_eV = 11.55_8                      ! the excitation threshold, Argon, approximate
+
+! enr0_eV = 1000.
+
+!print *, 'excitation, enter'
+
+!  IF (energy_eV.LT.(Thresh_en_excit_eV)) THEN 
+!     PRINT '(/2x,"Process ",i3," : Potential ERROR in CollideElectron_5 (excitation e-n collisions):")', Rank_of_process
+!     PRINT  '(2x,"Particle energy ",f10.3,"(eV) is not more than the excitation threshold ",f6.2,"(eV)")', energy_eV, Thresh_en_excit_2_eV
+!     PRINT  '(2x,"Such low energy particle cannot take part in this kind of collisions")'
+!     PRINT  '(2x,"******* ******* THIS COLLISION EVENT WILL BE SKIPPED ******* *******")'
+!     e_n_5_count = e_n_5_count - 1
+!     RETURN
+!!     PRINT  '(2x,"The program will be terminated now :(")'
+!!     STOP
+!  END IF
+
+! instead of a mild safety rule above, let us not scatter particles with energy less than 0.000001 eV above the threshold
+  IF (energy_eV.LT.(Thresh_en_excit_2_eV+1.0d-6)) THEN 
+     e_n_5_count = e_n_5_count - 1
+     RETURN
+  END IF
+
+   call GetMaxwellVelocity(Vx_n)
+   call GetMaxwell2D(Vy_n, Vz_n)
+!!   call GetMaxwellVelocity(Vy_n)
+!!   call GetMaxwellVelocity(Vz_n)
+   Vx_n = alpha_Vscl * Vx_n
+   Vy_n = alpha_Vscl * Vy_n
+   Vz_n = alpha_Vscl * Vz_n
+
+! Calculate the energy of the scattered electron 
+  energy_sc_eV = energy_eV - Thresh_en_excit_2_eV
+  if (energy_sc_eV.lt.0.0_8) return
+
+! Calculate the scattering angle relative to the initial direction of electron ! [Vahedi]: Use the modified energy "energy_sc_eV" here 
+  R = grnd()
+!  R = RANF()  
+  
+! ##### CosKsi = (2.0_8 + energy_sc_eV - 2.0_8 * (1.0_8 + energy_sc_eV)**R) / energy_sc_eV ##### 
+!  CosKsi = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_sc_eV / 27.21_8) * (1.0_8 - DBLE(R)))
+
+!!  s = sqrt(energy_sc_eV)
+!!  f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)
+  ! f_okh = 1.
+
+  SELECT CASE (Neutral_flag)
+    CASE (0)  ! Helium
+      s = SQRT(energy_eV)
+      f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
+                                                        ! this approximates 
+    CASE (1)  ! Argon
+      f_okh = 1.0_8                                     ! Argon
+  END SELECT
+
+  CosKsi = dble( 1. - 2. * R * (1. - f_okh) / (1.+ f_okh * (1. - 2. * R)) )
+
+  CosKsi = MAX(MIN(0.999999999999_8, CosKsi), -0.999999999999_8)   !############ to avoid an unlikely situation when |CosKsi|>1
+  Ksi = ACOS(CosKsi)
+  SinKsi = SIN(Ksi)
+! Calculate the azimuthal scattering angle
+!  R = RANF() 
+  Fi = grnd() * 6.28318530718_8
+  CosFi = COS(Fi)
+  SinFi = SIN(Fi)
+! Take the velocity 
+  Vx0 = VX_of_spec(1)%part(num)
+  Vy0 = VY_of_spec(1)%part(num)
+  Vz0 = VZ_of_spec(1)%part(num)
+  Vx = Vx0 - Vx_n
+  Vy = Vy0 - Vy_n
+  Vz = Vz0 - Vz_n
+!print *, Vx, Vy, Vz
+! Turn the velocity  
+  V    = SQRT(Vx*Vx + Vy*Vy + Vz*Vz) 
+  V_xy = SQRT(Vx*Vx + Vy*Vy)
+!  IF (V_xy.GT.0.0_8) THEN
+!     a    = SinKsi * SinFi * V / V_xy
+!     b    = SinKsi * CosFi * Vz / V_xy 
+!     Vx_s = Vx * CosKsi + Vy * a + Vx * b
+!     Vy_s = Vy * CosKsi - Vx * a + Vy * b
+!     Vz_s = Vz * CosKsi          - V_xy * SinKsi * CosFi
+  IF (V_xy.GT.1.0d-20) THEN
+     a = Vx / V_xy
+     b = Vy / V_xy
+     Vx_s = Vx * CosKsi + (SinFi * V * b + CosFi * Vz * a) * SinKsi
+     Vy_s = Vy * CosKsi - (SinFi * V * a - CosFi * Vz * b) * SinKsi
+     Vz_s = Vz * CosKsi - V_xy * CosFi * SinKsi
+  ELSE
+     Vx_s = ABS(Vz) * SinKsi * CosFi
+     Vy_s = ABS(Vz) * SinKsi * SinFi
+     Vz_s = Vz * CosKsi
+  END IF
+
+! Calculate the energy drop 
+!  alpha    = SQRT(1.0_8 - Thresh_en_excit_eV / energy_eV)
+  alpha    = SQRT(energy_sc_eV / energy_eV)
+! Renormalize the velocity in order to account the energy drop
+  Vx_s = Vx_s * alpha + Vx_n   
+  Vy_s = Vy_s * alpha + Vy_n   
+  Vz_s = Vz_s * alpha + Vz_n     
+  VX_of_spec(1)%part(num) = Vx_s 
+  VY_of_spec(1)%part(num) = Vy_s 
+  VZ_of_spec(1)%part(num) = Vz_s 
+
+! Mark the electron as the one collided with a neutral atom ONLY if it changed the direction of its velocity 
+  IF (((Vx0*Vx_s).LE.0.0_8).AND.(UseSmartTagsFlag.EQ.1)) THEN
+     Tag_of_spec(1)%part(num) = 0 !eTag_Coll_Neutral
+  END IF
+
+! calculate and save the change of energy
+  energy_change = (Vx_s*Vx_s + Vy_s*Vy_s + Vz_s*Vz_s) - (Vx0*Vx0 + Vy0*Vy0 + Vz0*Vz0)
+  Rate_energy_coll(1) = Rate_energy_coll(1) + energy_change
+
+!print *, 'excitation, exit'
+
+END SUBROUTINE CollideElectron_5
 !=====================================================================================================
 
 !****************************** elastic ion-neutral collisions, model 1 ******************************

@@ -727,10 +727,10 @@ SUBROUTINE PREPARE_TIME_DEPENDENCE_DATAFILES
 
 ! COLLISION FREQUENCIES
 
-     OPEN (50, FILE = 'dim_fen_collisions_vst.dat', STATUS = 'REPLACE')      ! frequencies of electron-neutral collisions
+     OPEN (50, FILE = 'dim_fen_collisions_vst.dat', STATUS = 'REPLACE')      ! frequencies of electron-neutral collisions: elastic / excitation-1 / excitation-2 / ionization / turbulence
      CLOSE (50, STATUS = 'KEEP')
 
-     OPEN (50, FILE = 'dim_fin_collisions_vst.dat', STATUS = 'REPLACE')      ! frequencies of ion-neutral collisions
+     OPEN (50, FILE = 'dim_fin_collisions_vst.dat', STATUS = 'REPLACE')      ! frequencies of ion-neutral collisions: elastic / charge exchange / turbulence
      CLOSE (50, STATUS = 'KEEP')
 
 ! AT THE WALLS
@@ -1271,7 +1271,7 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
   USE CurrentProblemValues
   USE Diagnostics
 
-  USE MCCollisions, ONLY : e_n_1_count, e_n_2_count, e_n_3_count, e_t_4_count, i_n_1_count, i_n_2_count, i_t_3_count
+  USE MCCollisions, ONLY : e_n_1_count, e_n_2_count, e_n_3_count, e_t_4_count, e_n_5_count, i_n_1_count, i_n_2_count, i_t_3_count
 
   USE SEEmission, ONLY :   electron_reflux_count,       electron_reflux_energy, &   
                          & electron_reemit_count,       electron_reemit_energy, & 
@@ -1417,7 +1417,7 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_2
   USE CurrentProblemValues
   USE Diagnostics
 
-  USE MCCollisions, ONLY : e_n_1_count, e_n_2_count, e_n_3_count, e_t_4_count, i_n_1_count, i_n_2_count, i_t_3_count
+  USE MCCollisions, ONLY : e_n_1_count, e_n_2_count, e_n_3_count, e_t_4_count, e_n_5_count, i_n_1_count, i_n_2_count, i_t_3_count
 
   USE SEEmission, ONLY :   electron_reflux_count,       electron_reflux_energy, &   
                          & electron_reemit_count,       electron_reemit_energy, & 
@@ -1496,6 +1496,7 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_2
 
      e_n_1_count = 0; e_n_2_count = 0; e_n_3_count = 0; i_n_1_count = 0; i_n_2_count = 0
      e_t_4_count = 0; i_t_3_count = 0
+     e_n_5_count = 0
 
      electron_reflux_count  = 0;  electron_reflux_energy = 0.0_8   
      electron_reemit_count  = 0;  electron_reemit_energy = 0.0_8   
@@ -1565,9 +1566,9 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
   INTEGER sece_not_recognized_count        ! number of secondary electrons, produced by the not recognized primary electrons
 
   INTEGER ierr
-  INTEGER ibufer(1:41) 
+  INTEGER ibufer(1:42) 
   REAL(8) dbufer(1:40) 
-  INTEGER ibufer2(1:41) 
+  INTEGER ibufer2(1:42) 
   REAL(8) dbufer2(1:40) 
 !  INTEGER stattus(MPI_STATUS_SIZE)
 !  INTEGER tag, source, dest
@@ -1614,19 +1615,20 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
      ibufer(26) = e_n_2_count
      ibufer(27) = e_n_3_count
      ibufer(28) = e_t_4_count
-     ibufer(29) = i_n_1_count
-     ibufer(30) = i_n_2_count
-     ibufer(31) = i_t_3_count
-     ibufer(32) = prie_left_from_right_count
-     ibufer(33) = prie_left_after_coll_count
-     ibufer(34) = prie_right_from_left_count
-     ibufer(35) = prie_right_after_coll_count
-     ibufer(36) = sece_left_from_right_count
-     ibufer(37) = sece_left_after_coll_count
-     ibufer(38) = sece_right_from_left_count
-     ibufer(39) = sece_right_after_coll_count
-     ibufer(40) = ionsee_left_count
-     ibufer(41) = ionsee_right_count
+     ibufer(29) = e_n_5_count
+     ibufer(30) = i_n_1_count
+     ibufer(31) = i_n_2_count
+     ibufer(32) = i_t_3_count
+     ibufer(33) = prie_left_from_right_count
+     ibufer(34) = prie_left_after_coll_count
+     ibufer(35) = prie_right_from_left_count
+     ibufer(36) = prie_right_after_coll_count
+     ibufer(37) = sece_left_from_right_count
+     ibufer(38) = sece_left_after_coll_count
+     ibufer(39) = sece_right_from_left_count
+     ibufer(40) = sece_right_after_coll_count
+     ibufer(41) = ionsee_left_count
+     ibufer(42) = ionsee_right_count
 
 ! prepare the real(8) buffer for transmission
 
@@ -1672,7 +1674,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
      dbufer(40) = ionsee_right_energy
 
 ! transmit        
-     CALL MPI_REDUCE(ibufer, ibufer2, 41, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+     CALL MPI_REDUCE(ibufer, ibufer2, 42, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
      CALL MPI_REDUCE(dbufer, dbufer2, 40, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)     
@@ -1689,7 +1691,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
 ! receive        
 !print '(2x,"Process ",i3," will receive IBUFER from all processes")', Rank_of_process
-     CALL MPI_REDUCE(ibufer2, ibufer, 41, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+     CALL MPI_REDUCE(ibufer2, ibufer, 42, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
         
 !print '(2x,"Process ",i3," will receive DBUFER from all processes")', Rank_of_process
@@ -1726,19 +1728,20 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
      e_n_2_count                 = ibufer(26)
      e_n_3_count                 = ibufer(27)
      e_t_4_count                 = ibufer(28)
-     i_n_1_count                 = ibufer(29)
-     i_n_2_count                 = ibufer(30)
-     i_t_3_count                 = ibufer(31)
-     prie_left_from_right_count  = ibufer(32)
-     prie_left_after_coll_count  = ibufer(33)
-     prie_right_from_left_count  = ibufer(34)
-     prie_right_after_coll_count = ibufer(35)
-     sece_left_from_right_count  = ibufer(36)
-     sece_left_after_coll_count  = ibufer(37)
-     sece_right_from_left_count  = ibufer(38)
-     sece_right_after_coll_count = ibufer(39)
-     ionsee_left_count           = ibufer(40)
-     ionsee_right_count          = ibufer(41)
+     e_n_5_count                 = ibufer(29)
+     i_n_1_count                 = ibufer(30)
+     i_n_2_count                 = ibufer(31)
+     i_t_3_count                 = ibufer(32)
+     prie_left_from_right_count  = ibufer(33)
+     prie_left_after_coll_count  = ibufer(34)
+     prie_right_from_left_count  = ibufer(35)
+     prie_right_after_coll_count = ibufer(36)
+     sece_left_from_right_count  = ibufer(37)
+     sece_left_after_coll_count  = ibufer(38)
+     sece_right_from_left_count  = ibufer(39)
+     sece_right_after_coll_count = ibufer(40)
+     ionsee_left_count           = ibufer(41)
+     ionsee_right_count          = ibufer(42)
 
 ! restore real(8) data from the buffer
 
@@ -2107,12 +2110,12 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
   
 ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-! frequencies of electron-neutral collisions
+! frequencies of electron-neutral collisions: elastic / excitation-1 / excitation-2 / ionization / turbulence
   OPEN  (50, FILE = 'dim_fen_collisions_vst.dat', POSITION = 'APPEND')      
-  WRITE (50, '(2x,f12.5,4(2x,e12.5))') time_ns, e_n_1_count * f_factor(1), e_n_2_count * f_factor(1), e_n_3_count * f_factor(1), e_t_4_count * f_factor(1)
+  WRITE (50, '(2x,f12.5,4(2x,e12.5))') time_ns, e_n_1_count * f_factor(1), e_n_2_count * f_factor(1),  e_n_5_count * f_factor(1), e_n_3_count * f_factor(1), e_t_4_count * f_factor(1)
   CLOSE (50, STATUS = 'KEEP')
 
-! frequencies of ion-neutral collisions
+! frequencies of ion-neutral collisions: elastic / charge exchange / turbulence
   OPEN  (50, FILE = 'dim_fin_collisions_vst.dat', POSITION = 'APPEND')      
   WRITE (50, '(2x,f12.5,3(2x,e12.5))') time_ns, i_n_1_count * f_factor(2), i_n_2_count * f_factor(2), i_t_3_count * f_factor(2)
   CLOSE (50, STATUS = 'KEEP')
@@ -2305,7 +2308,7 @@ SUBROUTINE DoTextOutput
     
   USE CurrentProblemValues, ONLY :   N_spec, N_part, delta_t_s, T_cntr, MS, T_e_eV !, WriteAvg_step
 
-  USE MCCollisions, ONLY : e_n_1_count, e_n_2_count, e_n_3_count, e_t_4_count, i_n_1_count, i_n_2_count, i_t_3_count
+  USE MCCollisions, ONLY : e_n_1_count, e_n_2_count, e_n_3_count, e_t_4_count, e_n_5_count, i_n_1_count, i_n_2_count, i_t_3_count
 
   USE SEEmission, ONLY :   electron_reflux_count,     electron_reflux_energy, &   
                          & electron_reemit_count,     electron_reemit_energy, & 
@@ -2511,7 +2514,9 @@ SUBROUTINE DoTextOutput
   PRINT &
 & '("         excitation-1 : ",i7,", <freq.> : ",e11.4," s^-1 ;     charge exchange-1: ",i7,", <freq.> : ",e11.4," s^-1")', & 
                                              & e_n_2_count, e_n_2_count * f_factor(1), i_n_2_count, i_n_2_count * f_factor(2)
-  PRINT &
+PRINT &
+& '("         excitation-1 : ",i7,", <freq.> : ",e11.4," s^-1 ;")', e_n_5_count, e_n_5_count * f_factor(1)
+PRINT &
 & '("         ionization-1 : ",i7,", <freq.> : ",e11.4," s^-1 ;")', e_n_3_count, e_n_3_count * f_factor(1)
   PRINT &
 & '("         turbulence-1 : ",i7,", <freq.> : ",e11.4," s^-1 ;          turbulence-1: ",i7,", <freq.> : ",e11.4," s^-1")',& 

@@ -299,26 +299,33 @@ MODULE MCCollisions
                                         ! from the squared particle dim-less velocity :  W_kin_eV(s) = energy_factor_eV_s(s) * v**2,
                                         ! here s - species index, v - dim-less absolute value of velocity (in units of v_Te / N_box_vel)
 
-  INTEGER Colflag_kind_spec(1:4,1:N_spec)    ! For different species [electron(*,1), ion(*,2)],                !@#$
+  INTEGER Colflag_kind_spec(1:5,1:N_spec)    ! For different species [electron(*,1), ion(*,2)],                !@#$
                                         ! the arrays of flags, indicating that some particular kind
                                         ! of collisions with neutrals is turned on
                                         ! 1%1 <=> e-n elastic,         model 1
                                         ! 2%1 <=> e-n excitation,      model 1
                                         ! 3%1 <=> e-n ionization,      model 1 
                                         ! 4%1 <=> turbulence,          model 1 
+                                        ! 5%1 <=> e-n excitation,      model 2
                                         ! 1%2 <=> i-n elastic,         model 1
                                         ! 2%2 <=> i-n charge exchange, model 1
                                         ! 3%2 <=> turbulence,          model 1
                                         ! 4%2 <=> yet empty
+                                        ! 5%2 <=> yet empty
 
   INTEGER N_en_elast                             ! number of experimental values to be read 
   REAL, ALLOCATABLE :: Energy_en_elast_eV(:)     ! energies of known cross-secion values  for e-n elastic    collisions, [eV]
   REAL, ALLOCATABLE :: CrSect_en_elast_m2(:)     ! experimentally measured cross-sections for e-n elastic    collisions, [m^2]
 
-  INTEGER N_en_excit                             ! number of experimental values to be read 
+  INTEGER N_en_excit                             ! number of experimental values to be read for excitation, model 1
   REAL, ALLOCATABLE :: Energy_en_excit_eV(:)     ! energies of known cross-secion values  for e-n excitation collisions, [eV]
   REAL, ALLOCATABLE :: CrSect_en_excit_m2(:)     ! experimentally measured cross-sections for e-n excitation collisions, [m^2]
   REAL(8) Thresh_en_excit_eV                     ! energy threshold, [eV]
+
+  INTEGER N_en_excit_2                           ! number of experimental values to be read for excitation, model 2
+  REAL, ALLOCATABLE :: Energy_en_excit_2_eV(:)   ! energies of known cross-secion values  for e-n excitation collisions, [eV]
+  REAL, ALLOCATABLE :: CrSect_en_excit_2_m2(:)   ! experimentally measured cross-sections for e-n excitation collisions, [m^2]
+  REAL(8) Thresh_en_excit_2_eV                   ! energy threshold, [eV]
 
   INTEGER N_en_ioniz                             ! number of experimental values to be read 
   REAL, ALLOCATABLE :: Energy_en_ioniz_eV(:)     ! energies of known cross-secion values  for e-n ionization collisions, [eV]
@@ -354,6 +361,7 @@ MODULE MCCollisions
   INTEGER e_n_2_count               ! e-n, excitation, model 1
   INTEGER e_n_3_count               ! e-n, ionization, model 1
   INTEGER e_t_4_count               ! e-turbulence, model 1               !@#$
+  INTEGER e_n_5_count               ! e-n, excitation, model 2
   INTEGER i_n_1_count               ! i-n, elastic, model 1
   INTEGER i_n_2_count               ! i-n, charge exchange, model 1
   INTEGER i_t_3_count               ! i-turbulence, model 1               !@#$
