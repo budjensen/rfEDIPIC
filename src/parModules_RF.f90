@@ -284,6 +284,8 @@ MODULE MCCollisions
 !------- to read from file ---------
   INTEGER Neutral_flag                  ! Flags what type of gas one is using (0 = He, 1 = Ar), note that Xenon is the default gas and operates
                                         ! with Ar parameters in parCollisionProc.f90
+  INTEGER Collision_flag_Turner         ! Flags what type of collision model one is using (1 = Turner Benchmark model, anything else = original EDIPIC model)
+
   REAL(8) M_neutral_amu                 ! The neutral component mass         [a.m.u.]
   REAL(8) N_neutral_m3                  ! The neutral component density      [m^-3]
   REAL(8) T_neutral_eV                  ! The neutral component temperature  [eV]
