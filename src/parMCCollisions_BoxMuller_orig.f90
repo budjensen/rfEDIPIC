@@ -868,8 +868,8 @@ SUBROUTINE SETVALUES_COLLISION_ARRAYS
         CLOSE (99, STATUS = 'KEEP')
       END IF
 
-     IF (Colflag_kind_spec(4, 1).EQ.1) THEN                                   ! electron, excitation model 2
-        OPEN (99, FILE = '_e_excit_2_coll_freqs.dat')
+     IF (Colflag_kind_spec(5, 1).EQ.1) THEN                                   ! electron, excitation model 2
+        OPEN (99, FILE = '_en_excit_2_coll_freqs.dat')
         DO j = 1, Nenergyval_spec(1)
            energy_eV = (j-1) * deltaEnergy_eV_spec(1)
            WRITE (99, '(2(2x,e12.5))') energy_eV, FREQUENCY_OF_COLLISION(energy_eV, 5, 1) / delta_t_s

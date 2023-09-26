@@ -2515,7 +2515,7 @@ SUBROUTINE DoTextOutput
 & '("         excitation-1 : ",i7,", <freq.> : ",e11.4," s^-1 ;     charge exchange-1: ",i7,", <freq.> : ",e11.4," s^-1")', & 
                                              & e_n_2_count, e_n_2_count * f_factor(1), i_n_2_count, i_n_2_count * f_factor(2)
 PRINT &
-& '("         excitation-1 : ",i7,", <freq.> : ",e11.4," s^-1 ;")', e_n_5_count, e_n_5_count * f_factor(1)
+& '("         excitation-2 : ",i7,", <freq.> : ",e11.4," s^-1 ;")', e_n_5_count, e_n_5_count * f_factor(1)
 PRINT &
 & '("         ionization-1 : ",i7,", <freq.> : ",e11.4," s^-1 ;")', e_n_3_count, e_n_3_count * f_factor(1)
   PRINT &
