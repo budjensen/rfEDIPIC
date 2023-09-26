@@ -51,7 +51,7 @@ SUBROUTINE COLLIDE_ELECTRON(c_kind, part_num, energy_eV)
      CASE (5)       ! Excitation, model 2
 
 !!        CALL Add_to_stored_list(part_num)
-        CALL CollideElectron_5(part_num)
+        CALL CollideElectron_5(part_num, energy_eV)
         e_n_5_count = e_n_5_count + 1
         RETURN   
 
@@ -285,19 +285,26 @@ SUBROUTINE CollideElectron_1(num, energy_eV)
 
 ! Calculate the scattering angle relative to the initial direction of electron velocity
   R = grnd()
-! #####  CosKsi = (2.0_8 + energy_eV - 2.0_8 * (1.0_8 + energy_eV)**R) / energy_eV #####
-! the formula above was in the older code and it was based on Surendra's differential cross section
-! below is the corrected expression from Okhrimovsky et al., Phys.Rev.E, 65, 037402 (2002).
-!  CosKsi = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_eV / 27.21_8) * (1.0_8 - DBLE(R)))
-  SELECT CASE (Neutral_flag)
-    CASE (0)  ! Helium
-        s = SQRT(energy_eV)
-        f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
-                                                          ! this approximates 
-    CASE (1)  ! Argon
-        f_okh = 0.0_8                                     ! Argon
-  END SELECT
-  CosKsi = dble( 1.- 2. * R * (1. - f_okh) / (1. + f_okh * (1. - 2. * R)) )
+
+  IF (Collision_flag_Turner.EQ.1) THEN
+     ! Calculate CosKsi according to the Turner Benchmark
+     CosKsi = 1.0_8 - 2.0_8 * DBLE(R)
+  ELSE
+     ! Use the default model built into EDIPIC
+     ! #####  CosKsi = (2.0_8 + energy_eV - 2.0_8 * (1.0_8 + energy_eV)**R) / energy_eV #####
+     ! the formula above was in the older code and it was based on Surendra's differential cross section
+     ! below is the corrected expression from Okhrimovsky et al., Phys.Rev.E, 65, 037402 (2002).
+     !  CosKsi = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_eV / 27.21_8) * (1.0_8 - DBLE(R)))
+     SELECT CASE (Neutral_flag)
+       CASE (0)  ! Helium
+           s = SQRT(energy_eV)
+           f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
+                                                            ! this approximates 
+       CASE (1)  ! Argon
+           f_okh = 0.0_8                                     ! Argon
+     END SELECT
+     CosKsi = dble( 1.- 2. * R * (1. - f_okh) / (1. + f_okh * (1. - 2. * R)) )
+  END IF
 
   CosKsi = MAX(MIN(0.999999999999_8, CosKsi), -0.999999999999_8)   !############ to avoid an unlikely situation when |CosKsi|>1
   Ksi = ACOS(CosKsi)
@@ -510,25 +517,28 @@ SUBROUTINE CollideElectron_2(num, energy_eV) !, random_seed)
 
 ! Calculate the scattering angle relative to the initial direction of electron ! [Vahedi]: Use the modified energy "energy_sc_eV" here 
   R = grnd()
-!  R = RANF()  
-  
-! ##### CosKsi = (2.0_8 + energy_sc_eV - 2.0_8 * (1.0_8 + energy_sc_eV)**R) / energy_sc_eV ##### 
-!  CosKsi = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_sc_eV / 27.21_8) * (1.0_8 - DBLE(R)))
 
-!!  s = sqrt(energy_sc_eV)
-!!  f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)
-  ! f_okh = 1.
+  IF (Collision_flag_Turner.EQ.1) THEN
+     ! Calculate CosKsi according to the Turner Benchmark
+     CosKsi = 1.0_8 - 2.0_8 * DBLE(R)
+  ELSE
+     ! Use the default model built into EDIPIC
+     ! ##### CosKsi = (2.0_8 + energy_sc_eV - 2.0_8 * (1.0_8 + energy_sc_eV)**R) / energy_sc_eV ##### 
+     !  CosKsi = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_sc_eV / 27.21_8) * (1.0_8 - DBLE(R)))
 
-  SELECT CASE (Neutral_flag)
-    CASE (0)  ! Helium
-      s = SQRT(energy_eV)
-      f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
-                                                        ! this approximates 
-    CASE (1)  ! Argon
-      f_okh = 1.0_8                                     ! Argon
-  END SELECT
-
-  CosKsi = dble( 1. - 2. * R * (1. - f_okh) / (1.+ f_okh * (1. - 2. * R)) )
+     !!  s = sqrt(energy_sc_eV)
+     !!  f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)
+     ! f_okh = 1.
+     SELECT CASE (Neutral_flag)
+     CASE (0)  ! Helium
+        s = SQRT(energy_eV)
+        f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
+                                                          ! this approximates 
+     CASE (1)  ! Argon
+        f_okh = 1.0_8                                     ! Argon
+     END SELECT
+     CosKsi = dble( 1.- 2. * R * (1. - f_okh) / (1. + f_okh * (1. - 2. * R)) )
+  END IF
 
   CosKsi = MAX(MIN(0.999999999999_8, CosKsi), -0.999999999999_8)   !############ to avoid an unlikely situation when |CosKsi|>1
   Ksi = ACOS(CosKsi)
@@ -773,26 +783,32 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
 !print *, energy_inc_eV, energy_sc_eV, energy_ej_eV
 
 ! Calculate the scattering angle Ksi for the incident electron ! [Vahedi]: use the modified energy "energy_sc_eV" here
- R = grnd()
-!####  CosKsi_sc = (2.0_8 + energy_sc_eV - 2.0_8 * (1.0_8 + energy_sc_eV)**R) / energy_sc_eV ####
-!  CosKsi_sc = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_sc_eV / 27.21_8) * (1.0_8 - DBLE(R))) !new default from the author
+  R = grnd()
 
-!! s = sqrt(energy_sc_eV)
-!! f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)
-  ! f_okh = 1.
-! eps = 4. * energy_sc_eV / enr0_eV !screened Coulomb, adjustable
-! f_okh = eps / (1. + eps) 
+  IF (Collision_flag_Turner.EQ.1) THEN
+     ! Calculate CosKsi according to the Turner Benchmark
+     CosKsi_sc = 1.0_8 - 2.0_8 * DBLE(R)
+  ELSE
+     ! Use the default model built into EDIPIC
+     !####  CosKsi_sc = (2.0_8 + energy_sc_eV - 2.0_8 * (1.0_8 + energy_sc_eV)**R) / energy_sc_eV ####
+     !  CosKsi_sc = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_sc_eV / 27.21_8) * (1.0_8 - DBLE(R))) !new default from the author
 
-  SELECT CASE (Neutral_flag)
-    CASE (0)  ! Helium
-      s = SQRT(energy_inc_eV)
-      f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
-                                                        ! this approximates 
-    CASE (1)  ! Argon
-      f_okh = 1.0_8                                     ! Argon
-  END SELECT
+     !! s = sqrt(energy_sc_eV)
+     !! f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)
+     ! f_okh = 1.
+     ! eps = 4. * energy_sc_eV / enr0_eV !screened Coulomb, adjustable
+     ! f_okh = eps / (1. + eps) 
 
- CosKsi_sc = dble( 1.- 2. * R * (1. - f_okh)/(1. + f_okh * (1. - 2. * R)) )
+     SELECT CASE (Neutral_flag)
+       CASE (0)  ! Helium
+         s = SQRT(energy_inc_eV)
+         f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
+                                                           ! this approximates 
+       CASE (1)  ! Argon
+          f_okh = 1.0_8                                     ! Argon (no scattering, due to the use of effective momentum transfer cross-sections)
+     END SELECT
+     CosKsi_sc = dble( 1.- 2. * R * (1. - f_okh)/(1. + f_okh * (1. - 2. * R)) )
+  END IF
 
 ! CosKsi_sc = sqrt( energy_sc_eV / (energy_inc_eV - Thresh_en_ioniz_eV) ) ! *** a la Boeuf ***
 
@@ -813,13 +829,26 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
 !####  CosKsi_ej = (2.0_8 + energy_ej_eV - 2.0_8 * (1.0_8 + energy_ej_eV)**R) / energy_ej_eV ####
 !  CosKsi_ej = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_ej_eV / 27.21_8) * (1.0_8 - DBLE(R)))
 
-!!  s = sqrt(energy_ej_eV)
-!!  f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)
-  f_okh = 0.0_8
-!  eps = 4. * energy_ej_eV / enr0_eV
-!  f_okh = eps / (1. + eps)
+  IF (Collision_flag_Turner.EQ.1) THEN
+     ! Calculate CosKsi according to the Turner Benchmark
+     CosKsi_ej = 1.0_8 - 2.0_8 * DBLE(R)
+  ELSE
+     ! Use the default model built into EDIPIC
+     SELECT CASE (Neutral_flag)
+       CASE (0)  ! Helium
+          s = SQRT(energy_inc_eV)
+          f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
+                                                            ! this approximates 
+       CASE (1)  ! Argon
+          f_okh = 0.0_8                                     ! Argon (scattering)
+          ! What the code used to have, for total preservation's sake:
+          !  f_okh = 0.0_8
+          !!  eps = 4. * energy_ej_eV / enr0_eV
+          !!  f_okh = eps / (1. + eps)
+     END SELECT
+     CosKsi_ej = dble( 1.- 2.* R * (1. - f_okh) / (1.+ f_okh * (1. - 2.* R)) )
+  END IF
 
-  CosKsi_ej = dble( 1.- 2.* R * (1. - f_okh) / (1.+ f_okh * (1. - 2.* R)) )
   CosKsi_ej = MAX(MIN(0.999999999999_8, CosKsi_ej), -0.999999999999_8)   !############ to avoid an unlikely situation when |CosKsi_ej|>1
   Ksi_ej    = ACOS(CosKsi_ej)
   SinKsi_ej = SIN(Ksi_ej)
@@ -1190,25 +1219,28 @@ SUBROUTINE CollideElectron_5(num, energy_eV) !, random_seed)
 
 ! Calculate the scattering angle relative to the initial direction of electron ! [Vahedi]: Use the modified energy "energy_sc_eV" here 
   R = grnd()
-!  R = RANF()  
-  
-! ##### CosKsi = (2.0_8 + energy_sc_eV - 2.0_8 * (1.0_8 + energy_sc_eV)**R) / energy_sc_eV ##### 
-!  CosKsi = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_sc_eV / 27.21_8) * (1.0_8 - DBLE(R)))
 
-!!  s = sqrt(energy_sc_eV)
-!!  f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)
-  ! f_okh = 1.
+  IF (Collision_flag_Turner.EQ.1) THEN
+     ! Calculate CosKsi according to the Turner Benchmark
+     CosKsi = 1.0_8 - 2.0_8 * DBLE(R)
+  ELSE
+     ! Use the default model built into EDIPIC
+     ! ##### CosKsi = (2.0_8 + energy_sc_eV - 2.0_8 * (1.0_8 + energy_sc_eV)**R) / energy_sc_eV ##### 
+     !  CosKsi = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_sc_eV / 27.21_8) * (1.0_8 - DBLE(R)))
 
-  SELECT CASE (Neutral_flag)
-    CASE (0)  ! Helium
-      s = SQRT(energy_eV)
-      f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
-                                                        ! this approximates 
-    CASE (1)  ! Argon
-      f_okh = 1.0_8                                     ! Argon
-  END SELECT
-
-  CosKsi = dble( 1. - 2. * R * (1. - f_okh) / (1.+ f_okh * (1. - 2. * R)) )
+     !!  s = sqrt(energy_sc_eV)
+     !!  f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)
+     ! f_okh = 1.
+     SELECT CASE (Neutral_flag)
+        CASE (0)  ! Helium
+           s = SQRT(energy_eV)
+           f_okh = 0.974 - 13.6/((s-1.82)**2 + 11.0)         ! Helium for use with cross-sections that came with EDIPIC
+                                                             ! this approximates 
+        CASE (1)  ! Argon
+           f_okh = 1.0_8                                     ! Argon
+     END SELECT
+        CosKsi = dble( 1.- 2. * R * (1. - f_okh) / (1. + f_okh * (1. - 2. * R)) )
+  END IF
 
   CosKsi = MAX(MIN(0.999999999999_8, CosKsi), -0.999999999999_8)   !############ to avoid an unlikely situation when |CosKsi|>1
   Ksi = ACOS(CosKsi)
