@@ -42,6 +42,8 @@
 --dddddd----- Number of velocity boxes per unit of V_therm ------------------
      128 
 ============================ SIMULATION CONTROL =============================
+-------d----- Initial particle density profile (0/1=Uniform/Parabolic) ------
+       0
 --dddddd.ddd- Duration of simulation (ns) -----------------------------------
    94395.280
 --dddddd----- Step for saving checkpoints (timesteps, skip if <=0) ----------

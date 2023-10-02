@@ -95,6 +95,8 @@ SUBROUTINE INITIATE_PARAMETERS
      READ (9, '(A77)') buf !--dddddd----- Number of velocity boxes per unit of V_therm ------------------")')
      READ (9, '(2x,i6)') N_box_vel
      READ (9, '(A77)') buf !============================ SIMULATION CONTROL =============================")')
+     READ (9, '(A77)') buf !-------d----- Initial particle density profile (0/1=Uniform/Parabolic) ------")')
+     READ (9, '(7x,i1)') Density_flag
      READ (9, '(A77)') buf !--dddddd.ddd- Duration of simulation (ns) -----------------------------------")')
      READ (9, '(2x,f10.3)') T_sim_ns   
      READ (9, '(A77)') buf !--dddddd----- Step for saving checkpoints (timesteps, skip if <=0) ----------")')
@@ -130,6 +132,7 @@ SUBROUTINE INITIATE_PARAMETERS
      N_max_vel            = 4
      N_box_vel            = 20
 !======================= Simulation control ========================
+     Density_flag            = 0
      T_sim_ns                = 1.0_8
      SaveCheck_step          = 200000
      I_random_seed           = 1234
@@ -185,6 +188,8 @@ SUBROUTINE INITIATE_PARAMETERS
         WRITE (9, '("--dddddd----- Number of velocity boxes per unit of V_therm ------------------")')
         WRITE (9, '(2x,i6)') N_box_vel
         WRITE (9, '("============================ SIMULATION CONTROL =============================")')
+        WRITE (9, '("-------d----- Initial particle density profile (0/1=Uniform/Parabolic) ------")')
+        WRITE (9, '(7x,i1)') Density_flag
         WRITE (9, '("--dddddd.ddd- Duration of simulation (ns) -----------------------------------")')
         WRITE (9, '(2x,f10.3)') T_sim_ns   
         WRITE (9, '("--dddddd----- Step for saving checkpoints (timesteps, skip if <=0) ----------")')
@@ -1458,7 +1463,7 @@ END SUBROUTINE INITIAL_DISTRIB_IN_SPACE
 !==========================================================
 REAL(8) FUNCTION density(x)
 
-  USE CurrentProblemValues, ONLY : N_cells, N_distrib_m3, N_plasma_m3
+  USE CurrentProblemValues, ONLY : N_cells, N_distrib_m3, N_plasma_m3, Density_flag
 
   IMPLICIT NONE
   
@@ -1479,8 +1484,9 @@ REAL(8) FUNCTION density(x)
 
 !  density = 0.25_8
 
-!  density = density * (-6.0_8 * (x / N_cells - 0.5_8)**2 + 2.0_8) * (2.0_8 / 3.0_8) ! 2/3 normalization factor
-
+  IF (Density_flag.EQ.1) THEN
+     density = density * (-6.0_8 * (x / N_cells - 0.5_8)**2 + 2.0_8) * (2.0_8 / 3.0_8) ! 2/3 normalization factor
+  END IF
 
 !density  = 0.0_8  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !if ((x.ge.0.0_8).and.(x.le.100.0_8)) density = 1.0_8    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

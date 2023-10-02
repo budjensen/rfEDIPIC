@@ -52,6 +52,8 @@ MODULE CurrentProblemValues
   REAL(8) Vy_e_drift      ! dim-less electron ExB-drift y-velocity
 
   INTEGER BC_flag                ! Flag, defines the boundary conditions for the potential
+  INTEGER Density_flag           ! Flan, if =1, then the initial particle distribution is parabolic (implementation
+                                 !  is aimed to converge faster), if =0, then the initial distribution is uniform
   INTEGER N_of_particles_cell    ! Number of macroparticles of one species per cell
   INTEGER N_of_cells_debye       ! Number of minimal cells per electron Debye length
   INTEGER N_max_vel              ! Factor defines the maximal expected electron velocity (in thermal velocities, used for calculation of timestep)
