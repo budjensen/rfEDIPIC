@@ -58,7 +58,8 @@ MODULE CurrentProblemValues
   INTEGER N_of_cells_debye       ! Number of minimal cells per electron Debye length
   INTEGER N_max_vel              ! Factor defines the maximal expected electron velocity (in thermal velocities, used for calculation of timestep)
   INTEGER N_max_vel_distrib      ! Factor defines the maximal velocity for initial distribution (in thermal velocities)
-  integer picosec_flag           ! if =1, then N_max_vel is actually the value of time step in picoseconds
+  integer picosec_flag           ! if =/=1, then N_max_vel gives the value of time step in picoseconds (times a power of 10)
+  INTEGER micron_flag            ! if =/=0, then N_of_cells_debye gives the value of time step in microns (times a power of 10)
 
   INTEGER N_box_vel              ! Number of velocity boxes per unit of initial thermal velocity
                                  ! Note, this value affects the scaling !

@@ -88,10 +88,16 @@ SUBROUTINE INITIATE_PARAMETERS
      READ (9, '(2x,f10.3)') T_e_eV
      READ (9, '(A77)') buf !--dddddd----- Number of macroparticles per cell -----------------------------")')
      READ (9, '(2x,i6)') N_of_particles_cell
-     READ (9, '(A77)') buf !--dddddd----- Number of cells per Debye length ------------------------------")')
-     READ (9, '(2x,i6)') N_of_cells_debye ! *** if negative, gives absolute value of cell size in micrometers ***
-     READ (9, '(A77)') buf !----dddd--d--- Maximal expected velocity (in V_therm_e) ----------------------")')
-     READ (9, '(4x,i4, 2x, i1)') N_max_vel, picosec_flag ! *** picosec_flag = n>0 means delta_t [ps] = N_max_vel*10^(n-1)
+     READ (9, '(A77)') buf !--dddddd----- Number of cells per Debye length, micron_flag -----------------")')
+     READ (9, '(A77)') buf !--            If micron_flag = 0:   delta_x found from scaling parameters ---")')
+     READ (9, '(A77)') buf !--            If micron_flag > 0:   delta_x [mkm] = N_cells * 10^(n-1) ------")')
+     READ (9, '(A77)') buf !--dddddd-#d-- If micron_flag < 0:   delta_x [mkm] = N_cells * 10^(n) --------")')
+     READ (9, '(2x,i6,1x,i2)') N_of_cells_debye, micron_flag
+     READ (9, '(A77)') buf !------------- Maximal expected velocity (in V_therm_e), picosec_flag --------")')
+     READ (9, '(A77)') buf !--            If picosec_flag = 0:   delta_t found from scaling parameters --")')
+     READ (9, '(A77)') buf !--            If picosec_flag > 0:   delta_t [ps] = Max_vel * 10^(n-1) ------")')
+     READ (9, '(A77)') buf !--dddddd-#d-- If picosec_flag < 0:   delta_t [ps] = Max_vel * 10^(n) --------")')
+     READ (9, '(3x,i6,1x,i2)') N_max_vel, picosec_flag
      READ (9, '(A77)') buf !--dddddd----- Number of velocity boxes per unit of V_therm ------------------")')
      READ (9, '(2x,i6)') N_box_vel
      READ (9, '(A77)') buf !============================ SIMULATION CONTROL =============================")')
@@ -129,7 +135,9 @@ SUBROUTINE INITIATE_PARAMETERS
      T_e_eV               = 40.0_8
      N_of_particles_cell  = 500
      N_of_cells_debye     = 16
+     micron_flag          = 0
      N_max_vel            = 4
+     picosec_flag         = 0
      N_box_vel            = 20
 !======================= Simulation control ========================
      Density_flag            = 0
@@ -181,6 +189,16 @@ SUBROUTINE INITIATE_PARAMETERS
         WRITE (9, '(2x,f10.3)') T_e_eV
         WRITE (9, '("--dddddd----- Number of macroparticles per cell -----------------------------")')
         WRITE (9, '(2x,i6)') N_of_particles_cell
+        WRITE (9, '("--dddddd----- Number of cells per Debye length, micron_flag -----------------")')
+        WRITE (9, '("--            If micron_flag = 0:   delta_x found from scaling parameters ---")')
+        WRITE (9, '("--            If micron_flag > 0:   delta_x [mkm] = N_cells * 10^(n-1) ------")')
+        WRITE (9, '("--dddddd-#d-- If micron_flag < 0:   delta_x [mkm] = N_cells * 10^(n) --------")')
+        WRITE (9, '(2x,i6,1x,i2)') N_of_cells_debye, micron_flag
+        WRITE (9, '("------------- Maximal expected velocity (in V_therm_e), picosec_flag --------")')
+        WRITE (9, '("--            If picosec_flag = 0:   delta_t found from scaling parameters --")')
+        WRITE (9, '("--            If picosec_flag > 0:   delta_t [ps] = Max_vel * 10^(n-1) ------")')
+        WRITE (9, '("--dddddd-#d-- If picosec_flag < 0:   delta_t [ps] = Max_vel * 10^(n) --------")')
+        WRITE (9, '(3x,i6,1x,i2)') N_max_vel, picosec_flag
         WRITE (9, '("--dddddd----- Number of cells per Debye length ------------------------------")')
         WRITE (9, '(2x,i6)') N_of_cells_debye
         WRITE (9, '("----dddd----- Maximal expected velocity (in V_therm_e) ----------------------")')
@@ -321,16 +339,32 @@ SUBROUTINE INITIATE_PARAMETERS
 !  W_cycl_y_s1 = e_Cl * B_y_ext_Gs * 0.0001_8 / m_e_kg
   L_debye_m   = v_Te_ms / W_plasma_s1
 
-  if (N_of_cells_debye.gt.0) then
-    r_cells_debye = dble(N_of_cells_debye)
-    delta_x_m   = L_debye_m / r_cells_debye 
-  else
-    delta_x_m = - 1.e-6 * dble(N_of_cells_debye) !* if negative, abs value is cell size in microns
+  ! If the micron_flag is non-zero, then the cell size is specified directly.
+  ! Be aware! If micron_flag is greater than zero than 
+  !                       delta_x_m [ps] = N_max_vel*10^(n-1)
+  !           If micron_flag is less than zero than
+  !                       delta_x_m [ps] = N_max_vel*10^(n)
+  if (micron_flag.ge.1) then
+    delta_x_m = 1.e-6 * dble(N_of_cells_debye) * 10.**(micron_flag - 1)
     r_cells_debye =  L_debye_m / delta_x_m
+  else if (micron_flag.lt.0) then
+    delta_x_m = 1.e-6 * dble(N_of_cells_debye) * 10.**(micron_flag)
+    r_cells_debye =  L_debye_m / delta_x_m
+  else ! If micron_flag is zero, then the number of cells per Debye length is specified directly.
+    r_cells_debye = dble(N_of_cells_debye)
+    delta_x_m = L_debye_m / dble(N_of_cells_debye)
   end if
-  
+
+  ! If the picosec_flag is non-zero, then the time step is specified directly.
+  ! Be aware! If picosec_flag is greater than zero than 
+  !                       delta_t_s [ps] = N_max_vel*10^(n-1)
+  !           If picosec_flag is less than zero than
+  !                       delta_t_s [ps] = N_max_vel*10^(n)
   if (picosec_flag.ge.1) then
     delta_t_s = 1.e-12 * dble(N_max_vel) * 10.**(picosec_flag - 1) !to specify delta_t explicitly
+    r_max_vel = delta_x_m / (v_Te_ms * delta_t_s)
+  else if (picosec_flag.lt.0) then
+    delta_t_s = 1.e-12 * dble(N_max_vel) * 10.**(picosec_flag) !to specify delta_t explicitly
     r_max_vel = delta_x_m / (v_Te_ms * delta_t_s)
   else
     delta_t_s = delta_x_m / (dble(N_max_vel) * v_Te_ms)
@@ -606,6 +640,13 @@ SUBROUTINE INITIATE_PARAMETERS
      END IF
      PRINT  '(2x,"Number of time steps                             : ",i9)', Max_T_cntr
      PRINT  '(2x,"The time step is                                 : ",f9.3," ps")', delta_t_s * 1.0e12
+
+     IF (rf_on) THEN
+        PRINT  '(/2x,"The RF frequency is                              : ",e10.3," Hz")', f_rf_Hz
+        PRINT  '(2x,"The RF amplitude is                              : ",e10.3," V")',  U_rf_V
+        PRINT  '(2x,"The RF voltage will begin at                     : ",e10.3," s")', t_start_s
+     END IF
+
      PRINT '(/2x,"Ratio of electron plasma period to the time step : ",f9.2)', 6.28318530718_8 / (W_plasma_s1 * delta_t_s)
 
      W_cycl_min_s1 = e_Cl * SQRT((Bx_gauss(0.0_8))**2 + (By_gauss(0.0_8))**2) * 0.0001_8 / m_e_kg
@@ -625,7 +666,7 @@ SUBROUTINE INITIATE_PARAMETERS
         END IF
      END DO
 
-     PRINT '(2x,"Minimal electron cyclotron frequency is ",e10.3," s^-1 at node ",i6," where x = ",f10.2," mm")', W_cycl_min_s1, i_Wc_min, i_Wc_min * delta_x_m * 1000.0_8
+     PRINT '(/2x,"Minimal electron cyclotron frequency is ",e10.3," s^-1 at node ",i6," where x = ",f10.2," mm")', W_cycl_min_s1, i_Wc_min, i_Wc_min * delta_x_m * 1000.0_8
      IF (W_cycl_min_s1.NE.0.0_8) THEN
         PRINT  '(2x,"Here the ratio of electron gyro period to the time step is maximal and equals ",f9.2)', 6.28318530718_8 / (W_cycl_min_s1 * delta_t_s)
      END IF

@@ -35,9 +35,15 @@
        2.585
 --dddddd----- Number of macroparticles per cell -----------------------------
      512
---dddddd----- Number of cells per Debye length. ** If <0 then abs. value gives delta_x in microns ** 
-    -523 
-----dddd--d-- Max. expected velocity (in V_therm_e) (** or delta_t [ps] if picosec_flag=1 **), picosec_flag
+------------- Number of cells per Debye length, micron_flag -----------------
+--            If micron_flag = 0:   delta_x found from scaling parameters ---
+--            If micron_flag > 0:   delta_x [mkm] = N_cells * 10^(n-1) ------
+--dddddd-#d-- If micron_flag < 0:   delta_x [mkm] = N_cells * 10^(n) --------
+     523  1
+------------- Maximal expected velocity (in V_therm_e), picosec_flag --------
+--            If picosec_flag = 0:   delta_t found from scaling parameters --
+--            If picosec_flag > 0:   delta_t [ps] = Max_vel * 10^(n-1) ------
+--dddddd-#d-- If picosec_flag < 0:   delta_t [ps] = Max_vel * 10^(n) --------
       18  1
 --dddddd----- Number of velocity boxes per unit of V_therm ------------------
      128 
