@@ -16,7 +16,7 @@ SUBROUTINE INITIATE_MC_COLLISIONS
   CHARACTER (67) buf
   INTEGER ierr
 
-  maxNcolkind_spec(1) = 4            ! Currently we have 4 kinds of e-n collisions         !@#$
+  maxNcolkind_spec(1) = 5            ! Currently we have 5 kinds of e-n collisions         !@#$
   maxNcolkind_spec(2) = 3            ! Currently we have 3 kinds of i-n collisions         !@#$
 ! maxNcolkind_spec(3) = 0
   
@@ -45,6 +45,8 @@ SUBROUTINE INITIATE_MC_COLLISIONS
      READ (9, '(7x,i1)') Colflag_kind_spec(1,1)
      READ (9, '(A67)') buf !-------d----- Excitation-1 (1 = yes, 0 = no) ----------------------")')
      READ (9, '(7x,i1)') Colflag_kind_spec(2,1)
+     READ (9, '(A67)') buf !-------d----- Excitation-2 (1 = yes, 0 = no) ----------------------")')
+     READ (9, '(7x,i1)') Colflag_kind_spec(5,1)
      READ (9, '(A67)') buf !-------d----- Ionization-1 (1 = yes, 0 = no) ----------------------")')
      READ (9, '(7x,i1)') Colflag_kind_spec(3,1)
      READ (9, '(A67)') buf !============== ELECTRON - NEUTRAL COLLISIONS, CONTROL =============")')
@@ -72,7 +74,9 @@ SUBROUTINE INITIATE_MC_COLLISIONS
      READ (9, '(7x,i1)') Colflag_kind_spec(3,2)                                                            !@#$
      READ (9, '(A67)') buf !--#d.dddE#dd- Frequency, model-1 (s^-1) ---------------------------")')         !@#$      
      READ (9, '(2x,e10.3)') Freq_turb_i_1_s1                                                                  !@#$
-!     Colflag_kind_spec(4,2) = 1
+     READ (9, '(A67)') buf !==== Turner Benchmark Collision Model, ACTIVATION and CONTROL =====")')         !@#$
+     READ (9, '(A67)') buf !-------d----- Turner Collision Model (1 = yes, 0 = no)-------------")')         !@#$
+     READ (9, '(7x,i1)') Collision_flag_Turner                                                              !@#$
      
   ELSE
 
@@ -82,6 +86,7 @@ SUBROUTINE INITIATE_MC_COLLISIONS
      T_neutral_eV           = 0.1_8 
      Colflag_kind_spec(1,1) = 1           ! e-n, elastic-1,       yes
      Colflag_kind_spec(2,1) = 1           ! e-n, excitation-1,    yes
+     Colflag_kind_spec(5,1) = 0           ! e-n, excitation-2,    yes
      Colflag_kind_spec(3,1) = 1           ! e-n, ionization-1,    yes
      maxEnergy_eV_spec(1)   = 1000.0_8    ! 
      Nenergyval_spec(1)     = 20001
@@ -94,6 +99,7 @@ SUBROUTINE INITIATE_MC_COLLISIONS
      Colflag_kind_spec(3,2) = 0           ! i-turbulence-1,       no                                !@#$
      Freq_turb_i_1_s1       = 0.0_8                                                                 !@#$
      Colflag_kind_spec(4,2) = 0           ! empty                                                   !@#$
+     Collision_flag_Turner  = 0           ! Turner Collision Model, no                              !@#$
 
      PRINT '(2x,"Process ",i3," : File with the name ssc_partcolls.dat not found. Use the default settings ...")', &
                                                                                                     & Rank_of_process
@@ -116,6 +122,8 @@ SUBROUTINE INITIATE_MC_COLLISIONS
         WRITE (9, '(7x,i1)') Colflag_kind_spec(1,1)
         WRITE (9, '("-------d----- Excitation-1 (1 = yes, 0 = no) ----------------------")')
         WRITE (9, '(7x,i1)') Colflag_kind_spec(2,1)
+        WRITE (9, '("-------d----- Excitation-1 (1 = yes, 0 = no) ----------------------")')
+        WRITE (9, '(7x,i1)') Colflag_kind_spec(5,1)
         WRITE (9, '("-------d----- Ionization-1 (1 = yes, 0 = no) ----------------------")')
         WRITE (9, '(7x,i1)') Colflag_kind_spec(3,1)
         WRITE (9, '("============== ELECTRON - NEUTRAL COLLISIONS, CONTROL =============")')
@@ -143,6 +151,9 @@ SUBROUTINE INITIATE_MC_COLLISIONS
         WRITE (9, '(7x,i1)') Colflag_kind_spec(3,2)                                                            !@#$
         WRITE (9, '("--#d.dddE#dd- Frequency, model-1 (s^-1) ---------------------------")')         !@#$      
         WRITE (9, '(2x,e10.3)') Freq_turb_i_1_s1                                                                  !@#$
+        WRITE (9, '("==== Turner Benchmark Collision Model, ACTIVATION and CONTROL =====")')
+        WRITE (9, '("-------d----- Turner Collision Model (1 = yes, 0 = no)-------------")')
+        WRITE (9, '(7x,i1)') Collision_flag_Turner
      END IF
 
   END IF
@@ -193,6 +204,8 @@ SUBROUTINE INITIATE_MC_COLLISIONS
                        PRINT '(4x,"Ionization, model 1")'
                     CASE(4)                                                                                                       !@#$
                        PRINT '(4x,"Turbulence, model 1, frequency is ",e10.3," s^-1")', Freq_turb_e_1_s1                          !@#$
+                    CASE(5)                                                                                                       !@#$ 
+                       PRINT '(4x,"Excitation, model 2")'                                                                         !@#$
                  END SELECT
               END DO
 
@@ -222,29 +235,38 @@ SUBROUTINE INITIATE_MC_COLLISIONS
           PRINT '(/2x,"Using Helium collision parameters for CollideElectron_# and CollideIon_# functions.")'
           ! Check if the inputted masses are consistent with the neutral flag
           IF ((M_neutral_amu.LT.4.000_8).OR.(M_neutral_amu.GT.4.020_8)) THEN ! boundaries chosen without a specific tolerance in mind
-            PRINT '(/2x,"Error! Mass of the neutral gas is not consistent with the neutral flag (helium).")'
-            PRINT '(/2x,"You inputted: ",f10.3," a.m.u.")', M_neutral_amu
-            PRINT '(2x,"Program will run, but be warned :(")'
+             PRINT '(/2x,"Error! Mass of the neutral gas is not consistent with the neutral flag (helium).")'
+             PRINT '(/2x,"You inputted: ",f10.3," a.m.u.")', M_neutral_amu
+             PRINT '(2x,"Program will run, but be warned :(")'
           END IF
 
         CASE (1)
           PRINT '(/2x,"Using Argon collision parameters for CollideElectron_# and CollideIon_# functions.")'
           ! Check if the inputted masses are consistent with the neutral flag
           IF ((M_neutral_amu.LT.39.930_8).OR.(M_neutral_amu.GT.39.960)) THEN ! boundaries chosen without a specific tolerance in mind
-            PRINT '(/2x,"Error! Mass of the neutral gas is not consistent with the neutral flag (argon).")'
-            PRINT '(/2x,"You inputted: ",f10.3," a.m.u.")', M_neutral_amu
-            PRINT '(2x,"Program will run, but be warned :(")'
+             PRINT '(/2x,"Error! Mass of the neutral gas is not consistent with the neutral flag (argon).")'
+             PRINT '(/2x,"You inputted: ",f10.3," a.m.u.")', M_neutral_amu
+             PRINT '(2x,"Program will run, but be warned :(")'
           END IF
 
         CASE DEFAULT 
-          PRINT '(/2x,"ERROR: No case met in Neutral_flag!!!")'
-          STOP
-
+           PRINT '(/2x,"ERROR: No case met in Neutral_flag!!!")'
+           STOP
      END SELECT
+
+     SELECT CASE (Collision_flag_Turner)
+        CASE (0)
+           PRINT '(/2x,"Using the Turner Benchmark collision model.")'
+
+      !   CASE DEFAULT 
+         !   PRINT '(/2x,"Using the collision model natively built into EDIPIC")'
+     END SELECT
+
   END IF
 
   e_n_1_count = 0; e_n_2_count = 0; e_n_3_count = 0; i_n_1_count = 0; i_n_2_count = 0
   e_t_4_count = 0; i_t_3_count = 0                                                              !@#$
+  e_n_5_count = 0
 ! **** 0.00054858 = m_e_kg / 1_amu_kg = 9.109534e-31 / 1.660565e-27 
   alpha_Vscl = SQRT(0.00054858_8 * T_neutral_eV / (T_e_eV * M_neutral_amu)) 
   
@@ -271,7 +293,7 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
   INTEGER j
 
 ! read cross sections of e-n elastic collisions from data file, if this kind of collisions is activated   
-  IF (Colflag_kind_spec(1, 1).EQ.1) THEN       
+  IF (Colflag_kind_spec(1, 1).EQ.1) THEN
 
      INQUIRE (FILE = 'ssc_crsect_en_elast.dat', EXIST = exists)
      
@@ -320,7 +342,7 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
   END IF                                        
 
 ! read cross sections of e-n excitation collisions from data file, if this kind of collisions is activated   
-  IF (Colflag_kind_spec(2, 1).EQ.1) THEN           
+  IF (Colflag_kind_spec(2, 1).EQ.1) THEN
 
      INQUIRE (FILE = 'ssc_crsect_en_excit.dat', EXIST = exists)
      
@@ -329,7 +351,7 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
         OPEN (9, FILE = 'ssc_crsect_en_excit.dat')
 !!        OPEN (19, FILE = 'ssc_crsect_en_excitNIST.dat',status='replace')
 
-        PRINT '(2x,"Process ",i3," : e-n excitation collisions cross-sections data file is found. Reading the data file...")',&
+        PRINT '(2x,"Process ",i3," : e-n excitation model 1 collisions cross-sections data file is found. Reading the data file...")',&
                                                                                                                & Rank_of_process
         READ (9, '(2x,i4)') N_en_excit
 !!        write(19,'(2x,i4)') N_en_excit
@@ -349,13 +371,7 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
         END IF
         
         DO j = 1, N_en_excit
-! was      READ (9, '(4x,f8.2,3x,e9.2)') Energy_en_excit_eV(j), CrSect_en_excit_m2(j)
-!!           READ (9, '(4x,f8.2,3x,e10.3)') Energy_en_excit_eV(j), CrSect_en_excit_m2(j)
-
            read(9,*) Energy_en_excit_eV(j), CrSect_en_excit_m2(j)
-
-!!           CrSect_en_excit_m2(j) = CrSect_en_excit_m2(j) * 1.e-20 * 1.511 !for reading the NIST data
-!!           write(19, '(4x,f8.2,3x,e10.3)') Energy_en_excit_eV(j), CrSect_en_excit_m2(j)
         END DO
         
         CLOSE (9, STATUS = 'KEEP')
@@ -378,7 +394,7 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
   END IF
 
 ! read cross sections of e-n ionization collisions from data file, if this kind of collisions is activated   
-  IF (Colflag_kind_spec(3, 1).EQ.1) THEN           
+  IF (Colflag_kind_spec(3, 1).EQ.1) THEN
 
      INQUIRE (FILE = 'ssc_crsect_en_ioniz.dat', EXIST = exists)
      IF (exists) THEN
@@ -428,6 +444,54 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
   
   END IF
 
+  ! read cross sections for an additional excitation collision from data file, if this kind of collisions is activated   
+  IF (Colflag_kind_spec(5, 1).EQ.1) THEN
+
+     INQUIRE (FILE = 'ssc_crsect_en_excit_2.dat', EXIST = exists)
+     IF (exists) THEN
+   
+        OPEN (9, FILE = 'ssc_crsect_en_excit_2.dat')
+
+        PRINT '(2x,"Process ",i3," : e-n excitation model 2 collisions cross-sections data file is found. Reading the data file...")',&
+                                                                                                            &  Rank_of_process
+        READ (9, '(2x,i4)') N_en_excit_2
+
+        ALLOCATE(Energy_en_excit_2_eV(1:N_en_excit_2), STAT=ALLOC_ERR)
+        IF(ALLOC_ERR.NE.0)THEN
+           PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Energy_en_excit_2_eV !!!")', Rank_of_process
+           PRINT  '(2x,"Program will be terminated now :(")'
+           STOP
+        END IF
+
+        ALLOCATE(CrSect_en_excit_2_m2(1:N_en_excit_2), STAT=ALLOC_ERR)
+        IF(ALLOC_ERR.NE.0)THEN
+           PRINT '(/2x,"Process ",i3," : Error in ALLOCATE CrSect_en_excit_2_m2 !!!")', Rank_of_process
+           PRINT  '(2x,"Program will be terminated now :(")'
+           STOP
+        END IF
+      
+        DO j = 1, N_en_excit_2
+          read (9,*) Energy_en_excit_2_eV(j), CrSect_en_excit_2_m2(j)
+        END DO
+      
+        CLOSE (9, STATUS = 'KEEP')
+        DO j = 1, N_en_excit_2                                 !
+           IF (CrSect_en_excit_2_m2(j).GT.0.0) THEN            !
+              Thresh_en_excit_2_eV = Energy_en_excit_2_eV(j)     ! finding the energy threshold value
+              EXIT                                           !
+           END IF                                            !
+        END DO                                               !
+
+     ELSE
+
+        PRINT '(/2x,"Process ",i3," : Error! Cannot find file ssc_crsect_en_excit_2.dat !!!")', Rank_of_process      
+        PRINT  '(2x,"Program will be terminated now :(")'
+        STOP
+      
+     END IF
+
+  END IF
+
 END SUBROUTINE CONFIG_READ_CRSECT_ARRAYS 
 
 !=========================================================================================================
@@ -456,6 +520,15 @@ SUBROUTINE REMOVE_CRSECT_ARRAYS
      END IF
   END IF
 
+  IF (ALLOCATED(Energy_en_excit_2_eV)) THEN
+     DEALLOCATE(Energy_en_excit_2_eV, STAT=DEALLOC_ERR)
+     IF(DEALLOC_ERR.NE.0)THEN
+        PRINT '(/2x,"Process ",i3," : Error in DEALLOCATE Energy_en_excit_2_eV !!!")', Rank_of_process
+        PRINT  '(2x,"Program will be terminated now :(")'
+        STOP
+     END IF
+  END IF
+
   IF (ALLOCATED(Energy_en_ioniz_eV)) THEN
      DEALLOCATE(Energy_en_ioniz_eV, STAT=DEALLOC_ERR)
      IF(DEALLOC_ERR.NE.0)THEN
@@ -478,6 +551,15 @@ SUBROUTINE REMOVE_CRSECT_ARRAYS
      DEALLOCATE(CrSect_en_excit_m2, STAT=DEALLOC_ERR)
      IF(DEALLOC_ERR.NE.0)THEN
         PRINT '(/2x,"Process ",i3," : Error in DEALLOCATE CrSect_en_excit_m2 !!!")', Rank_of_process
+        PRINT  '(2x,"Program will be terminated now :(")'
+        STOP
+     END IF
+  END IF
+
+  IF (ALLOCATED(CrSect_en_excit_2_m2)) THEN
+     DEALLOCATE(CrSect_en_excit_2_m2, STAT=DEALLOC_ERR)
+     IF(DEALLOC_ERR.NE.0)THEN
+        PRINT '(/2x,"Process ",i3," : Error in DEALLOCATE CrSect_en_excit_2_m2 !!!")', Rank_of_process
         PRINT  '(2x,"Program will be terminated now :(")'
         STOP
      END IF
@@ -772,7 +854,7 @@ SUBROUTINE SETVALUES_COLLISION_ARRAYS
         CLOSE (99, STATUS = 'KEEP')
      END IF
 
-     IF (Colflag_kind_spec(2, 1).EQ.1) THEN                                   ! electron-neutral, excitation
+     IF (Colflag_kind_spec(2, 1).EQ.1) THEN                                   ! electron-neutral, excitation model 1
         OPEN (99, FILE = '_en_excit_coll_freqs.dat')
         DO j = 1, Nenergyval_spec(1)
            energy_eV = (j-1) * deltaEnergy_eV_spec(1)
@@ -796,6 +878,15 @@ SUBROUTINE SETVALUES_COLLISION_ARRAYS
         DO j = 1, Nenergyval_spec(1)
            energy_eV = (j-1) * deltaEnergy_eV_spec(1)
            WRITE (99, '(2(2x,e12.5))') energy_eV, FREQUENCY_OF_COLLISION(energy_eV, 4, 1) / delta_t_s
+        END DO
+        CLOSE (99, STATUS = 'KEEP')
+      END IF
+
+     IF (Colflag_kind_spec(5, 1).EQ.1) THEN                                   ! electron, excitation model 2
+        OPEN (99, FILE = '_en_excit_2_coll_freqs.dat')
+        DO j = 1, Nenergyval_spec(1)
+           energy_eV = (j-1) * deltaEnergy_eV_spec(1)
+           WRITE (99, '(2(2x,e12.5))') energy_eV, FREQUENCY_OF_COLLISION(energy_eV, 5, 1) / delta_t_s
         END DO
         CLOSE (99, STATUS = 'KEEP')
       END IF

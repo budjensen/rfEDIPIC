@@ -12,6 +12,8 @@
        1
 -------d----- Excitation-1 (1 = yes, 0 = no) ----------------------
        1
+-------d----- Excitation-2 (1 = yes, 0 = no) ----------------------
+       1
 -------d----- Ionization-1 (1 = yes, 0 = no) ----------------------
        1
 ============== ELECTRON - NEUTRAL COLLISIONS, CONTROL =============
@@ -39,3 +41,6 @@
        0
 --#d.dddE#dd- Frequency, model-1 (s^-1) ---------------------------
    0.000E+00
+==== Turner Benchmark Collision Model, ACTIVATION and CONTROL =====
+-------d----- Turner Collision Model (1 = yes, 0 = no)-------------
+       1
