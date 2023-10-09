@@ -97,7 +97,7 @@ SUBROUTINE INITIATE_PARAMETERS
      READ (9, '(A77)') buf !--            If picosec_flag = 0:   delta_t found from scaling parameters --")')
      READ (9, '(A77)') buf !--            If picosec_flag > 0:   delta_t [ps] = Max_vel * 10^(n-1) ------")')
      READ (9, '(A77)') buf !--dddddd-#d-- If picosec_flag < 0:   delta_t [ps] = Max_vel * 10^(n) --------")')
-     READ (9, '(3x,i6,1x,i2)') N_max_vel, picosec_flag
+     READ (9, '(2x,i6,1x,i2)') N_max_vel, picosec_flag
      READ (9, '(A77)') buf !--dddddd----- Number of velocity boxes per unit of V_therm ------------------")')
      READ (9, '(2x,i6)') N_box_vel
      READ (9, '(A77)') buf !============================ SIMULATION CONTROL =============================")')
@@ -198,7 +198,7 @@ SUBROUTINE INITIATE_PARAMETERS
         WRITE (9, '("--            If picosec_flag = 0:   delta_t found from scaling parameters --")')
         WRITE (9, '("--            If picosec_flag > 0:   delta_t [ps] = Max_vel * 10^(n-1) ------")')
         WRITE (9, '("--dddddd-#d-- If picosec_flag < 0:   delta_t [ps] = Max_vel * 10^(n) --------")')
-        WRITE (9, '(3x,i6,1x,i2)') N_max_vel, picosec_flag
+        WRITE (9, '(2x,i6,1x,i2)') N_max_vel, picosec_flag
         WRITE (9, '("--dddddd----- Number of cells per Debye length ------------------------------")')
         WRITE (9, '(2x,i6)') N_of_cells_debye
         WRITE (9, '("----dddd----- Maximal expected velocity (in V_therm_e) ----------------------")')
