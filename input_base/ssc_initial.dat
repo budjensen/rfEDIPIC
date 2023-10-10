@@ -52,8 +52,8 @@
        0
 --dddddd.ddd- Duration of simulation (ns) -----------------------------------
    94395.280
---dddddd----- Step for saving checkpoints (timesteps, skip if <=0) ----------
-  409600
+--dddddddd--- Step for saving checkpoints (timesteps, skip if <=0) ----------
+   -409600
 --dddddd----- Seed for random numbers generator -----------------------------
   713287
 ------------- Method of initialization --------------------------------------

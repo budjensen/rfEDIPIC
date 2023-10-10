@@ -105,8 +105,8 @@ SUBROUTINE INITIATE_PARAMETERS
      READ (9, '(7x,i1)') Density_flag
      READ (9, '(A77)') buf !--dddddd.ddd- Duration of simulation (ns) -----------------------------------")')
      READ (9, '(2x,f10.3)') T_sim_ns   
-     READ (9, '(A77)') buf !--dddddd----- Step for saving checkpoints (timesteps, skip if <=0) ----------")')
-     READ (9, '(2x,i6)') SaveCheck_step
+     READ (9, '(A77)') buf !--dddddddd--- Step for saving checkpoints (timesteps, skip if <=0) ----------")')
+     READ (9, '(2x,i8)') SaveCheck_step
      READ (9, '(A77)') buf !--dddddd----- Seed for random numbers generator -----------------------------")')
      READ (9, '(2x,i6)') I_random_seed
      READ (9, '(A77)') buf !------------- Method of initialization --------------------------------------")')
@@ -210,8 +210,8 @@ SUBROUTINE INITIATE_PARAMETERS
         WRITE (9, '(7x,i1)') Density_flag
         WRITE (9, '("--dddddd.ddd- Duration of simulation (ns) -----------------------------------")')
         WRITE (9, '(2x,f10.3)') T_sim_ns   
-        WRITE (9, '("--dddddd----- Step for saving checkpoints (timesteps, skip if <=0) ----------")')
-        WRITE (9, '(2x,i6)') SaveCheck_step
+        WRITE (9, '("--dddddddd--- Step for saving checkpoints (timesteps, skip if <=0) ----------")')
+        WRITE (9, '(2x,i8)') SaveCheck_step
         WRITE (9, '("--dddddd----- Seed for random numbers generator -----------------------------")')
         WRITE (9, '(2x,i6)') I_random_seed
         WRITE (9, '("------------- Method of initialization --------------------------------------")')
