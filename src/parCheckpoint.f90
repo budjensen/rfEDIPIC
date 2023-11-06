@@ -1,83 +1,83 @@
 SUBROUTINE SAVE_CHECKPOINT
 
-  USE CurrentProblemValues
-  USE ParallelOperationValues
-  USE Diagnostics
-  USE Snapshots
-  USE mt19937
+   USE CurrentProblemValues
+   USE ParallelOperationValues
+   USE Diagnostics
+   USE Snapshots
+   USE mt19937
 
-  IMPLICIT NONE
+   IMPLICIT NONE
 
-  INTEGER n ! number of particle
-  
-  REAL R
+   INTEGER n ! number of particle
 
-  IF (T_cntr.NE.Save_check_Tcntr) RETURN
+   REAL R
 
-  IF (Rank_of_process.EQ.0) THEN
+   IF (T_cntr.NE.Save_check_Tcntr) RETURN
 
-     OPEN (9, FILE = check_g_filename, STATUS = 'REPLACE')
+   IF (Rank_of_process.EQ.0) THEN
 
-     I_random_seed = int(2.d0**31 * grnd())
-     if (I_random_seed.le.0) I_random_seed = (2**31 - 1) + I_random_seed          
+      OPEN (9, FILE = check_g_filename, STATUS = 'REPLACE')
 
-     WRITE (9, '(2x,i14,2x,i14)') T_cntr,           I_random_seed                   
-     WRITE (9, '(2x,i14,2x,i14)') Start_diag_Tcntr, current_snap
-     WRITE (9, '(2x,i14,2x,i14)') N_part(1),        N_part(2)
-     WRITE (9, '(2x,i14,2x,i14)') Q_left,           Q_right
-     WRITE (9, '(2x,e14.7,2x,e14.7,2x,e14.7)') full_Q_left,  full_Q_right , Q_ext
+      I_random_seed = int(2.d0**31 * grnd())
+      if (I_random_seed.le.0) I_random_seed = (2**31 - 1) + I_random_seed
 
-     WRITE (9, '(2x,i14,2x,i14)')     N_of_saved_records, text_output_counter
-     WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_full_eV,     Init_energy_full_eV
-     WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_pot_eV,      Energy_heat_eV
-     WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_kin_eV(1),   Energy_kin_eV(2)
-     WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_wall_eV(1),  Energy_wall_eV(2)
-     WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_emit_eV(1),  Energy_emit_eV(2)
-     WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_coll_eV(1),  Energy_coll_eV(2)
-     WRITE (9, '(2x,e14.7,2x,e14.7)') prev_Q_left,      prev_Q_right
-     CLOSE (9, STATUS = 'KEEP')
+      WRITE (9, '(2x,i14,2x,i14)') T_cntr,           I_random_seed
+      WRITE (9, '(2x,i14,2x,i14)') Start_diag_Tcntr, current_snap
+      WRITE (9, '(2x,i14,2x,i14)') N_part(1),        N_part(2)
+      WRITE (9, '(2x,i14,2x,i14)') Q_left,           Q_right
+      WRITE (9, '(2x,e14.7,2x,e14.7,2x,e14.7)') full_Q_left,  full_Q_right , Q_ext
 
-  ELSE
+      WRITE (9, '(2x,i14,2x,i14)')     N_of_saved_records, text_output_counter
+      WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_full_eV,     Init_energy_full_eV
+      WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_pot_eV,      Energy_heat_eV
+      WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_kin_eV(1),   Energy_kin_eV(2)
+      WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_wall_eV(1),  Energy_wall_eV(2)
+      WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_emit_eV(1),  Energy_emit_eV(2)
+      WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_coll_eV(1),  Energy_coll_eV(2)
+      WRITE (9, '(2x,e14.7,2x,e14.7)') prev_Q_left,      prev_Q_right
+      CLOSE (9, STATUS = 'KEEP')
 
-     OPEN (9, FILE = check_g_filename, STATUS = 'REPLACE')
+   ELSE
 
-     I_random_seed = int(2.d0**31 * grnd())
-     if (I_random_seed.le.0) I_random_seed = (2**31 - 1) + I_random_seed
+      OPEN (9, FILE = check_g_filename, STATUS = 'REPLACE')
 
-     WRITE (9, '(2x,i14,2x,i14)') T_cntr,           I_random_seed
-     WRITE (9, '(2x,i14,2x,i14)') Start_diag_Tcntr, current_snap 
-     WRITE (9, '(2x,i14,2x,i14)') N_part(1),        N_part(2)
-     WRITE (9, '(2x,i14,2x,i14)') Q_left,           Q_right
-     CLOSE (9, STATUS = 'KEEP')
+      I_random_seed = int(2.d0**31 * grnd())
+      if (I_random_seed.le.0) I_random_seed = (2**31 - 1) + I_random_seed
 
-     OPEN (9, FILE = check_e_filename, STATUS = 'REPLACE')
-     DO n = 1, N_part(1)
-        WRITE (9, '(5(1x,e16.9),1x,i4)')  X_of_spec(1)%part(n), &
-                                       & VX_of_spec(1)%part(n), & 
-                                       & VY_of_spec(1)%part(n), &
-                                       & VZ_of_spec(1)%part(n), &
-                                       & AX_of_spec(1)%part(n), &
-                                       & Tag_of_spec(1)%part(n)
-     END DO
-     CLOSE (9, STATUS = 'KEEP')
-     
-     IF (N_spec.EQ.2) THEN
-        OPEN (9, FILE = check_i_filename, STATUS = 'REPLACE')
-        DO n = 1, N_part(2)
-           WRITE (9, '(5(1x,e16.9),1x,i4)')  X_of_spec(2)%part(n), &
-                                          & VX_of_spec(2)%part(n), & 
-                                          & VY_of_spec(2)%part(n), &
-                                          & VZ_of_spec(2)%part(n), &
-                                          & AX_of_spec(2)%part(n), &
-                                          & Tag_of_spec(2)%part(n)
-        END DO
-        CLOSE (9, STATUS = 'KEEP')
-     END IF
+      WRITE (9, '(2x,i14,2x,i14)') T_cntr,           I_random_seed
+      WRITE (9, '(2x,i14,2x,i14)') Start_diag_Tcntr, current_snap
+      WRITE (9, '(2x,i14,2x,i14)') N_part(1),        N_part(2)
+      WRITE (9, '(2x,i14,2x,i14)') Q_left,           Q_right
+      CLOSE (9, STATUS = 'KEEP')
 
-  END IF
+      OPEN (9, FILE = check_e_filename, STATUS = 'REPLACE')
+      DO n = 1, N_part(1)
+         WRITE (9, '(5(1x,e16.9),1x,i4)')  X_of_spec(1)%part(n), &
+         & VX_of_spec(1)%part(n), &
+         & VY_of_spec(1)%part(n), &
+         & VZ_of_spec(1)%part(n), &
+         & AX_of_spec(1)%part(n), &
+         & Tag_of_spec(1)%part(n)
+      END DO
+      CLOSE (9, STATUS = 'KEEP')
 
-  PRINT '(2x,"Process ",i3," : created the new checkpoint...")', Rank_of_process 
+      IF (N_spec.EQ.2) THEN
+         OPEN (9, FILE = check_i_filename, STATUS = 'REPLACE')
+         DO n = 1, N_part(2)
+            WRITE (9, '(5(1x,e16.9),1x,i4)')  X_of_spec(2)%part(n), &
+            & VX_of_spec(2)%part(n), &
+            & VY_of_spec(2)%part(n), &
+            & VZ_of_spec(2)%part(n), &
+            & AX_of_spec(2)%part(n), &
+            & Tag_of_spec(2)%part(n)
+         END DO
+         CLOSE (9, STATUS = 'KEEP')
+      END IF
 
-  Save_check_Tcntr = Save_check_Tcntr + SaveCheck_step
+   END IF
+
+   PRINT '(2x,"Process ",i3," : created the new checkpoint...")', Rank_of_process
+
+   Save_check_Tcntr = Save_check_Tcntr + SaveCheck_step
 
 END SUBROUTINE SAVE_CHECKPOINT
