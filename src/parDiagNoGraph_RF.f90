@@ -16,14 +16,11 @@ SUBROUTINE INITIATE_DIAGNOSTICS
    INTEGER ALLOC_ERR !, DEALLOC_ERR
 
    INTEGER i      ! set of snapshots
-   INTEGER n      ! ordering number of snapshot in the set
 
    INTEGER N_of_snap_groups          ! number of sets of snapshots, read from file
    REAL(8) Aprx_snap_start_ns        ! approximate start of current set of snapshots [ns], read from file
    REAL(8) Aprx_snap_finish_ns       ! approximate finish of current set of snapshots [ns], read from file
    INTEGER Aprx_n_of_snaps           ! approximate number of snapshots in current set, read from file
-
-   INTEGER Fact_n_of_snaps           ! calculated number of snapshots in one set
 
    INTEGER T1, T2, N1, N2, T2_old, N2_old, large_step !, T_current
 
@@ -96,72 +93,10 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       READ (9, '(A77)') buf ! '("------------dddddd.ddd------------dddddd.ddd--------------dddd---------------")')
 
       DO i = 1, N_of_snap_groups
-! read the parameters of current set of snapshot from the data file
+         ! Read the parameters of current set of snapshot from the data file
          READ (9, '(12x,f10.3,12x,f10.3,14x,i4)') Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps    !!!
-! try the next group of snapshots if some stupid guy used the group with zero snapshots
-         IF (Aprx_n_of_snaps.LT.1) CYCLE
-
-! get the timestep, coinciding with the diagnostic output timestep and closest to Aprx_snap_start_ns
-         ! Calculate start timestep specified in the file
-         T1 = Aprx_snap_start_ns / (delta_t_s * 1.0e9)
-
-         ! If the start timestep is less than the first timestep for diagnostic output specified in the file,
-         ! then use the first timestep for diagnostic output
-         IF (T1.LT.(WriteStart_step + WriteAvg_step - 1)) T1 = WriteStart_step + WriteAvg_step - 1
-
-         ! Calculate the number of write steps between the start timestep and the first timestep for diagnostic output
-         N1 = (T1 - (WriteStart_step + WriteAvg_step - 1)) / WriteOut_step
-
-         !
-         T1 = WriteStart_step + N1 * WriteOut_step + WriteAvg_step - 1
-
-! get the timestep, coinciding with the diagnostic output timestep and closest to Aprx_snap_finish_ns
-         T2 = Aprx_snap_finish_ns / (delta_t_s * 1.0e9)
-         IF (T2.LT.(WriteStart_step + WriteAvg_step - 1)) T2 = WriteStart_step + WriteAvg_step - 1
-         N2 = (T2 - (WriteStart_step + WriteAvg_step - 1)) / WriteOut_step
-         T2 = WriteStart_step + N2 * WriteOut_step + WriteAvg_step - 1
-
-! adjust, if necessary, the start timesteps if it is before (less than) the finish timestep for the previous set of snapshots T2_old
-         IF (T1.LE.T2_old) THEN
-            T1 = T2_old + WriteOut_step
-            N1 = N2_old + 1
-         END IF
-
-! adjust, if necessary, the finish timestep if it is after (larger than) the last simulation timestep
-         DO WHILE (T2.GT.Max_T_cntr)
-            T2 = T2 - WriteOut_step
-            N2 = N2 - 1
-         END DO
-! skip the line if the start moment is after (larger than) the finish moment
-         IF (T1.GT.T2) CYCLE
-! if we are here than the T1 and T2 can be used for calculation of moments of snapshots
-! calculate the number of snapshots which can be made in current set
-         IF (Aprx_n_of_snaps.EQ.1) THEN
-            large_step = 0
-            Fact_n_of_snaps = 1
-            T2 = T1
-            N2 = N1
-         ELSE
-            large_step = (N2 - N1) / (Aprx_n_of_snaps - 1)
-            IF (large_step.EQ.0) THEN
-               large_step = 1
-               Fact_n_of_snaps = N2 - N1 + 1
-            ELSE
-               Fact_n_of_snaps = Aprx_n_of_snaps
-               N2 = N1 + large_step * (Fact_n_of_snaps - 1)
-               T2 = WriteStart_step + N2 * WriteOut_step + WriteAvg_step - 1
-            END IF
-         END IF
-! save the finish moment for the current set of snapshots
-         T2_old = T2
-         N2_old = N2
-! for all possible snapshots of the current set
-         DO n = 1, Fact_n_of_snaps
-! Calculate and save the snapshot moment in the temporary array
-            N_of_all_snaps = N_of_all_snaps + 1
-            timestep(N_of_all_snaps) =  T1 + (n - 1) * large_step * WriteOut_step
-         END DO        ! end of cycle over snapshots in one set
-      END DO           ! end of cycle over sets of snapshots
+         CALL CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps, T2_old, N2_old, timestep)
+      END DO
 
       IF (N_of_all_snaps.GT.0) THEN ! skip further reading if no snapshots requested
 
@@ -356,6 +291,13 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       IF (Rank_of_process.EQ.0) THEN
 ! save the moments to the file
          PRINT '(/2x,"The program will create ",i4," snapshots")', N_of_all_snaps
+
+         ! IF (N_of_all_snaps.GT.0) THEN
+         !    ! Print out a list of all snapshot times
+         !    DO i = 1, N_of_all_snaps
+         !       PRINT '(4x,"Snapshot ",i4," at time ",f10.3," ns")', i, timestep(i) * 1.0e9 * delta_t_s
+         !    END DO
+         ! END IF
 
 ! write moments of snapshot creation into the file
          OPEN (41, FILE = '_snapmoments.dat')
@@ -602,6 +544,98 @@ SUBROUTINE INITIATE_DIAGNOSTICS
    print '("Process ",i4," : finished INITIATE_DIAGNOSTICS")', Rank_of_process
 
 END SUBROUTINE INITIATE_DIAGNOSTICS
+
+!------------------------------
+! Function to calculate the timesteps of a snapshot for each snapshot group
+SUBROUTINE CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps, T2_old, N2_old)
+
+   USE CurrentProblemValues, ONLY : delta_t_s, Max_T_cntr
+   USE Diagnostics, ONLY : WriteOut_step, WriteStart_step, WriteAvg_step
+   USE Snapshots, ONLY : N_of_all_snaps
+
+   IMPLICIT NONE
+   REAL(8) Aprx_snap_start_ns        ! approximate start of current set of snapshots [ns], read from file
+   REAL(8) Aprx_snap_finish_ns       ! approximate finish of current set of snapshots [ns], read from file
+   INTEGER Aprx_n_of_snaps           ! approximate number of snapshots in current set, read from file
+
+   INTEGER T1, T2, N1, N2, T2_old, N2_old, large_step
+   INTEGER n      ! ordering number of snapshot in the set
+   INTEGER Fact_n_of_snaps           ! calculated number of snapshots in one set
+
+   INTEGER timestep(1:9999)          ! array for temporary storage of moments (timesteps) of snapshots
+
+! Outside the program we read the parameters of current set of snapshot from the data file
+!
+!   READ (9, '(12x,f10.3,12x,f10.3,14x,i4)') Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps
+!
+
+! try the next group of snapshots if some stupid guy used the group with zero snapshots
+   IF (Aprx_n_of_snaps.LT.1) RETURN
+
+! get the timestep, coinciding with the diagnostic output timestep and closest to Aprx_snap_start_ns
+   ! Calculate start timestep specified in the file
+   T1 = Aprx_snap_start_ns / (delta_t_s * 1.0e9)
+
+   ! If the start timestep is less than the first timestep for diagnostic output specified in the file,
+   ! then use the first timestep for diagnostic output
+   IF (T1.LT.(WriteStart_step + WriteAvg_step - 1)) T1 = WriteStart_step + WriteAvg_step - 1
+
+   ! Calculate the number of write steps between the start timestep and the first timestep for diagnostic output
+   N1 = (T1 - (WriteStart_step + WriteAvg_step - 1)) / WriteOut_step
+
+   !
+   T1 = WriteStart_step + N1 * WriteOut_step + WriteAvg_step - 1
+
+! get the timestep, coinciding with the diagnostic output timestep and closest to Aprx_snap_finish_ns
+   T2 = Aprx_snap_finish_ns / (delta_t_s * 1.0e9)
+   IF (T2.LT.(WriteStart_step + WriteAvg_step - 1)) T2 = WriteStart_step + WriteAvg_step - 1
+   N2 = (T2 - (WriteStart_step + WriteAvg_step - 1)) / WriteOut_step
+   T2 = WriteStart_step + N2 * WriteOut_step + WriteAvg_step - 1
+
+   ! Ensure the start timesteps after the finish timestep for the previous set of snapshots T2_old
+   IF (T1.LE.T2_old) THEN
+      T1 = T2_old + WriteOut_step
+      N1 = N2_old + 1
+   END IF
+
+   ! Ensure the finish timestep is before the last simulation timestep
+   DO WHILE (T2.GT.Max_T_cntr)
+      T2 = T2 - WriteOut_step
+      N2 = N2 - 1
+   END DO
+
+   ! Move to the next line of the data file if the start moment is after (larger than) the finish moment
+   IF (T1.GT.T2) RETURN
+
+   ! if we are here than the T1 and T2 can be used for calculation of moments of snapshots
+   ! calculate the number of snapshots which can be made in current set
+   IF (Aprx_n_of_snaps.EQ.1) THEN
+      large_step = 0
+      Fact_n_of_snaps = 1
+      T2 = T1
+      N2 = N1
+   ELSE
+      large_step = (N2 - N1) / (Aprx_n_of_snaps - 1)
+      IF (large_step.EQ.0) THEN
+         large_step = 1
+         Fact_n_of_snaps = N2 - N1 + 1
+      ELSE
+         Fact_n_of_snaps = Aprx_n_of_snaps
+         N2 = N1 + large_step * (Fact_n_of_snaps - 1)
+         T2 = WriteStart_step + N2 * WriteOut_step + WriteAvg_step - 1
+      END IF
+   END IF
+! save the finish moment for the current set of snapshots
+   T2_old = T2
+   N2_old = N2
+! for all possible snapshots of the current set
+   DO n = 1, Fact_n_of_snaps
+! Calculate and save the snapshot moment in the temporary array
+      N_of_all_snaps = N_of_all_snaps + 1
+      timestep(N_of_all_snaps) =  T1 + (n - 1) * large_step * WriteOut_step
+   END DO        ! end of cycle over snapshots in one set
+
+END SUBROUTINE CALCULATE_SNAPSHOT_TIMES
 
 !------------------------------
 !
