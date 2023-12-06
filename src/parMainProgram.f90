@@ -72,9 +72,14 @@ PROGRAM MainProg
 
       END IF
 
+      ! Save diagnostics data, if inside of a diagnostics window [Start_diag_Tcntr, Finish_diag_Tcntr]
       CALL DO_DIAGNOSTICS_STEP_1                                             ! server and clients, with differences
+
       CALL CREATE_SNAPSHOT                                                   ! server and clients, with differences
+
+      ! If we reach Finish_diag_Tcntr, clear diagnostics arrays and set new a new diagnostics window
       CALL DO_DIAGNOSTICS_STEP_2                                             ! server and clients, with differences
+
       IF (SaveCheck_step.GE.0) CALL SAVE_CHECKPOINT                          ! server and clients, with differences
 
       CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)                                 ! all, synchronization

@@ -259,7 +259,7 @@ SUBROUTINE PROCESS_ION_COLLISION_WITH_RIGHT_WALL(x, vx, vy, vz, v2, s)
 ! calculate the energy of incident ion
    energy_inc_eV = v2 * Ms(2) * Factor_energy_eV
 
-   if (energy_inc_eV .le. Ei_wall_max_eV) then
+   if (energy_inc_eV .le. Ei_wall_max_eV) then !! ADD A LINE TO CHECK IF THE TIME IS RIGHT BEFORE A SNAPSHOT (MAYBE MAKE A PROG LIKE THE TIME FOR DF ONE)
       index_enr = 1 + int(energy_inc_eV/delta_Ei_wall_eV)
       if (index_enr .gt. N_E_bins) index_enr = N_E_bins
       irwedf(index_enr) = irwedf(index_enr) + 1.

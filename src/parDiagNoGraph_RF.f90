@@ -22,7 +22,7 @@ SUBROUTINE INITIATE_DIAGNOSTICS
    REAL(8) Aprx_snap_finish_ns       ! approximate finish of current set of snapshots [ns], read from file
    INTEGER Aprx_n_of_snaps           ! approximate number of snapshots in current set, read from file
 
-   INTEGER T1, T2, N1, N2, T2_old, N2_old, large_step !, T_current
+   INTEGER T2_old, N2_old !, T_current
 
    INTEGER N_of_breakpoints          ! approximate number of breakpoints - right boundaries of
    ! locations for calculation of velocity distribution functions (VDF)
@@ -546,8 +546,8 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 END SUBROUTINE INITIATE_DIAGNOSTICS
 
 !------------------------------
-! Function to calculate the timesteps of a snapshot for each snapshot group
-SUBROUTINE CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps, T2_old, N2_old)
+SUBROUTINE CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps, T2_old, N2_old, timestep)
+!! Function to calculate the timesteps of a snapshot for each snapshot group
 
    USE CurrentProblemValues, ONLY : delta_t_s, Max_T_cntr
    USE Diagnostics, ONLY : WriteOut_step, WriteStart_step, WriteAvg_step
@@ -1564,8 +1564,9 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_2
 END SUBROUTINE DO_DIAGNOSTICS_STEP_2
 
 !------------------------------
-!
 SUBROUTINE PROCESS_DIAGNOSTIC_DATA
+!! We enter this subroutine if we are at a Finish_diag_Tcntr time step. Nodes send all
+!! diagnostic data to the server and the server processes it and saves it to files.
 
    use mpi
    USE ParallelOperationValues
@@ -1875,6 +1876,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
    Energy_full_eV = Energy_kin_eV(1) + Energy_kin_eV(2) + Energy_pot_eV
 
 ! rate of change of full energy, kinetic energy, potential energy
+   ! If we are at the first Finish_diag_Tcntr step
    IF (T_cntr.EQ.(WriteStart_step + WriteAvg_step - 1)) THEN   ! For the first time ALL RATES should be set to zero,
       Init_energy_full_eV    = Energy_full_eV                  ! because we initiate the system's full energy here -
       Rate_energy_full_eVns1 = 0.0_8                           ! i.e. create the start point for the energy balance -
@@ -1886,6 +1888,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
       Energy_heat_eV         = 0.0_8              ! total energy change due to Joule heating
       Rate_energy_heat_eVns1 = 0.0_8              ! rate of change of energy due to Joule heating, dimensional
 
+   ! If we are at any other Finish_diag_Tcntr step
    ELSE
       Rate_energy_full_eVns1 = (Energy_full_eV - old_Energy_full_eV) * Factor_rate_ns1
       Rate_energy_pot_eVns1  = (Energy_pot_eV  - old_Energy_pot_eV)  * Factor_rate_ns1
@@ -2569,6 +2572,8 @@ END SUBROUTINE DoTextOutput
 
 !--------------------------------------
 REAL(8) FUNCTION GetAverageValue(v, n)
+!! Calculates average of double v and integer n as v/n, if n>0, and 0 otherwise.
+!! Returns a double
 
    REAL(8) v
    INTEGER n
@@ -2583,6 +2588,8 @@ END FUNCTION GetAverageValue
 
 !--------------------------------------
 REAL(8) FUNCTION GetAverageValueInt(m, n)
+!! Calculates average for integers v and n as v/n, if n>0, and 0 otherwise.
+!! Returns a double
 
    INTEGER m
    INTEGER n
