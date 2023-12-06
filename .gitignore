@@ -1,2 +1,6 @@
 *.mod
 *.o
+edf_sims/
+old_version_runs/
+Turner2013/
+test/
