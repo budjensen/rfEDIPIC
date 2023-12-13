@@ -231,8 +231,10 @@ MODULE CurrentProblemValues
    TYPE(dalloc_array), ALLOCATABLE :: VY_of_spec(:)      ! Array of pointers on arrays of Y-velocity of particles of blocks
    TYPE(dalloc_array), ALLOCATABLE :: VZ_of_spec(:)      ! Array of pointers on arrays of Z-velocity of particles of blocks
    TYPE(dalloc_array), ALLOCATABLE :: AX_of_spec(:)      ! Array of pointers on arrays of smoothed X-acceleration of particles of blocks
-   TYPE(ialloc_array), ALLOCATABLE :: Tag_of_spec(:)     ! Array of pointers on arrays of tag of particles of blocks
-   TYPE(dalloc_array), ALLOCATABLE :: prev_VX_of_spec(:) ! Array of pointers on arrays of old X-velocity of particles of blocks
+   TYPE(ialloc_array), ALLOCATABLE :: Tag_of_spec(:)     ! Array of pointers on arrays of tag of particles of blocks,
+                                                         !  used to track particles which switch direction or undergo collisions
+   TYPE(dalloc_array), ALLOCATABLE :: prev_VX_of_spec(:) ! Array of pointers on arrays of old X-velocity of particles of blocks,
+                                                         !  used for specifying the tag and for calculation of the energy in diagnostics
 
 ! LINKED LIST FOR INJECTED PARTICLES *****************
 
@@ -679,8 +681,8 @@ MODULE Diagnostics
 ! energy values, dimensional
    REAL(8) Energy_full_eV                        ! full energy of system, [eV]
 
-   REAL(8) Energy_pot_eV                         ! potential energy, [eV]
-   REAL(8) Energy_pot                            ! - " -                                                             IS USED FOR ACCUMULATION
+   REAL(8) Energy_pot_eV(1:N_spec)                    ! potential energy, [eV]
+   REAL(8) Energy_pot(1:N_spec)                       ! - " -                                                             IS USED FOR ACCUMULATION
 
    REAL(8) Energy_kin_eV(1:N_spec)                    ! kinetic energy, 1 = electrons, 2 = ions, [eV]
 
@@ -723,17 +725,17 @@ MODULE Diagnostics
    REAL(8) Avg_energy_leftemit_eV(1:N_spec)           ! average kinetic energy - " -, [eV]
    REAL(8) Avg_energy_rightemit_eV(1:N_spec)          ! average kinetic energy - " -, [eV]
 
-   REAL(8) Energy_heat_eV                        ! energy, transferred into the plasma due to Joule heating (electric current), [eV]
+   REAL(8) Energy_heat_eV(1:N_spec)                        ! energy, transferred into the plasma due to Joule heating (electric current), [eV]
 
    REAL(8) Rate_energy_full_eVns1                ! rate of change of full energy, [eV/ns]
-   REAL(8) Rate_energy_pot_eVns1                 ! rate of change of potential energy, [eV/ns]
+   REAL(8) Rate_energy_pot_eVns1(1:N_spec)            ! rate of change of potential energy, [eV/ns]
    REAL(8) Rate_energy_kin_eVns1(1:N_spec)            ! rate of cange of kinetic energy, 1 = electrons, 2 = ions, [eV/ns]
 
    REAL(8) Rate_energy_wall_eVns1(1:N_spec)           ! rate of change of (1=electrons,2=ions) energy due to collisions with the walls, [eV/ns]
    REAL(8) Rate_energy_emit_eVns1(1:N_spec)           ! rate of change of energy due to emission of particles from the wall (1=electrons,2=ions), [eV/ns]
    REAL(8) Rate_energy_coll_eVns1(1:N_spec)           ! rate of change of (1=electrons,2=ions) energy due to collisions with neutral particles, [eV/ns]
 
-   REAL(8) Rate_energy_heat_eVns1                ! rate of change of energy due to Joule heating, [eV/ns]
+   REAL(8) Rate_energy_heat_eVns1(1:N_spec)           ! rate of change of energy due to Joule heating, [eV/ns]
 
    real(8) U_app_V, U_cap_V, Sigma_electrode, Enr_consumed_Jm2 !** to calculate power for capacitive discharge
 
@@ -741,7 +743,7 @@ MODULE Diagnostics
    REAL(8) Rate_energy_wall(1:N_spec)                 ! rate of change of energy of (1=electrons,2=ions) due to collisions with the walls
    REAL(8) Rate_energy_emit(1:N_spec)                 ! rate of change of energy of (1=electrons,2=ions) emitted/reflected from the walls
    REAL(8) Rate_energy_coll(1:N_spec)                 ! rate of change of energy of (1=electrons,2=ions) due to collisions with neutral particles
-   REAL(8) Rate_energy_heat                      ! rate of change of energy due to Joule heating
+   REAL(8) Rate_energy_heat(1:N_spec)                      ! rate of change of energy due to Joule heating
 
 ! flow values
    REAL(8) VY_e_avg_ms                           ! averaged (over all particles) Y-velocity for electrons, [m/s]           ARE USED FOR ACCUMULATION

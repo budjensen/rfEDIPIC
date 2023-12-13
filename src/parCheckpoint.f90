@@ -29,7 +29,8 @@ SUBROUTINE SAVE_CHECKPOINT
 
       WRITE (9, '(2x,i14,2x,i14)')     N_of_saved_records, text_output_counter
       WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_full_eV,     Init_energy_full_eV
-      WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_pot_eV,      Energy_heat_eV
+      WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_pot_eV(1),   Energy_pot_eV(2)
+      WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_heat_eV(1),  Energy_heat_eV(2)
       WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_kin_eV(1),   Energy_kin_eV(2)
       WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_wall_eV(1),  Energy_wall_eV(2)
       WRITE (9, '(2x,e14.7,2x,e14.7)') Energy_emit_eV(1),  Energy_emit_eV(2)

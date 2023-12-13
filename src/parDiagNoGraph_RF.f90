@@ -1414,7 +1414,7 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
 
             IF (T_cntr.EQ.Finish_diag_Tcntr) THEN
 
-               Energy_pot = Energy_pot + dq_left * F(left_node) + dq_right * F(right_node)
+               Energy_pot(s) = Energy_pot(s) + dq_left * F(left_node) + dq_right * F(right_node)
 
                Avg_kin_energy_x(s) = Avg_kin_energy_x(s) + vx * vx
                Avg_kin_energy_y(s) = Avg_kin_energy_y(s) + vy * vy
@@ -1586,8 +1586,8 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
    REAL(8) old_Energy_full_eV
    REAL(8) old_Energy_kin_eV(1 : N_spec) ! was (1:2)
-   REAL(8) old_Energy_pot_eV
-   REAL(8) old_Energy_heat_eV
+   REAL(8) old_Energy_pot_eV(1:N_spec)
+   REAL(8) old_Energy_heat_eV(1:N_spec)
    REAL(8) t_s, old_Sigma_electrode, dSigma, j_Am2, P_Wm2 !** for capacitive discharge (BC_flag = 4)
 
    REAL(8) time_ns
@@ -1602,9 +1602,9 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
    INTEGER ierr
    INTEGER ibufer(1:42)
-   REAL(8) dbufer(1:40)
+   REAL(8) dbufer(1:42)
    INTEGER ibufer2(1:42)
-   REAL(8) dbufer2(1:40)
+   REAL(8) dbufer2(1:42)
 !  INTEGER stattus(MPI_STATUS_SIZE)
 !  INTEGER tag, source, dest
 !  LOGICAL flag
@@ -1691,28 +1691,30 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
       dbufer(22) = ion_reemit_energy
       dbufer(23) = ion_left_reflect_energy
       dbufer(24) = ion_right_reflect_energy
-      dbufer(25) = Rate_energy_heat
-      dbufer(26) = Rate_energy_coll(1)
-      dbufer(27) = Rate_energy_coll(2)
-      dbufer(28) = Energy_pot
-      dbufer(29) = Avg_kin_energy_x(1)
-      dbufer(30) = Avg_kin_energy_x(2)
-      dbufer(31) = Avg_kin_energy_y(1)
-      dbufer(32) = Avg_kin_energy_y(2)
-      dbufer(33) = Avg_kin_energy_z(1)
-      dbufer(34) = Avg_kin_energy_z(2)
-      dbufer(35) = prie_left_from_right_energy
-      dbufer(36) = prie_left_after_coll_energy
-      dbufer(37) = prie_right_from_left_energy
-      dbufer(38) = prie_right_after_coll_energy
-      dbufer(39) = ionsee_left_energy
-      dbufer(40) = ionsee_right_energy
+      dbufer(25) = Rate_energy_heat(1)
+      dbufer(26) = Rate_energy_heat(2)
+      dbufer(27) = Rate_energy_coll(1)
+      dbufer(28) = Rate_energy_coll(2)
+      dbufer(29) = Energy_pot(1)
+      dbufer(30) = Energy_pot(2)
+      dbufer(31) = Avg_kin_energy_x(1)
+      dbufer(32) = Avg_kin_energy_x(2)
+      dbufer(33) = Avg_kin_energy_y(1)
+      dbufer(34) = Avg_kin_energy_y(2)
+      dbufer(35) = Avg_kin_energy_z(1)
+      dbufer(36) = Avg_kin_energy_z(2)
+      dbufer(37) = prie_left_from_right_energy
+      dbufer(38) = prie_left_after_coll_energy
+      dbufer(39) = prie_right_from_left_energy
+      dbufer(40) = prie_right_after_coll_energy
+      dbufer(41) = ionsee_left_energy
+      dbufer(42) = ionsee_right_energy
 
 ! transmit
       CALL MPI_REDUCE(ibufer, ibufer2, 42, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
       CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
-      CALL MPI_REDUCE(dbufer, dbufer2, 40, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+      CALL MPI_REDUCE(dbufer, dbufer2, 41, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
       CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
 ! quit
@@ -1730,7 +1732,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
       CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
 !print '(2x,"Process ",i3," will receive DBUFER from all processes")', Rank_of_process
-      CALL MPI_REDUCE(dbufer2, dbufer, 40, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+      CALL MPI_REDUCE(dbufer2, dbufer, 42, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
       CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
 ! restore integer data from the buffer
@@ -1804,22 +1806,24 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
       ion_reemit_energy            = dbufer(22)
       ion_left_reflect_energy      = dbufer(23)
       ion_right_reflect_energy     = dbufer(24)
-      Rate_energy_heat             = dbufer(25)
-      Rate_energy_coll(1)          = dbufer(26)
-      Rate_energy_coll(2)          = dbufer(27)
-      Energy_pot                   = dbufer(28)   !    sum of dQ * F
-      Avg_kin_energy_x(1)          = dbufer(29)   !    sum of VX**2, electrons
-      Avg_kin_energy_x(2)          = dbufer(30)   !    sum of VX**2, ions
-      Avg_kin_energy_y(1)          = dbufer(31)   !    sum of VY**2, electrons
-      Avg_kin_energy_y(2)          = dbufer(32)   !    sum of VY**2, ions
-      Avg_kin_energy_z(1)          = dbufer(33)   !    sum of VZ**2, electrons
-      Avg_kin_energy_z(2)          = dbufer(34)   !    sum of VZ**2, ions
-      prie_left_from_right_energy  = dbufer(35)
-      prie_left_after_coll_energy  = dbufer(36)
-      prie_right_from_left_energy  = dbufer(37)
-      prie_right_after_coll_energy = dbufer(38)
-      ionsee_left_energy           = dbufer(39)
-      ionsee_right_energy          = dbufer(40)
+      Rate_energy_heat(1)          = dbufer(25)
+      Rate_energy_heat(2)          = dbufer(26)
+      Rate_energy_coll(1)          = dbufer(27)
+      Rate_energy_coll(2)          = dbufer(28)
+      Energy_pot(1)                = dbufer(29)   !    sum of dQ * F, electrons
+      Energy_pot(2)                = dbufer(30)   !    sum of dQ * F, ions
+      Avg_kin_energy_x(1)          = dbufer(31)   !    sum of VX**2, electrons
+      Avg_kin_energy_x(2)          = dbufer(32)   !    sum of VX**2, ions
+      Avg_kin_energy_y(1)          = dbufer(33)   !    sum of VY**2, electrons
+      Avg_kin_energy_y(2)          = dbufer(34)   !    sum of VY**2, ions
+      Avg_kin_energy_z(1)          = dbufer(35)   !    sum of VZ**2, electrons
+      Avg_kin_energy_z(2)          = dbufer(36)   !    sum of VZ**2, ions
+      prie_left_from_right_energy  = dbufer(37)
+      prie_left_after_coll_energy  = dbufer(38)
+      prie_right_from_left_energy  = dbufer(39)
+      prie_right_after_coll_energy = dbufer(40)
+      ionsee_left_energy           = dbufer(41)
+      ionsee_right_energy          = dbufer(42)
 
    END IF
 
@@ -1864,16 +1868,20 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
       Avg_kin_energy_eV(s)   = Avg_kin_energy_x_eV(s) + Avg_kin_energy_y_eV(s) + Avg_kin_energy_z_eV(s)
    END DO
 
-! calculate the potential energy (one common value for all species)
-   Energy_pot_eV = Factor_energy_pot_eV * (Energy_pot + Q_left * F(0) + Q_right * F(N_cells))
+! calculate the potential energy
+   DO s = 1, N_spec
+      Energy_pot_eV(s) = Factor_energy_pot_eV * (Energy_pot(s) + Q_left * F(0) + Q_right * F(N_cells))
+   END DO
 
 ! a correction for the walls with given potential; does not include energy stored in dielectric layer
    IF (BC_flag.EQ.0 .or. BC_flag.eq.4) THEN
-      Energy_pot_eV = Energy_pot_eV + 0.5_8 * eps_0_Fm * F(0) * EX(0) * E_scl_Vm / e_Cl
+      DO s = 1, N_spec
+         Energy_pot_eV(s) = Energy_pot_eV(s) + 0.5_8 * eps_0_Fm * F(0) * EX(0) * E_scl_Vm / e_Cl
+      END DO
    END IF
 
 ! new full energy of system
-   Energy_full_eV = Energy_kin_eV(1) + Energy_kin_eV(2) + Energy_pot_eV
+   Energy_full_eV = Energy_kin_eV(1) + Energy_kin_eV(2) + Energy_pot_eV(1) + Energy_pot_eV(2)
 
 ! rate of change of full energy, kinetic energy, potential energy
    ! If we are at the first Finish_diag_Tcntr step
@@ -1999,7 +2007,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
    CLOSE (50, STATUS = 'KEEP')
 
    OPEN  (50, FILE = 'dim_potenergy_vst.dat', POSITION = 'APPEND')
-   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Energy_pot_eV
+   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Energy_pot_eV(1) + Energy_pot_eV(2), Energy_pot_eV(1), Energy_pot_eV(2)
    CLOSE (50, STATUS = 'KEEP')
 
    OPEN  (50, FILE = 'dim_kinenergy_vst.dat', POSITION = 'APPEND')
@@ -2041,7 +2049,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
    WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, 100.0_8 * (Energy_full_eV - (Energy_wall_eV(1) + Energy_wall_eV(2) + &
    & Energy_emit_eV(1) + Energy_emit_eV(2) + &
    & Energy_coll_eV(1) + Energy_coll_eV(2) + &
-   & Energy_heat_eV) - Init_energy_full_eV) / Energy_full_eV
+   & Energy_heat_eV(1) + Energy_heat_eV(2)) - Init_energy_full_eV) / Energy_full_eV
    CLOSE (50, STATUS = 'KEEP')
 
 ! full energy of system (kinetic + potential)
@@ -2051,7 +2059,8 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
 ! potential energy of system
    OPEN  (50, FILE = 'dim_rate_potenergy_vst.dat', POSITION = 'APPEND')
-   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Rate_energy_pot_eVns1
+   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Rate_energy_pot_eVns1(1) + Rate_energy_pot_eVns1(2), &
+   & Rate_energy_pot_eVns1(1), Rate_energy_pot_eVns1(2)
    CLOSE (50, STATUS = 'KEEP')
 
 ! kinetic energy of system: all species / electrons / ions
@@ -2080,7 +2089,8 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
 ! energy of Joule heating of plasma by accelerating electric field
    OPEN  (50, FILE = 'dim_rate_energy_heat_vst.dat', POSITION = 'APPEND')
-   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Rate_energy_heat_eVns1
+   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Rate_energy_heat_eVns1(1) + Rate_energy_heat_eVns1(2), &
+   & Rate_energy_heat_eVns1(1), Rate_energy_heat_eVns1(2)
    CLOSE (50, STATUS = 'KEEP')
 
 ! velocity of electron Y-flow
@@ -2202,7 +2212,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
 ! energy of Joule heating of plasma by accelerating electric field
    OPEN  (50, FILE = 'dim_energy_heat_vst.dat', POSITION = 'APPEND')
-   WRITE (50, '(7(2x, e12.5))')  time_ns, Energy_heat_eV, Enr_consumed_Jm2, j_Am2, U_app_V, U_cap_V, P_Wm2
+   WRITE (50, '(7(2x, e12.5))')  time_ns, Energy_heat_eV(1) + Energy_heat_eV(2), Energy_heat_eV(1), Energy_heat_eV(2)!, Enr_consumed_Jm2, j_Am2, U_app_V, U_cap_V, P_Wm2
    CLOSE (50, STATUS = 'KEEP')
 
 ! number of particles that hit the right wall: electrons / ions
@@ -2372,9 +2382,11 @@ SUBROUTINE DoTextOutput
    PRINT '(/,"Diagnostics report at step : ",i9,", time interval : ",f12.4," ns ... ",f12.4," ns")', &
    & T_cntr, (T_cntr - WriteAvg_step) * delta_t_s * 1.0e9, &
    & T_cntr * delta_t_s * 1.0e9
-   PRINT &
-   & '("Parts of full system energy [eV]:         pot. = ",e11.4,",  kin. = ",e11.4,", kin.e. = ",e11.4,", kin.i. = ",e11.4)', &
-   & Energy_pot_eV, &
+   PRINT  '("Parts of full system energy [eV]:         pot. = ",e11.4,", pot.e. = ",e11.4,", pot.i. = ",e11.4)', &
+   & Energy_pot_eV(1) + Energy_pot_eV(2), &
+   & Energy_pot_eV(1), &
+   & Energy_pot_eV(2)
+   PRINT  '("                                          kin. = ",e11.4,", kin.e. = ",e11.4,", kin.i. = ",e11.4)', &
    & Energy_kin_eV(1) + Energy_kin_eV(2), &
    & Energy_kin_eV(1), &
    & Energy_kin_eV(2)
@@ -2384,7 +2396,7 @@ SUBROUTINE DoTextOutput
    & Energy_wall_eV(1) + Energy_wall_eV(2), &
    & Energy_emit_eV(1) + Energy_emit_eV(2), &
    & Energy_coll_eV(1) + Energy_coll_eV(2), &
-   & Energy_heat_eV
+   & Energy_heat_eV(1) + Energy_heat_eV(2)
 
    PRINT  '("Full system energy (kinetic + potential) :       ",e11.4," eV" )', Energy_full_eV
 
@@ -2392,13 +2404,14 @@ SUBROUTINE DoTextOutput
    & Energy_wall_eV(1) + Energy_wall_eV(2) + &
    & Energy_emit_eV(1) + Energy_emit_eV(2) + &
    & Energy_coll_eV(1) + Energy_coll_eV(2) + &
-   & Energy_heat_eV + Init_energy_full_eV
+   & Energy_heat_eV(1) + Energy_heat_eV(2) + &
+   & Init_energy_full_eV
 
    PRINT  '("Violation of full energy conservation law:       ",f11.1," %" )', &
    & 100.0_8 * (Energy_full_eV - (Energy_wall_eV(1) + Energy_wall_eV(2) + &
    & Energy_emit_eV(1) + Energy_emit_eV(2) + &
    & Energy_coll_eV(1) + Energy_coll_eV(2) + &
-   & Energy_heat_eV) - Init_energy_full_eV) / Energy_full_eV
+   & Energy_heat_eV(1) + Energy_heat_eV(2)) - Init_energy_full_eV) / Energy_full_eV
 
    PRINT &
    & '("Energy rates [eV/ns]: full = ",e11.4,", wall = ",e11.4,", emit. = ",e11.4,",  coll. = ",e11.4,",  heat. = ",e11.4)', &
@@ -2406,18 +2419,13 @@ SUBROUTINE DoTextOutput
    & Rate_energy_wall_eVns1(1) + Rate_energy_wall_eVns1(2), &
    & Rate_energy_emit_eVns1(1) + Rate_energy_emit_eVns1(2), &
    & Rate_energy_coll_eVns1(1) + Rate_energy_coll_eVns1(2), &
-   & Rate_energy_heat_eVns1
+   & Rate_energy_heat_eVns1(1) + Rate_energy_heat_eVns1(2)
 
    PRINT  '("Sum of particular rates:     ",e11.4," eV/ns" )', &
    & Rate_energy_wall_eVns1(1) + Rate_energy_wall_eVns1(2) + &
    & Rate_energy_emit_eVns1(1) + Rate_energy_emit_eVns1(2) + &
    & Rate_energy_coll_eVns1(1) + Rate_energy_coll_eVns1(2) + &
-   & Rate_energy_heat_eVns1
-
-   !Electrons, primary : number [1/ns] , <energy> [eV] : left = 11111111111 , 11111111111 ; right = 11111111111 , 11111111111
-   !                                  [macroparticles] : left = 11111111111               ; right = 11111111111
-   !Electrons, emitted : number [1/ns] , <energy> [eV] : left = 11111111111 , 11111111111 ; right = 11111111111 , 11111111111
-   !                                  [macroparticles] : left = 11111111111               ; right = 11111111111               ::
+   & Rate_energy_heat_eVns1(1) + Rate_energy_heat_eVns1(2)
 
    PRINT &
    & '(/,"Electrons, primary : number [1/ns] , <energy> [eV] : left = ",  e11.4," , ",  f11.4," ; right = ",  e11.4," , ",f11.4)',&

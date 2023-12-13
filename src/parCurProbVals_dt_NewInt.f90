@@ -574,7 +574,8 @@ SUBROUTINE INITIATE_PARAMETERS
          READ (9, '(2x,e14.7,2x,e14.7,2x,e14.7)') full_Q_left, full_Q_right, Q_ext
          READ (9, '(2x,i14,2x,i14)')     N_of_saved_records, text_output_counter
          READ (9, '(2x,e14.7,2x,e14.7)') Energy_full_eV,     Init_energy_full_eV
-         READ (9, '(2x,e14.7,2x,e14.7)') Energy_pot_eV,      Energy_heat_eV
+         READ (9, '(2x,e14.7,2x,e14.7)') Energy_pot_eV(1),   Energy_pot_eV(2)
+         READ (9, '(2x,e14.7,2x,e14.7)') Energy_heat_eV(1),  Energy_heat_eV(2)
          READ (9, '(2x,e14.7,2x,e14.7)') Energy_kin_eV(1),   Energy_kin_eV(2)
          READ (9, '(2x,e14.7,2x,e14.7)') Energy_wall_eV(1),  Energy_wall_eV(2)
          READ (9, '(2x,e14.7,2x,e14.7)') Energy_emit_eV(1),  Energy_emit_eV(2)
