@@ -94,14 +94,14 @@ module CurrentProblemValues
 
    integer N_of_part_initial   ! Initial number of macroparticles of one species
 
-   real(8) delta_t_s     ! The time step [s]
-   real(8) delta_x_m     ! The cell size [m]
+   real(8) delta_t_s     !! Timestep [s]
+   real(8) delta_x_m     !! Cell size [m]
 
-   integer T_cntr        ! Counter of time steps
-   integer Start_T_cntr  ! Starting time step number
-   integer Max_T_cntr    ! Number of steps in time
-   integer N_nodes       ! Number of plasma nodes (node #0 is at z=0, and node #N_nodes-1=N_cells is at L_plasma_m)
-   integer N_cells       ! Number of cells in plasma (N_nodes = N_cells + 1)
+   integer T_cntr        !! Timestep counter
+   integer Start_T_cntr  !! Starting timestep index
+   integer Max_T_cntr    !! Number of timesteps in simulation
+   integer N_nodes       !! Number of plasma nodes (node 0 is at x = 0, and node N_nodes - 1 is at x = L_plasma_m)
+   integer N_cells       !! Number of cells in plasma (N_cells = N_nodes - 1)
 
    integer SaveCheck_step            ! Time interval (in steps) for creating the checkpoints (full save)
    integer Restore_from_checkpoint   ! Flag, controls the initialization
@@ -632,16 +632,64 @@ end module BeamInPlasma
 !========================================================================================================================
 !
 module Diagnostics
+! Diagnostics follow the following format: (col. = collection)
+!  __________________ : ____________________________________________________________________________________________________
+!                     :
+!      Procedure      :                   [   time of col.    ]         [   time of col.    ]         [   time of col.    ]
+!                     : [     no col.     ]                   [ no col. ]                   [ no col. ]
+!                     :                             CLEAR DATA^                   CLEAR DATA^                   CLEAR DATA^
+!                     :                    AVERAGE/REPORT DATA^          AVERAGE/REPORT DATA^          AVERAGE/REPORT DATA^
+!  __________________ : ____________________________________________________________________________________________________
+!                     :
+!      Diagnostic     :                     Finish_diag_Tcntr-v           Finish_diag_Tcntr-v           Finish_diag_Tcntr-v 
+!       counters      :  Start_diag_Tcntr-v            Start_diag_Tcntr-v            Start_diag_Tcntr-v
+!  __________________ : ____________________________________________________________________________________________________
+!                     : -WriteStart_step--|                                                                                
+!      Diagnostic     :                   |---WriteAvg_step---|         |---WriteAvg_step---|         |---WriteAvg_step---|
+!      timescales     :                   |--------WriteOut_step--------|--------WriteOut_step--------|-----WriteOut_step--
+!  __________________ : ____________________________________________________________________________________________________
+!                     : 
+!  Simulation time    : -------------------------------------------------------------------------------------------------->
+!  __________________ : ____________________________________________________________________________________________________
+!
+! IMPORTANT: (Almost) All diagnostic data is cleared at timestep Finish_diag_Tcntr once data is written to a file. Most of 
+!            this data is averaged over the length of collection (WriteAvg_step) and the averaging assumes that you collect 
+!            over an interval of length WriteAvg_step. Since data is cleared at Finish_diag_Tcntr, which occurs after a 
+!            period of length WriteOut_step, data can be erased if WriteAvg_step > WriteOut_step. This is not a problem if 
+!            WriteAvg_step <= WriteOut_step. Graphically, the case of WriteAvg_step > WriteOut_step looks like the figure
+!            below. If this is the case, diagnostics windows will overlap and lead to errors in reporting.
+!
+!  __________________ : ____________________________________________________________________________________________________
+!                     :
+!                     :                   [     time of col.   |  ]                 [     time of col.   |  ]
+!      Procedure      :                                        [     time of col.   |  ]
+!                     :                              CLEAR DATA^          CLEAR DATA^          CLEAR DATA^
+!                     :                        AVERAGE/REPORT DATA^  AVERAGE/REPORT DATA^  AVERAGE/REPORT DATA^
+!  __________________ : ____________________________________________________________________________________________________
+!                     :
+!      Diagnostic     :                         Finish_diag_Tcntr-v  Finish_diag_Tcntr-v  Finish_diag_Tcntr-v
+!       counters      :  Start_diag_Tcntr-v   Start_diag_Tcntr-v   Start_diag_Tcntr-v   Start_diag_Tcntr-v
+!  __________________ : ____________________________________________________________________________________________________
+!                     : -WriteStart_step--|
+!      Diagnostic     :                   |-----WriteAvg_step-----|                 |-----WriteAvg_step-----|
+!      timescales     :                                        |-----WriteAvg_step-----|                 |--WriteAvg_step->
+!                     :                   |----WriteOut_step---|----WriteOut_step---|----WriteOut_step---|--WriteOut_step->
+!  __________________ : ____________________________________________________________________________________________________
+!                     :
+!  Simulation time    : -------------------------------------------------------------------------------------------------->
+!  __________________ : ____________________________________________________________________________________________________
 
    USE CurrentProblemValues, ONLY : N_spec
 
-   integer WriteOut_step             ! Time interval (in steps, initially given in ???) for writing into the file
-   integer WriteStart_step           ! Time (in steps, initially given in ???) when the collecting of data for writing must be started
+   integer WriteOut_step             !! Timesteps between writes into the dignostics files
+   integer WriteStart_step           !! Timestep when the first diagnostic data of the simulation is collected
    integer WriteAvg_step             ! Time interval (-"-) for averaging during writing into the file
    integer TextOut_avg_prds_to_skip  ! Periods of averaging to be skipped between text outputs, 0 = each, 1 = skip one, 2 = skip two, etc.
 
-   integer Start_diag_Tcntr          ! value of T_cntr when we start collecting data for a new diagnostic point
-   integer Finish_diag_Tcntr         ! value of T_cntr when we finish collecting data for that diagnostic point
+   integer Start_diag_Tcntr          !! Timestep where the next(current) diagnostic collection window begins(began)
+   integer Finish_diag_Tcntr         !! Timestep where the next(current) diagnostic collection window finishes and
+                                     !! diagnostic data is cleared
+
    real(8) Averaging_factor          ! inversed number of timesteps used for averaging
    integer N_of_saved_records        ! counter of records in each data file (versus time)
    integer Save_check_Tcntr          ! value of T_cntr when we create a checkpoint, must always coincide with one of Finish_diag_Tcntr values
@@ -784,7 +832,7 @@ end module Diagnostics
 !
 module Snapshots
 
-   integer N_of_all_snaps                        ! number of all snapshots
+   integer N_of_all_snaps                        !! Number of snapshots (counted up from zero in CALCULATE_SNAPSHOT_TIMES)
    integer current_snap                          ! index of current snapshot (which must be created)
    integer counter_of_profiles_to_save           ! number of profiles of the potential to be saved
    character(4) snapnumber_txt                   ! prefix in the snapshot files, describes the number of the snapshot
