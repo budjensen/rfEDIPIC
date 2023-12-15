@@ -68,7 +68,7 @@ subroutine FINAL_PUSH
       KvEy = KvE_xyz(s) *   (alfa_x * alfa_y * invtheta) ! = 0.0_8 - " -
       KvEz = KvE_xyz(s) *            (alfa_y * invtheta) ! = 0.0_8 - " -
 
-      KxEx = KvEx * factor_KxEx                          ! =  - " -
+      KxEx = KvEx * factor_KxEx                          ! = KvE_xyz(s) * factor_KxEx if B_ext = 0
       ! ###
 
       if (X_of_spec(s)%part(k).GT.N_cells) then     !
@@ -110,7 +110,6 @@ subroutine FINAL_PUSH
             node = left_node - j + 1
             if (node.gt.0 .and. node.lt.N_cells) NVX_mesh(node, s) = NVX_mesh(node, s) + 1.0_8  ! add flux to each node crossed in positive direction
          end do
-      else
       end if
 
       if (nodes_crossed .le. -1) then
@@ -118,7 +117,6 @@ subroutine FINAL_PUSH
             node = right_node + j - 1
             if (node.lt.N_cells .and. node.gt.0) NVX_mesh(node, s) = NVX_mesh(node, s) - 1.0_8 ! crossed in negative direction
          end do
-      else
       end if
 
       if (Xtmp.GT.N_cells) then
@@ -136,7 +134,6 @@ subroutine FINAL_PUSH
                do j = 1 + N_cells, int(Xtmp)                                                       !
                   NVX_mesh(j - N_cells, s) = 1. + NVX_mesh(j - N_cells, s)                         !
                end do                                                                              !
-            else                                                                                   !
             end if                                                                                 !
          else
             if (Xstr.LE.N_cells) then
@@ -155,7 +152,7 @@ subroutine FINAL_PUSH
             call ADD_PRIMARY_E_TO_RIGHT_DF(VX_of_spec(s)%part(k), VY_of_spec(s)%part(k), VZ_of_spec(s)%part(k))      ! diagnostics
             call PROCESS_ELECTRON_COLLISION_WITH_WALL(s, Xtmp, k)
             call SUBSTITUTE_LEAVING_PARTICLE(s, k)
-            k = k - 1
+            k = k - 1 ! Move the index back one particle, to iterate the end particle now in the kth position
             N_part(s) = N_part(s) - 1
             cycle
          end if
@@ -174,7 +171,6 @@ subroutine FINAL_PUSH
                do j = 1 + int(dble(N_cells) + Xtmp), N_cells - 1                                   !
                   NVX_mesh(j, s) = -1. + NVX_mesh(j, s)                                            !
                end do                                                                              !
-            else                                                                                   !
             end if                                                                                 !
          else
             if (Xstr.GE.0.0_8) then
@@ -384,11 +380,11 @@ end subroutine FINAL_PUSH
 subroutine PREDICTING_PUSH
 !! Performs the predicting push of particles. This procedure follows equation 3.7 in
 !! Sydorenko's thesis. The "streaming position" refers to the position of the particle
-!! after the predicting push while the "temp position" refers to the position of the
-!! particle after the final push, before the position is checked for collisions with the wall.
+!! after the predicting push. Wall charge is updated here for Poisson's equation calculation,
+!! but particles are not removed or undergo SEE until the final push.
 !!
 !! The procedure uses an acceleration that is calculated in the FINAL_PUSH subroutine.
-!! As such, this subroutine should be called after the FINAL_PUSH subroutine.
+!! As such, this should be called after FINAL_PUSH.
 
    use CurrentProblemValues
    use Diagnostics
@@ -402,8 +398,10 @@ subroutine PREDICTING_PUSH
    integer k            ! particle
 
    real(8) alfa_x, alfa_y, alfa_x2, alfa_y2, theta2, invtheta
-   real(8) K11, K12, K13, K22, K23, K33
-   real(8) A11, A21, A31, A13, A23, A33
+   real(8) K11, K12, K13, K22, K23, K33 ! Coefficients (before V^{n-1/2}) for equations of motion
+                                        ! (see Eqn 3.2 in Sydorenko's thesis)
+   real(8) A11, A21, A31 ! Coefficients before Ax^{n-1} for equations of motion
+   real(8) A13, A23, A33 ! Coefficients with Ez_external for equations of motion
 
    real(8) new_Vx, new_Vy
 
@@ -456,9 +454,9 @@ subroutine PREDICTING_PUSH
             A21 = A_123_1 *   (alfa_x * alfa_y * invtheta)      ! = 0.0_8   - " -
             A31 = A_123_1 *            (alfa_y * invtheta)      ! = 0.0_8   - " -
 
-            A13 = A_123_3(s) * (alfa_y * invtheta)              ! = 0.0_8 if B_ext = 0
+            A13 = A_123_3(s) * (alfa_y * invtheta)              ! = 0.0_8 if E_ext = 0 or B_ext = 0
             A23 = A_123_3(s) * (alfa_x * invtheta)              ! = 0.0_8 - " -
-            A33 = A_123_3(s)           * invtheta               ! = 0.0_8 - " -
+            A33 = A_123_3(s)           * invtheta               ! = A_123_3(s) if B_ext = 0 and = 0.0_8 if E_ext = 0
             ! ###
 
             ! *** Pushes follow equation 3.7 in Sydorenko's thesis ***
@@ -467,7 +465,7 @@ subroutine PREDICTING_PUSH
             & K12 * VY_of_spec(s)%part(k) - &                   ! = + 0.0_8                           - " -
             & K13 * VZ_of_spec(s)%part(k) + &                   ! = - 0.0_8                           - " -
             & A11 * AX_of_spec(s)%part(k) - &                   ! = + A_123_1 * AX_of_spec(s)%part(k) - " -
-            & A13                                               ! = - 0.0_8                           - " -
+            & A13                                               ! = - 0.0_8                           if E_ext = 0
 
             ! y-acceleration
             new_Vy = K12 * VX_of_spec(s)%part(k) + &
@@ -537,9 +535,9 @@ subroutine PREDICTING_PUSH
             A21 = A_123_1 *   (alfa_x * alfa_y * invtheta)      ! = 0.0_8   - " -
             A31 = A_123_1 *            (alfa_y * invtheta)      ! = 0.0_8   - " -
 
-            A13 = A_123_3(s) * (alfa_y * invtheta)              ! = 0.0_8 if B_ext = 0
+            A13 = A_123_3(s) * (alfa_y * invtheta)              ! = 0.0_8 if E_ext = 0 or B_ext = 0
             A23 = A_123_3(s) * (alfa_x * invtheta)              ! = 0.0_8 - " -
-            A33 = A_123_3(s)           * invtheta               ! = 0.0_8 - " -
+            A33 = A_123_3(s)           * invtheta               ! = A_123_3(s) if B_ext = 0 and = 0.0_8 if E_ext = 0
             ! ###
 
             ! *** Pushes follow equation 3.7 in Sydorenko's thesis ***
@@ -548,7 +546,7 @@ subroutine PREDICTING_PUSH
             & K12 * VY_of_spec(s)%part(k) - &                   ! = + 0.0_8                           - " -
             & K13 * VZ_of_spec(s)%part(k) + &                   ! = - 0.0_8                           - " -
             & A11 * AX_of_spec(s)%part(k) - &                   ! = + A_123_1 * AX_of_spec(s)%part(k) - " -
-            & A13                                               ! = - 0.0_8                           - " -
+            & A13                                               ! = - 0.0_8                           if E_ext = 0
 
             ! y-acceleration
             new_Vy = K12 * VX_of_spec(s)%part(k) + &
