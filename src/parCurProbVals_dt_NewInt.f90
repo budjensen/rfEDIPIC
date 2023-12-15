@@ -427,7 +427,6 @@ SUBROUTINE INITIATE_PARAMETERS
       L_plasma_deb = L_plasma_m / L_debye_m
    END IF
 
-!  N_cells  = L_plasma_deb * N_of_cells_debye      ! Number of cells is calculated
    N_cells  = L_plasma_deb * r_cells_debye      ! Number of cells is calculated      ! ####### ####### was like in the previous line ##### #####
 
    N_nodes  = N_cells + 1                          ! Number of nodes is calculated
@@ -473,14 +472,12 @@ SUBROUTINE INITIATE_PARAMETERS
    KVx = 1.0_8 / (r_max_vel * DBLE(N_box_vel))
 
 ! REAL(8) K_Q          ! Coefficient used in Poisson's equation
-!  K_Q = 1.0_8 / (DBLE(N_of_cells_debye) * DBLE(N_of_particles_cell))
    K_Q = 1.0_8 / (r_cells_debye * DBLE(N_of_particles_cell))
 
 !*** for dielectric layer at -d < x < 0:
    eps_param = eps_layer * delta_x_m / d_m
 
 !  REAL(8) A_123_1      ! factor for coefficients before Ax^{n-1} for equations of motion (PRE-acceleration)
-!!  A_123_1 =  0.5_8 * ( DBLE(N_box_vel) / (DBLE(N_max_vel) * DBLE(N_of_cells_debye)) )
    A_123_1 =  0.5_8 * ( DBLE(N_box_vel) / (r_max_vel * r_cells_debye) )
 
 !  REAL(8) factor_KxEx  ! factor for coefficients before Ex^{n+1} for final X correction
@@ -581,7 +578,6 @@ SUBROUTINE INITIATE_PARAMETERS
          READ (9, '(2x,e14.7,2x,e14.7)') Energy_emit_eV(1),  Energy_emit_eV(2)
          READ (9, '(2x,e14.7,2x,e14.7)') Energy_coll_eV(1),  Energy_coll_eV(2)
          READ (9, '(2x,e14.7,2x,e14.7)') prev_Q_left,      prev_Q_right
-!!        Q_ext = 0.0_8
          CLOSE (9, STATUS = 'KEEP')
 
          call random_init !*** "seed" allocated there
@@ -627,7 +623,6 @@ SUBROUTINE INITIATE_PARAMETERS
       PRINT  '(2x,"The electron Debye length                        : ",e10.3, " m")',    L_debye_m
 
       PRINT '(/2x,"After mesh distribution the plasma length is     : ",f9.3," cm")', L_plasma_m * 100.0_8
-!     PRINT  '(2x,"The new plasma length is                         : ",i6," (debye len.)")', (N_cells / N_of_cells_debye)
       PRINT  '(2x,"The new plasma length is                         : ",i6," (debye len.)")', int(N_cells / r_cells_debye)
       PRINT  '(2x,"Total number of plasma nodes is                  : ",i9)', N_nodes
       PRINT  '(2x,"The cell size is                                 : ",f9.3," mkm")', delta_x_m * 1.0e6
@@ -741,8 +736,8 @@ SUBROUTINE SETVALUES_SPECIES_ARRAYS
 
       alfa_xy(s) = 0.5_8 * QMs(s) * (e_Cl * 0.0001_8 / m_e_kg) / (W_plasma_s1 * aa)
 
-!!     A_123_3(s) = QMs(s) * (E_z_ext_Vm / E_scl_Vm) * (N_box_vel / aa)
-      A_123_3(s) = 0.0_8 ! E_z_ext_Vm stores Ex in V/cm
+      A_123_3(s) = QMs(s) * (E_z_ext_Vm / E_scl_Vm) * (N_box_vel / aa)
+      ! A_123_3(s) = 0.0_8 ! for use when E_z_ext_Vm = 0, to speed up particle push
 
       KvE_xyz(s) = 0.5_8 * QMs(s) * DBLE(N_box_vel) / aa
 
