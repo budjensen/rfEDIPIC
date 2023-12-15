@@ -546,31 +546,46 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 END SUBROUTINE INITIATE_DIAGNOSTICS
 
 !------------------------------
-SUBROUTINE CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps, T2_old, N2_old, timestep)
-!! Function to calculate the timesteps of a snapshot for each snapshot group
+subroutine CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps, T2_old, N2_old, timestep)
+!! Function to calculate the timesteps of a snapshot for each snapshot group.
+!! Assigns the first snapshot timestep to be a multiple of WriteOut_step after the
+!! first diagnostic output timestep and ensuing timesteps to be even placed
+!! between the first and last snapshot timesteps (on integer multiples of WriteOut_steps).
+!!
+!! Outside the program we read the parameters of current set of snapshot from the data file:
+!!
+!!   READ (9, '(12x,f10.3,12x,f10.3,14x,i4)') Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps
 
-   USE CurrentProblemValues, ONLY : delta_t_s, Max_T_cntr
-   USE Diagnostics, ONLY : WriteOut_step, WriteStart_step, WriteAvg_step
-   USE Snapshots, ONLY : N_of_all_snaps
+   use CurrentProblemValues, only : delta_t_s, Max_T_cntr
+   use Diagnostics, only : WriteOut_step, WriteStart_step, WriteAvg_step
+   use Snapshots, only : N_of_all_snaps
 
    IMPLICIT NONE
-   REAL(8) Aprx_snap_start_ns        ! approximate start of current set of snapshots [ns], read from file
-   REAL(8) Aprx_snap_finish_ns       ! approximate finish of current set of snapshots [ns], read from file
-   INTEGER Aprx_n_of_snaps           ! approximate number of snapshots in current set, read from file
+   real(8), intent(in) :: Aprx_snap_start_ns       !! Requested time [ns] of first snapshot output, passed from file
+   real(8), intent(in) :: Aprx_snap_finish_ns      !! Requested time [ns] of final snapshot output, passed from file
+   integer, intent(in) :: Aprx_n_of_snaps          !! Requested number of snapshots in group, passed from file
+   integer, intent(inout) :: timestep(1:9999)      !! Array of snapshot timesteps
+   integer, intent(inout) :: T2_old                !! Finish timestep for prior snapshot group
+   integer, intent(inout) :: N2_old                !! Number of WriteOut_steps between the first diagnostic output and T2_old
 
-   INTEGER T1, T2, N1, N2, T2_old, N2_old, large_step
-   INTEGER n      ! ordering number of snapshot in the set
-   INTEGER Fact_n_of_snaps           ! calculated number of snapshots in one set
+   integer T1                                      !! Start timestep for snapshot group
+   integer T2                                      !! Output timestep for snapshot group
+   integer N1                                      !! Number of WriteOut_steps between the first diagnostic output and T1
+   integer N2                                      !! Number of WriteOut_steps between the first diagnostic output and T1
 
-   INTEGER timestep(1:9999)          ! array for temporary storage of moments (timesteps) of snapshots
+   integer first_diag_output_step                  !! Temporary variable to increase readability of this function.
+                                                   !!   This is calculated later as a module variable and named Finish_diag_Tcntr
+   integer n                                       !! Snapshot index
+   integer Fact_n_of_snaps                         !! Actual number of snapshots in group
+   integer large_step                              !! Number of WriteOut_steps between T1 and T2 dived by the requested number
+                                                   !!   of snapshots in the group. If large_step >=1, then the requested number
+                                                   !!   is the actual number of snapshots in the group.
 
-! Outside the program we read the parameters of current set of snapshot from the data file
-!
-!   READ (9, '(12x,f10.3,12x,f10.3,14x,i4)') Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps
-!
 
 ! try the next group of snapshots if some stupid guy used the group with zero snapshots
    IF (Aprx_n_of_snaps.LT.1) RETURN
+
+   first_diag_output_step = WriteStart_step + WriteAvg_step - 1
 
 ! get the timestep, coinciding with the diagnostic output timestep and closest to Aprx_snap_start_ns
    ! Calculate start timestep specified in the file
@@ -578,19 +593,19 @@ SUBROUTINE CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Apr
 
    ! If the start timestep is less than the first timestep for diagnostic output specified in the file,
    ! then use the first timestep for diagnostic output
-   IF (T1.LT.(WriteStart_step + WriteAvg_step - 1)) T1 = WriteStart_step + WriteAvg_step - 1
+   IF (T1.LT.first_diag_output_step) T1 = first_diag_output_step
 
    ! Calculate the number of write steps between the start timestep and the first timestep for diagnostic output
-   N1 = (T1 - (WriteStart_step + WriteAvg_step - 1)) / WriteOut_step
+   N1 = (T1 - first_diag_output_step) / WriteOut_step
 
-   !
-   T1 = WriteStart_step + N1 * WriteOut_step + WriteAvg_step - 1
+   ! Save the snapshot start time as the first diagnostic output timestep plus N1 times the number of write steps
+   T1 = first_diag_output_step + N1 * WriteOut_step
 
 ! get the timestep, coinciding with the diagnostic output timestep and closest to Aprx_snap_finish_ns
    T2 = Aprx_snap_finish_ns / (delta_t_s * 1.0e9)
-   IF (T2.LT.(WriteStart_step + WriteAvg_step - 1)) T2 = WriteStart_step + WriteAvg_step - 1
-   N2 = (T2 - (WriteStart_step + WriteAvg_step - 1)) / WriteOut_step
-   T2 = WriteStart_step + N2 * WriteOut_step + WriteAvg_step - 1
+   IF (T2.LT.first_diag_output_step) T2 = first_diag_output_step
+   N2 = (T2 - first_diag_output_step) / WriteOut_step
+   T2 = first_diag_output_step + N2 * WriteOut_step
 
    ! Ensure the start timesteps after the finish timestep for the previous set of snapshots T2_old
    IF (T1.LE.T2_old) THEN
@@ -607,22 +622,32 @@ SUBROUTINE CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Apr
    ! Move to the next line of the data file if the start moment is after (larger than) the finish moment
    IF (T1.GT.T2) RETURN
 
-   ! if we are here than the T1 and T2 can be used for calculation of moments of snapshots
-   ! calculate the number of snapshots which can be made in current set
-   IF (Aprx_n_of_snaps.EQ.1) THEN
+   ! If we are here than the T1 and T2 can be used for calculation of moments of snapshots
+
+   ! Calculate the number of snapshots which can be made in current set:
+   IF (Aprx_n_of_snaps.EQ.1) THEN ! If only one snapshot is requested:
+      ! Make the snapshot output at the finish timestep
       large_step = 0
       Fact_n_of_snaps = 1
       T2 = T1
       N2 = N1
-   ELSE
+
+   ELSE ! If more than one snapshot:
+      ! Calculate the number of WriteOut_steps between the start and finish timesteps
       large_step = (N2 - N1) / (Aprx_n_of_snaps - 1)
+
       IF (large_step.EQ.0) THEN
          large_step = 1
-         Fact_n_of_snaps = N2 - N1 + 1
+         Fact_n_of_snaps = N2 - N1 + 1 ! If the number of snapshots requested is larger than the number of
+                                       !   WriteOut_steps available, then make the number of snapshots equal
+                                       !   to the number of WriteOut_steps between T1 and T2 (including an 
+                                       !   initial snapshot output at T1)
       ELSE
-         Fact_n_of_snaps = Aprx_n_of_snaps
-         N2 = N1 + large_step * (Fact_n_of_snaps - 1)
-         T2 = WriteStart_step + N2 * WriteOut_step + WriteAvg_step - 1
+         Fact_n_of_snaps = Aprx_n_of_snaps                ! There are over enough WriteOut_steps to make the requested number
+                                                          !   of snapshots, so use the requested number of snapshots
+         N2 = N1 + large_step * (Fact_n_of_snaps - 1)     ! Calculate the number of WriteOut_steps between the first
+                                                          !   diagnostic output and the last snapshot of the set
+         T2 = first_diag_output_step + N2 * WriteOut_step ! Calculate the last snapshot output timestep
       END IF
    END IF
 ! save the finish moment for the current set of snapshots
@@ -635,7 +660,7 @@ SUBROUTINE CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Apr
       timestep(N_of_all_snaps) =  T1 + (n - 1) * large_step * WriteOut_step
    END DO        ! end of cycle over snapshots in one set
 
-END SUBROUTINE CALCULATE_SNAPSHOT_TIMES
+end subroutine CALCULATE_SNAPSHOT_TIMES
 
 !------------------------------
 !
@@ -1336,7 +1361,8 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
    INTEGER left_node, right_node, node  !
    REAL(8) x                      ! temporary variables, used for convenience
    REAL(8) vx, vy, vz             !
-   REAL(8) dn_left, dn_right, dq_left, dq_right      !
+   REAL(8) dn_left, dn_right, dq_left, dq_right                         ! charge density at neighboring nodes
+   REAL(8) jx_left, jy_left, jz_left, jx_right, jy_right, jz_right      ! current elements at neighboring nodes
 
    IF (Rank_of_process.EQ.0) THEN          ! the server process is responsible for updating the buffers of the potential
       DO n = length_of_fbufer,2,-1
@@ -1379,18 +1405,30 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
 
             Npart_cell(right_node, s) = Npart_cell(right_node, s) + 1
 
+            ! Charge density at neighboring nodes
             dn_right = x - left_node
             dn_left  = right_node - x
             dq_left  = Qs(s) * dn_left
             dq_right = Qs(s) * dn_right
 
-            QVX_mesh(left_node) = QVX_mesh(left_node) + dq_left * vx
-            QVY_mesh(left_node) = QVY_mesh(left_node) + dq_left * vy
-            QVZ_mesh(left_node) = QVZ_mesh(left_node) + dq_left * vz
+            ! Current elements at neighboring nodes
+            jx_left = dq_left * vx
+            jy_left = dq_left * vy
+            jz_left = dq_left * vz
+            jx_right = dq_right * vx
+            jy_right = dq_right * vy
+            jz_right = dq_right * vz
 
-            QVX_mesh(right_node) = QVX_mesh(right_node) + dq_right * vx
-            QVY_mesh(right_node) = QVY_mesh(right_node) + dq_right * vy
-            QVZ_mesh(right_node) = QVZ_mesh(right_node) + dq_right * vz
+            QVX_mesh(left_node) = QVX_mesh(left_node) + jx_left
+            QVY_mesh(left_node) = QVY_mesh(left_node) + jy_left
+            QVZ_mesh(left_node) = QVZ_mesh(left_node) + jz_left
+
+            QVX_mesh(right_node) = QVX_mesh(right_node) + jx_right
+            QVY_mesh(right_node) = QVY_mesh(right_node) + jy_right
+            QVZ_mesh(right_node) = QVZ_mesh(right_node) + jz_right
+
+            ! Check units on next line before implementing
+            ! Rate_energy_heat(s) = Rate_energy_heat(s) + jx_left * EX(left_node) + jx_right * EX(right_node)
 
 ! **** fluxes are updated in the pusher and various emission functions **********
 !           NVX_mesh(left_node,s) = NVX_mesh(left_node,s) + dn_left * vx
