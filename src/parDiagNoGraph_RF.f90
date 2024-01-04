@@ -1428,7 +1428,8 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
             QVZ_mesh(right_node) = QVZ_mesh(right_node) + jz_right
 
             ! Check units on next line before implementing
-            ! Rate_energy_heat(s) = Rate_energy_heat(s) + jx_left * EX(left_node) + jx_right * EX(right_node)
+            ! Rate_energy_heat(s) = Rate_energy_heat(s) + (jx_left * J_scl_Am2) * (EX(left_node) * E_scl_Vm) + &
+            !                       & (jx_right * J_scl_Am2) * (EX(right_node) * * E_scl_Vm)
 
 ! **** fluxes are updated in the pusher and various emission functions **********
 !           NVX_mesh(left_node,s) = NVX_mesh(left_node,s) + dn_left * vx
