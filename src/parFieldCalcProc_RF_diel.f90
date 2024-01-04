@@ -1,7 +1,6 @@
 !============================================================================
-! This subroutine calculates the mesh values of the streaming charge density
-!
 SUBROUTINE CALCULATE_STR_CHARGE_DENSITY
+!! This subroutine calculates the mesh values of the streaming charge density
 
    use mpi
    USE ParallelOperationValues
@@ -136,11 +135,10 @@ SUBROUTINE CALCULATE_STR_CHARGE_DENSITY
 END SUBROUTINE CALCULATE_STR_CHARGE_DENSITY
 
 !=====================================================================================
-! This subroutine calculates the mesh values of the potential F(1:N_nodes)
-! at the integer nodes. Then it calculates the mesh values of the longitudinal electric field
-! EZ(1:N_nodes)
 ! Besides, the energy of the longitudinal electric field is calculated too. IN FUTURE!!!
 SUBROUTINE CALCULATE_STR_LONG_ELECTR_FIELD
+!! Calculates the mesh values of the potential F(1:N_nodes) at the integer nodes.
+!! Then calculates the mesh values of the longitudinal electric field, EX(1:N_nodes).
 
    use mpi
    USE ParallelOperationValues
