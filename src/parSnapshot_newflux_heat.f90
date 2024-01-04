@@ -49,8 +49,14 @@ SUBROUTINE CREATE_SNAPSHOT
 
    INTEGER snap_blnks
 
-   REAL(8) Ne_m3, Ni_m3
-   REAL(8) Jx_Am2, Jy_Am2, Jz_Am2
+   REAL(8) Ne_m3, Ni_m3             ! These are multiplied by 2 at the first and last node since N_scl_m3 = N_plasma_m3 / N_of_particles_cell.
+                                    ! To tally up the total number of particles correctly we need to ensure each node point counts
+                                    ! the particles in one cell, except for the end nodes which count the particles in half a cell
+                                    ! (thus the number of particles is correctly tallied)
+   REAL(8) Jx_Am2, Jy_Am2, Jz_Am2   ! These are multiplied by 2 at the first and last node since N_scl_m3 = N_plasma_m3 / N_of_particles_cell.
+                                    ! To tally up the total number of particles correctly we need to ensure each node point counts
+                                    ! the particles in one cell, except for the end nodes which count the particles in half a cell
+                                    ! (thus the number of particles is correctly tallied)
    REAL(8) Vex_ms, Vey_ms, Vez_ms
    REAL(8) Wex_eV, Wey_eV, Wez_eV
    REAL(8) Vix_ms, Viy_ms, Viz_ms
@@ -59,8 +65,18 @@ SUBROUTINE CREATE_SNAPSHOT
    INTEGER s
 
    REAL(8) aa, bb, wxtemp, wytemp, wztemp !for calcualting "random" energy requested by Tim, 01/02/14
-   REAL(8) density_e, ionization_sum, qe_m2s, qi_m2s, factor_flux, factor_ionrate_int, factor_ionrate
-   REAL(8) coll_rate_factor, ionization_rate, factor_Watt_cm3, factor_eV
+   REAL(8) density_e, ionization_sum, qe_m2s, qi_m2s
+   REAL(8) factor_flux              !! factor_flux = coll_rate_factor / delta_t_s * N_in_macro
+   REAL(8) factor_ionrate_int       !! factor_ionrate_int = factor_ionrate * delta_x_m
+   REAL(8) factor_ionrate           !! factor_ionrate = (N_plasma_m3 / N_of_particles_cell) * coll_rate_factor / delta_t_s
+   REAL(8) coll_rate_factor         !! Inverse of the collection time for flux counted by NVX_mesh
+                                    !! coll_rate_factor = 1 / WriteOut_step
+                                    !! OR               = Averaging_factor = 1 / WriteAvg_step for the first snapshot
+   REAL(8) ionization_rate
+   REAL(8) factor_Watt_cm3          !! Converts energy deposition due to collisions into physical units
+                                    !! factor_Watt_cm3 = factor_ionrate * Factor_energy_eV * e_Cl * 1.e-6
+   REAL(8) factor_eV                !! Unused conversion factor
+                                    !! factor_eV = 0.5_8 * m_e_kg / e_Cl
 
    INTEGER ierr, ALLOC_ERR, DEALLOC_ERR
    INTEGER, ALLOCATABLE :: ibufer(:) !(1:N_cells)
