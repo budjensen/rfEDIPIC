@@ -2217,7 +2217,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
    ELSE IF (BC_flag.EQ.0) THEN           ! constant potential, R_external = 0
       J_Ohm_A = 0.0_8                    ! cannot use Ohm's law here
    ELSE IF (BC_flag.EQ.2) THEN           ! external circuit
-      J_Ohm_A = (U_ext - F(0)) * U_scl_V / R_ext_ohm
+      J_Ohm_A = (U_ext_vst(t_s) - F(0)) * U_scl_V / R_ext_ohm ! Old implementation, which was incorrect for rf sources: (U_ext - F(0)) * U_scl_V / R_ext_ohm
    END IF
 
    J_external_A = ( full_Q_left - &
@@ -2263,7 +2263,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
    ELSE IF (BC_flag.EQ.0) THEN           ! constant potential, R_external = 0
       J_Ohm_A = 0.0_8                    ! cannot use Ohm's law here
    ELSE IF (BC_flag.EQ.2) THEN           ! external circuit
-      J_Ohm_A = (U_ext - F(0)) * U_scl_V / R_ext_ohm
+      J_Ohm_A = (U_ext_vst(t_s) - F(0)) * U_scl_V / R_ext_ohm ! Old implementation, which was incorrect for rf sources: (U_ext - F(0)) * U_scl_V / R_ext_ohm
    END IF
 
    J_external_A = -( full_Q_right - &
