@@ -24,75 +24,88 @@ module CurrentProblemValues
 !!  real(8), parameter :: eps_layer = 1.e10 !*** to test implementation of the boundary condition
    real(8) eps_param
 
-   real(8) R_ext_ohm       ! resistance of the resistor in the external circuit [ohm]
-   real(8) S_electrode_cm2 ! area of an electrode [cm^2]
-   real(8) E_z_ext_Vm      ! The external accelerating Z-electric field [V/m]
+   real(8) R_ext_ohm       !! Resistance of resistor in external circuit [ohm]
+   real(8) S_electrode_cm2 !! Area of an electrode [cm^2]
+   real(8) E_z_ext_Vm      !! The external accelerating Z-electric field [V/m]
 !  real(8) B_x_ext_Gs      ! The external radial X-magnetic field [Gauss]
 !  real(8) B_y_ext_Gs      ! The external radial Y-magnetic field [Gauss]
-   real(8) U_ext_V         ! The externally maintained potential difference between the metal end plates [V]
-   real(8) f_rf_Hz         ! The frequency of the rf power source on the left wall (Hz)
-   real(8) U_rf_V          ! The left wall rf power source voltage amplitude (V)
-   real(8) t_start_s       ! The ignition time of the left wall's rf power source (s)
+   real(8) U_ext_V         !! The externally maintained potential difference between the metal end plates [V]
+   real(8) f_rf_Hz         !! The frequency of the rf power source on the left wall (Hz)
+   real(8) U_rf_V          !! The left wall rf power source voltage amplitude (V)
+   real(8) t_start_s       !! The ignition time of the left wall's rf power source (s)
 
-   LOGICAL rf_on           ! flag, turns on/off the rf power source on the left wall
+   logical rf_on           !! flag, turns on/off the rf power source on the left wall
 
-   real(8) L_plasma_m      ! Plasma's length [m], aproximate, may be modified after mesh distribution
-   real(8) N_plasma_m3     ! Plasma's density [m^-3], affects scaling
-   real(8) M_i_amu         ! Mass of single ion [a.m.u.]
-   real(8) T_e_eV          ! The electron temperature [eV], affects scaling
-   real(8) T_i_eV          ! The ion temperature [eV]
-   real(8) T_sim_ns        ! Duration of simulations [ns]
+   real(8) L_plasma_m      !! Plasma's length [m], aproximate, may be modified after mesh distribution
+   real(8) N_plasma_m3     !! Plasma's density [m^-3], affects scaling
+   real(8) M_i_amu         !! Mass of single ion [a.m.u.]
+   real(8) T_e_eV          !! The electron temperature [eV], affects scaling
+   real(8) T_i_eV          !! The ion temperature [eV]
+   real(8) T_sim_ns        !! Duration of simulations [ns]
    real(8) piconst
 
-   real(8) Tx_e_eV         ! x-electron temperature for anisotropic electron distribution [eV]
-   real(8) Tz_e_eV         ! z-electron temperature for anisotropic electron distribution [eV]
-   real(8) N_distrib_m3    ! plasma density for electron distribution [m^-3], affects the number of particles, not the scaling
-   real(8) Ez_drift_Vm     ! electric field [V/m],   for calculation of the ExB-drift y-velocity, not used in the equations of motion
-   real(8) Bx_drift_Gs     ! magnetic field [gauss], for calculation of the ExB-drift y-velocity, not used in the equations of motion
-   real(8) Vy_e_drift      ! dim-less electron ExB-drift y-velocity
+   real(8) Tx_e_eV         !! x-electron temperature for anisotropic electron distribution [eV]
+   real(8) Tz_e_eV         !! z-electron temperature for anisotropic electron distribution [eV]
+   real(8) N_distrib_m3    !! Plasma density for electron distribution [m^-3], affects the number of particles, not the scaling
+   real(8) Ez_drift_Vm     !! Electric field [V/m], for calculation of the ExB-drift y-velocity, not used in the equations of motion
+   real(8) Bx_drift_Gs     !! Magnetic field [gauss], for calculation of the ExB-drift y-velocity, not used in the equations of motion
+   real(8) Vy_e_drift      !! Dim-less electron ExB-drift y-velocity
 
-   integer BC_flag                ! Flag, defines the boundary conditions for the potential
-   integer Density_flag           ! Flan, if =1, then the initial particle distribution is parabolic (implementation
-   !  is aimed to converge faster), if =0, then the initial distribution is uniform
-   integer N_of_particles_cell    ! Number of macroparticles of one species per cell
-   integer N_of_cells_debye       ! Number of minimal cells per electron Debye length
-   integer N_max_vel              ! Factor defines the maximal expected electron velocity (in thermal velocities, used for calculation of timestep)
-   integer N_max_vel_distrib      ! Factor defines the maximal velocity for initial distribution (in thermal velocities)
-   integer picosec_flag           ! if =/=1, then N_max_vel gives the value of time step in picoseconds (times a power of 10)
-   integer micron_flag            ! if =/=0, then N_of_cells_debye gives the value of time step in microns (times a power of 10)
+   integer BC_flag                !! Flag, defines the boundary conditions for the potential
+   integer Density_flag           !! Flag, if =1, then the initial particle distribution is parabolic (implementation
+                                  !! is aimed to converge faster), if =0, then the initial distribution is uniform
+   integer N_of_particles_cell    !! Number of macroparticles of one species per cell
+   integer N_of_cells_debye       !! Number of minimal cells per electron Debye length
+   integer N_max_vel              !! Factor defines the maximal expected electron velocity (in thermal velocities, used for calculation of timestep)
+   integer N_max_vel_distrib      !! Factor defines the maximal velocity for initial distribution (in thermal velocities)
+   integer picosec_flag           !! if =/=1, then N_max_vel gives the value of time step in picoseconds (times a power of 10)
+   integer micron_flag            !! if =/=0, then N_of_cells_debye gives the value of time step in microns (times a power of 10)
 
-   integer N_box_vel              ! Number of velocity boxes per unit of initial thermal velocity
-   ! Note, this value affects the scaling !
+   integer N_box_vel              !! Number of velocity boxes per unit of initial thermal velocity
+   !! Note, this value affects the scaling !
    real(8) r_max_vel, r_cells_debye !if cell size and time step are specified explicitly
 
-   real(8) W_plasma_s1   ! The electron plasma circular frequency [s^-1]
+   real(8) W_plasma_s1   !! The electron plasma circular frequency [s^-1]
+                         !! W_plasma_s1 = SQRT(N_plasma_m3 * e_Cl**2 / (eps_0_Fm * m_e_kg))
    ! we assume that N_e = N_i and we will use only
    ! two species now - the electrons and the ions
 !  real(8) W_cycl_x_s1   ! The electron cyclotron frequency for Bx [s^-1]
 !  real(8) W_cycl_y_s1   ! The electron cyclotron frequency for By [s^-1]
-   real(8) v_Te_ms       ! The electron thermal velocity [m/s]
-   real(8) L_debye_m     ! The Debye length [m]
+   real(8) v_Te_ms       !! The electron thermal velocity [m/s]
+                         !! v_Te_ms = SQRT(2.0_8 * T_e_eV * e_Cl / m_e_kg)
+   real(8) L_debye_m     !! The Debye length [m]
+                         !! L_debye_m = v_Te_ms / W_plasma_s1
 
-   real(8) E_scl_Vm      ! Scaling factor for E [V/m]
-   real(8) U_scl_V       ! Scaling factor for the potential F [V]
+   real(8) E_scl_Vm      !! Scaling factor for E [V/m], E_scl_Vm = m_e_kg * v_Te_ms * W_plasma_s1 / e_Cl
+   real(8) U_scl_V       !! Scaling factor for the potential F [V]
+                         !! U_scl_V = E_scl_Vm * delta_x_m
 
    real(8) B_scl_Tl      ! Scaling factor for B [Tesla]
    real(8) B_scl_Gs      ! Scaling factor for B [Gauss] - note, different units
    real(8) R_scl_nClm3   ! Scaling factor for charge density [nCl/m^3]
-   real(8) N_scl_m3      ! Scaling factor for particles density [m^-3]
-   real(8) V_scl_ms      ! Scaling factor for particle velocity [m/s]
+   real(8) N_scl_m3      !! Scaling factor for particles density [m^-3]
+                         !! N_scl_m3 = N_plasma_m3 / DBLE(N_of_particles_cell)
+   real(8) V_scl_ms      !! Scaling factor for particle velocity [m/s]
+                         !! V_scl_ms = v_Te_ms / DBLE(N_box_vel)
 
-   real(8) factor_SR, factor_sigma, factor_j   ! Dimensionless factor which appears when there is an external circuit
+   real(8) factor_SR     !! Dimensionless factor which appears when there is an external circuit
+                         !! factor_SR = (delta_x_m * delta_t_s) / (1.0d-4 * S_electrode_cm2 * R_ext_ohm * eps_0_Fm)
+                         !!           = 0.0_8 if R_ext_ohm <= 0.0_8 and S_electrode_cm2 <= 0.0_8
+   real(8) factor_sigma  !! Dimensionless factor which appears when there is an external circuit
+                         !! factor_sigma = 1.0_8/(e_Cl * N_plasma_m3 * delta_x_m) * dble(N_of_particles_cell)
+   real(8) factor_j      !! Dimensionless factor which appears when there is an external circuit
+                         !! factor_j = delta_t_s * factor_sigma
 
-   real(8) U_ext         ! The externally maintained potential difference between the metal end plates [dim_less]
+   real(8) U_ext         !! The externally maintained potential difference between the metal end plates [dim_less]
+                         !! U_ext = U_ext_V / U_scl_V
 
-   integer Q_left        ! Surface charge on the left  plasma-wall boundary [dim-less]
-   integer Q_right       ! Surface charge on the right plasma-wall boundary [dim-less]
-   real(8) full_Q_left   ! Surface charge on the left  plasma-wall boundary which may account for external circuit effects [dim-less]
-   real(8) full_Q_right  ! Surface charge on the right plasma-wall boundary which may account for external circuit effects [dim-less]
-   real(8) Q_ext         ! Surface charge deposited at x=0 ("left" )due to external current source [dim-less]
+   integer Q_left        !! Surface charge on the left  plasma-wall boundary [dim-less]
+   integer Q_right       !! Surface charge on the right plasma-wall boundary [dim-less]
+   real(8) full_Q_left   !! Surface charge on the left  plasma-wall boundary which may account for external circuit effects [dim-less]
+   real(8) full_Q_right  !! Surface charge on the right plasma-wall boundary which may account for external circuit effects [dim-less]
+   real(8) Q_ext         !! Surface charge deposited at x=0 ("left" )due to external current source [dim-less]
 
-   integer N_of_part_initial   ! Initial number of macroparticles of one species
+   integer N_of_part_initial   !! Initial number of macroparticles of one species
 
    real(8) delta_t_s     !! Timestep [s]
    real(8) delta_x_m     !! Cell size [m]
@@ -100,36 +113,38 @@ module CurrentProblemValues
    integer T_cntr        !! Timestep counter
    integer Start_T_cntr  !! Starting timestep index
    integer Max_T_cntr    !! Number of timesteps in simulation
+                         !! Max_T_cntr = 1.0d-9 * T_sim_ns / delta_t_s
    integer N_nodes       !! Number of plasma nodes (node 0 is at x = 0, and node N_nodes - 1 is at x = L_plasma_m)
    integer N_cells       !! Number of cells in plasma (N_cells = N_nodes - 1)
 
-   integer SaveCheck_step            ! Time interval (in steps) for creating the checkpoints (full save)
-   integer Restore_from_checkpoint   ! Flag, controls the initialization
-   ! if 0 then - ordinary initialization of particles, diagnostics and snapshots
-   ! if 1 then - particles parameters (x, v, ax, tag) are being read from the checkpoint datafiles
-   !             * assume that the diagnostic parameters for temporal output
-   !               (WriteOut_step, WriteStart_step, WriteAvg_step)
-   !               is not changed compared to the simulation, which produced the checkpoint
-   !             * assume that the parameters of snapshot creation remains unchanged
-   !               for the groups, which precede or include the checkpoint;
-   !               the subsequent groups can be modified
-   !             * the upper time limit can be modified
-   ! if 2 then -  particles parameters (x, v, ax, tag) are being read from the checkpoint datafiles
-   !             * initialization of temporal diagnostics and snapshots occurs in regular manner,
-   !               i.e. on the basis of data from files "ssc_initial.dat" and "ssc_snapshot.dat" only
-   character(16) check_g_filename    ! name of file, where the general data will be saved at the checkpoint
-   character(16) check_e_filename    ! name of file, where the parameters of electrons will be saved at the checkpoint
-   character(16) check_i_filename    ! name of file, where the parameters of ions will be saved at the checkpoint
+   integer SaveCheck_step            !! Time interval (in steps) for creating the checkpoints (full save)
+   integer Restore_from_checkpoint   !! Flag, controls the initialization
+   !! if 0 then - ordinary initialization of particles, diagnostics and snapshots
+   !! if 1 then - particles parameters (x, v, ax, tag) are being read from the checkpoint datafiles
+   !!             * assume that the diagnostic parameters for temporal output
+   !!               (WriteOut_step, WriteStart_step, WriteAvg_step)
+   !!               is not changed compared to the simulation, which produced the checkpoint
+   !!             * assume that the parameters of snapshot creation remains unchanged
+   !!               for the groups, which precede or include the checkpoint;
+   !!               the subsequent groups can be modified
+   !!             * the upper time limit can be modified
+   !! if 2 then -  particles parameters (x, v, ax, tag) are being read from the checkpoint datafiles
+   !!             * initialization of temporal diagnostics and snapshots occurs in regular manner,
+   !!               i.e. on the basis of data from files "ssc_initial.dat" and "ssc_snapshot.dat" only
+   character(16) check_g_filename    !! name of file, where the general data will be saved at the checkpoint
+   character(16) check_e_filename    !! name of file, where the parameters of electrons will be saved at the checkpoint
+   character(16) check_i_filename    !! name of file, where the parameters of ions will be saved at the checkpoint
 
-   integer I_random_seed   ! The integer number which will be used by the random number generator through the whole program
+   integer I_random_seed   !! The integer number which will be used by the random number generator through the whole program
 
-   integer, dimension(:), allocatable :: seed !for random_number
+   integer, dimension(:), allocatable :: seed !! for random_number
 
 ! SPECIES ARRAYS, HAVE FIXED DIMENSION (1:N_spec) *****
 ! particle parameters ------------------------
 
    real(8) Ms(1:N_spec)  ! normalized masses of species (by the electron mass)
-   integer Qs(1:N_spec)  ! normalized charges of species (by the electron charge ABS. value)
+   integer Qs(1:N_spec)  !! normalized charges of species (by the electron charge ABS. value)
+                         !! A signed quanity
    real(8) QMs(1:N_spec) ! normalized charge-to-mass ratio of species (by that of electron ABS. value)
    real(8) VT(1:N_spec)  ! normalized thermal velocities of species (by that of the electrons)
 
@@ -180,19 +195,24 @@ module CurrentProblemValues
 
 ! allocatable ARRAYS *****************************
 ! mesh values --------------------------------
-   real(8), allocatable :: EX(:)        ! The X-electric field
+   real(8), allocatable :: EX(:)        !! The X-electric field on the mesh (node points)
 
-   real(8), allocatable :: GradEX(:)    ! The X-gradient of X-electric field,
-   ! used for interpolation of mesh EX to the particle position
+   real(8), allocatable :: GradEX(:)    !! The X-gradient of X-electric field, used for
+                                        !! interpolation of EX on the mesh to particle positions
 
-   real(8), allocatable :: F(:)         ! The electric potential
+   real(8), allocatable :: F(:)         !! The electric potential on the mesh (node points)
 
-   real(8), allocatable :: Xi(:)        ! The effective dielectric susceptibility
+   real(8), allocatable :: Xi(:)        !! The effective dielectric susceptibility, calculated from Q_strm_spec in
+                                        !! CALCULATE_STR_CHARGE_DENSITY and used in CALCULATE_STR_LONG_ELECTR_FIELD
 
-   real(8), allocatable :: Q_stream(:)  ! The interpolated streaming charge
+   real(8), allocatable :: Q_stream(:)  !! The instantaneous streaming charge, calculated as
+                                        !! Q_stream(:) = Qs(s) * Q_strm_spec(:,s) in CALCULATE_STR_CHARGE_DENSITY
 
-   real(8), allocatable :: Q_strm_spec(:,:)  ! Streaming charge in the nodes for all blocks of particles (is necessary because susceptibility depends on mass)
-
+   real(8), allocatable :: Q_strm_spec(:,:)  !! Instantaneous streaming charge of each species (necessary because susceptibility
+                                             !! depends on mass) at node points. Accumulated in particle push procedures and
+                                             !! during particle creation. Used in calculating Q_stream and Xi in 
+                                             !! CALCULATE_STR_CHARGE_DENSITY, and for calculating instantaneous ion (Ni) 
+                                             !! and electron (Ne) densities in diagnostics.
 ! allocatable array types --------------------
 
    type dalloc_array
@@ -228,8 +248,9 @@ module CurrentProblemValues
    type(dalloc_array), allocatable :: VY_of_spec(:)      ! Array of pointers on arrays of Y-velocity of particles of blocks
    type(dalloc_array), allocatable :: VZ_of_spec(:)      ! Array of pointers on arrays of Z-velocity of particles of blocks
    type(dalloc_array), allocatable :: AX_of_spec(:)      ! Array of pointers on arrays of smoothed X-acceleration of particles of blocks
-   type(ialloc_array), allocatable :: Tag_of_spec(:)     ! Array of pointers on arrays of tag of particles of blocks,
-                                                         !  used to track particles which switch direction or undergo collisions
+   type(ialloc_array), allocatable :: Tag_of_spec(:)     !! Array of pointers on arrays of tag of particles of blocks,
+                                                         !!  used to track particles which switch direction or undergo collisions
+                                                         !! If = 0 : particle is "confined" within th eplasma
    type(dalloc_array), allocatable :: prev_VX_of_spec(:) ! Array of pointers on arrays of old X-velocity of particles of blocks,
                                                          !  used for specifying the tag and for calculation of the energy in diagnostics
 
@@ -254,7 +275,7 @@ module CurrentProblemValues
    integer, parameter :: eTag_Emit_Left          =  1      ! tag to mark electrons reflected / backscattered / emitted from the left wall
    integer, parameter :: eTag_Emit_Right         = -1      ! tag to mark electrons reflected / backscattered / emitted from the right wall
 
-!  LOGICAL Tags_must_be_nullified        ! flag, is true if it is necessary to clear all tags in CLEAR_TAGS, is modified in
+!  logical Tags_must_be_nullified        ! flag, is true if it is necessary to clear all tags in CLEAR_TAGS, is modified in
    ! that subroutine and in snapshot procedures
 
 !real(8) initial_electron_energy_eV           ! for testing purposes only, initial energy of electrons, [eV]
@@ -558,7 +579,7 @@ module IonInducedSEEmission
 
 ! related diagnostics
    integer ionsee_left_count         ! counter of electron particles, injected at the left wall  tag = 1
-   integer ionsee_right_count        ! counter of electron particles, injected at the right wall  tag = 1
+   integer ionsee_right_count        ! counter of electron particles, injected at the right wall  tag = -1
 
    real(8) ionsee_left_energy        ! stores the energy of particles, injected at the left wall
    real(8) ionsee_right_energy       ! stores the energy of particles, injected at the right wall
@@ -602,10 +623,10 @@ module ElectronInjection
    real(8) Gap_betw_part_left                  ! left wall, distance between neighbour beam particles
    real(8) Gap_betw_part_right                 ! right wall, - " -
 
-   integer UseSmartTagsFlag                    ! flag, controls the modification of the particle's tag related with the change of particle's velocity
-   ! normally this flag is 1 and the particles, which change the direction of propagation
-   ! (velocity sign) inside the plasma, obtain a zero tag, like the confined plasma background;
-   ! if this flag is 0, the change of the particle's direction of propagation will not modify the particle's tag.
+   integer UseSmartTagsFlag                     !! flag, controls the modification of the particle's tag related with the change of particle's velocity
+                                                !! If = 1 : Particles which change direction of propagation (velocity sign) inside the plasma obtain a 
+                                                !! zero tag, like the confined plasma background
+                                                !! If = 0 : A change of the particle's direction of propagation will not modify the particle's tag
 
 end module ElectronInjection
 
@@ -681,24 +702,29 @@ module Diagnostics
 
    USE CurrentProblemValues, ONLY : N_spec
 
-   integer WriteOut_step             !! Timesteps between writes into the dignostics files
-   integer WriteStart_step           !! Timestep when the first diagnostic data of the simulation is collected
-   integer WriteAvg_step             ! Time interval (-"-) for averaging during writing into the file
+   integer WriteOut_step             !! Timesteps between diagnostic ouputs
+   integer WriteStart_step           !! Timestep when diagnostic data begins being collected (ie. the first Start_diag_Tcntr)
+   integer WriteAvg_step             !! Number of timesteps for averaging for diagnostics and (most) snapshots
+                                     !! REQUIREMENT: WriteAvg_step <= WriteOut_step
    integer TextOut_avg_prds_to_skip  ! Periods of averaging to be skipped between text outputs, 0 = each, 1 = skip one, 2 = skip two, etc.
 
    integer Start_diag_Tcntr          !! Timestep where the next(current) diagnostic collection window begins(began)
    integer Finish_diag_Tcntr         !! Timestep where the next(current) diagnostic collection window finishes and
                                      !! diagnostic data is cleared
 
-   real(8) Averaging_factor          ! inversed number of timesteps used for averaging
-   integer N_of_saved_records        ! counter of records in each data file (versus time)
-   integer Save_check_Tcntr          ! value of T_cntr when we create a checkpoint, must always coincide with one of Finish_diag_Tcntr values
+   real(8) Averaging_factor          !! Inversed number of timesteps used for averaging
+                                     !! Averaging_factor = 1 / WriteAvg_step
+   integer N_of_saved_records        !! Counter of records in each data file (versus time)
+   integer Save_check_Tcntr          !! Value of T_cntr when we create a checkpoint,
+                                     !! must always coincide with a Finish_diag_Tcntr step
 
-   integer N_of_probes                           ! number of probes for time dependencies
+   integer N_of_probes                           !! number of probes for time dependencies
 
-   integer, allocatable :: probe_node(:)         ! locations of probes where time dependencies will be saved (numbers of nodes)
+   integer, allocatable :: probe_node(:)         !! Locations (node numbers) of probes for time dependency diagnostics
 
-   real(8) J_scl_Am2     ! Scaling factor for electric current density [nA/m^2]
+   real(8) J_scl_Am2     !! Scaling factor for electric current density [nA/m^2]
+                         !! J_scl_Am2 = Averaging_factor * (N_plasma_m3 / N_of_particles_cell) * e_Cl * (v_Te_ms / N_box_vel)
+
    ! This value is placed here because it includes Averaging_factor
 
 ! DIAGNOSTIC MESH-SPECIES ARRAYS ****************************
@@ -807,31 +833,37 @@ module Diagnostics
    real(8) VZ_recent(1:N_spec)                        ! for Z-velocity, separate for electrons (1) and ions (2)
 
 ! energy factors
-   real(8) N_in_macro                            ! number of electrons/ions in one macroparticle
-   real(8) Factor_energy_eV
-   real(8) Factor_energy_macro_eV
-   real(8) Factor_energy_pot_eV
-   real(8) Factor_rate_ns1
-   real(8) Factor_rate_macro_ns1
-   real(8) Factor_rate_eVns1
-   real(8) Factor_Joule_energy_eV
+   real(8) N_in_macro                           !! number of electrons/ions in one macroparticle
+                                                !! N_in_macro = N_plasma_m3 * delta_x_m / N_of_particles_cell
+   real(8) Factor_energy_eV                     !! Factor_energy_eV = T_e_eV / N_box_vel**2
+   real(8) Factor_energy_macro_eV               !! Factor_energy_macro_eV = N_in_macro * Factor_energy_eV
+   real(8) Factor_energy_pot_eV                 !! Factor_energy_pot_eV = N_in_macro * (2.0_8 * T_e_eV / r_cells_debye) * 0.5_8
+   real(8) Factor_rate_ns1                      !! Factor_rate_ns1 = 1.0_8 / (WriteOut_step * delta_t_s * 1.0e9)
+   real(8) Factor_rate_macro_ns1                !! Factor_rate_macro_ns1 = N_in_macro * Factor_rate_ns1
+   real(8) Factor_rate_eVns1                    !! Factor_rate_eVns1 = Factor_energy_eV * Factor_rate_macro_ns1
+   real(8) Factor_Joule_energy_eV               !! Factor_Joule_energy_eV = N_in_macro * (v_Te_ms / N_box_vel) * E_z_ext_Vm * (delta_t_s)
 
    real(8) Init_energy_full_eV
 
    integer text_output_counter                   ! is used for skipping text output
 
-   real(8) f_factor(1:N_spec)                         ! factors for calculation of frequencies of collisions of electrons (1) and ions (2) with neutrals
+   real(8) f_factor(1:N_spec)                   !! Factor for calculation of collision frequencies between electrons/ions and neutrals
+                                                !! f_factor(s) = 1.0_8 / (N_part(s) * WriteOut_step * delta_t_s)
 
-   integer, parameter :: length_of_fbufer=600    ! length of the bufers below
-   real(8) fmid_bufer(1:length_of_fbufer)        ! bufer for calculation of time-averaged potential at the midplane
-   real(8) fwall_bufer(1:length_of_fbufer)       ! bufer for calculation of time-averaged potential at the left wall (x=0)
+   integer, parameter :: length_of_fbufer=600    !! length of the fmid and fwall buffers
+   real(8) fmid_bufer(1:length_of_fbufer)        !! bufer for calculation of time-averaged potential at the midplane
+   real(8) fwall_bufer(1:length_of_fbufer)       !! bufer for calculation of time-averaged potential at the left wall (x=0)
 
 end module Diagnostics
 
 !========================================================================================================================
 !
 module Snapshots
-
+! Snapshot timing note:
+!  - Snapshot data is outputted on Finish_diag_Tcntr steps, before diagnostic data (much of which is also used for 
+!    snapshots) is cleared. This being the case, as long as WriteAvg_step <= WriteOut_step as described in the 
+!    Diagnostics module, the snapshot data will be reported correctly.
+!
    integer N_of_all_snaps                        !! Number of snapshots (counted up from zero in CALCULATE_SNAPSHOT_TIMES)
    integer current_snap                          ! index of current snapshot (which must be created)
    integer counter_of_profiles_to_save           ! number of profiles of the potential to be saved
@@ -852,7 +884,7 @@ module Snapshots
    real(8) Ee_max_eV              ! Maximal energy for electron energy distribution (initially given in eV)
    real(8) Ei_max_eV              ! Maximal energy for ion energy distribution (initially given in eV)
    real(8) Ei_wall_max_eV         ! Maximal energy for ion energy distribution at the wall (initially given in eV)
-   integer N_E_bins               ! Number of energy bins for electron and ion energy distributions (bin indexes run 1:N_E_bins)
+   integer N_E_bins               !! Number of energy bins for electron and ion energy distributions (bin indexes run 1:N_E_bins)
 
    real(8) delta_Ee_eV            ! Energy step for electron energy distribution (initially given in eV)
    real(8) delta_Ei_eV            ! Energy step for ion energy distribution (initially given in eV)
@@ -874,7 +906,15 @@ module Snapshots
    integer, allocatable :: Vdf_location_bnd(:)   ! Spatial boundaries, defining the locations for calculation of VDFs (numbers of nodes)
    integer, allocatable :: Edf_location_bnd(:)   ! Spatial boundaries, defining the locations for calculation of EDFs (numbers of nodes)
 
-   LOGICAL Accumulate_wall_df                    ! flag, showing whether it is necessary (or not) to add particles to the wall distribution functions
+   logical Accumulate_wall_df       !! flag, showing whether it is necessary (or not) to add particles to the wall distribution functions
+   logical flag_evxdf               !! flag, controls snapshot distribution function creation
+   logical flag_evydf               !! flag, controls snapshot distribution function creation
+   logical flag_evzdf               !! flag, controls snapshot distribution function creation
+   logical flag_ivxdf               !! flag, controls snapshot distribution function creation
+   logical flag_eedf                !! flag, controls snapshot distribution function creation
+   logical flag_iedf                !! flag, controls snapshot distribution function creation
+   logical flag_ilwedf              !! flag, controls snapshot distribution function creation
+   logical flag_irwedf              !! flag, controls snapshot distribution function creation
 
 ! DIAGNOSTIC DISTRIBUTION FUNCTION ARRAYS *******************
 
@@ -893,32 +933,32 @@ module Snapshots
 ! common
 !  integer, allocatable :: e_2vxvydf_loc(:,:,:)    ! 2-d (v_x,v_y) distribution of electrons at certain location (region) inside the plasma
 !  integer, allocatable :: e_2vxvzdf_loc(:,:,:)    ! 2-d (v_x,v_z) distribution of electrons at certain location (region) inside the plasma
-   integer, allocatable :: e_vxdf_loc(:,:)         ! distribution of electrons over v_x at certain location inside the plasma
-   integer, allocatable :: e_vydf_loc(:,:)         ! distribution of electrons over v_y at certain location inside the plasma
-   integer, allocatable :: e_vzdf_loc(:,:)         ! distribution of electrons over v_z at certain location inside the plasma
+   integer, allocatable :: e_vxdf_loc(:,:)         !! distribution of electrons over v_x at certain location inside the plasma
+   integer, allocatable :: e_vydf_loc(:,:)         !! distribution of electrons over v_y at certain location inside the plasma
+   integer, allocatable :: e_vzdf_loc(:,:)         !! distribution of electrons over v_z at certain location inside the plasma
 ! emitted from the left wall, which do not mix with plasma
 !  integer, allocatable :: ebl_2vxvydf_loc(:,:,:)  ! 2-d (v_x,v_y) distribution of electrons at certain location (region) inside the plasma
 !  integer, allocatable :: ebl_2vxvzdf_loc(:,:,:)  ! 2-d (v_x,v_z) distribution of electrons at certain location (region) inside the plasma
-   integer, allocatable :: ebl_vxdf_loc(:,:)       ! distribution of electrons over v_x at certain location inside the plasma
-   integer, allocatable :: ebl_vydf_loc(:,:)       ! distribution of electrons over v_y at certain location inside the plasma
-   integer, allocatable :: ebl_vzdf_loc(:,:)       ! distribution of electrons over v_z at certain location inside the plasma
+   integer, allocatable :: ebl_vxdf_loc(:,:)       !! distribution of tagged electrons over v_x at certain location inside the plasma
+   integer, allocatable :: ebl_vydf_loc(:,:)       !! distribution of tagged electrons over v_y at certain location inside the plasma
+   integer, allocatable :: ebl_vzdf_loc(:,:)       !! distribution of tagged electrons over v_z at certain location inside the plasma
 ! emitted from the right wall, which do not mix with plasma
 !  integer, allocatable :: ebr_2vxvydf_loc(:,:,:)  ! 2-d (v_x,v_y) distribution of electrons at certain location (region) inside the plasma
 !  integer, allocatable :: ebr_2vxvzdf_loc(:,:,:)  ! 2-d (v_x,v_z) distribution of electrons at certain location (region) inside the plasma
-   integer, allocatable :: ebr_vxdf_loc(:,:)       ! distribution of electrons over v_x at certain location inside the plasma
-   integer, allocatable :: ebr_vydf_loc(:,:)       ! distribution of electrons over v_y at certain location inside the plasma
-   integer, allocatable :: ebr_vzdf_loc(:,:)       ! distribution of electrons over v_z at certain location inside the plasma
+   integer, allocatable :: ebr_vxdf_loc(:,:)       !! distribution of tagged electrons over v_x at certain location inside the plasma
+   integer, allocatable :: ebr_vydf_loc(:,:)       !! distribution of tagged electrons over v_y at certain location inside the plasma
+   integer, allocatable :: ebr_vzdf_loc(:,:)       !! distribution of tagged electrons over v_z at certain location inside the plasma
 
 !*** diagnostic array for ion distribution at the right wall, 08/01/14:
    real(8), allocatable :: irwedf(:), ilwedf(:)  ! ion distribution colliding with the right and left walls, respectively
 
-   real(8), allocatable :: ivx_mid_of_box(:)     ! middles of x-velocity boxes (in units of V_th_e), ions
-   integer, allocatable :: i_vxdf_loc(:,:)       ! distribution of ions over v_x at certain location inside the plasma
-   integer, allocatable :: i_vydf_loc(:,:)       ! distribution of ions over v_y at certain location inside the plasma
-   integer, allocatable :: i_vzdf_loc(:,:)       ! distribution of ions over v_z at certain location inside the plasma
+   real(8), allocatable :: ivx_mid_of_box(:)     !! middles of x-velocity boxes (in units of V_th_e), ions
+   integer, allocatable :: i_vxdf_loc(:,:)       !! distribution of ions over v_x at certain location inside the plasma
+   integer, allocatable :: i_vydf_loc(:,:)       !! distribution of ions over v_y at certain location inside the plasma
+   integer, allocatable :: i_vzdf_loc(:,:)       !! distribution of ions over v_z at certain location inside the plasma
 
-   integer, allocatable :: e_edf_loc(:,:)        ! distribution of ions over energy at certain location inside the plasma
-   integer, allocatable :: i_edf_loc(:,:)        ! distribution of ions over energy at certain location inside the plasma
+   integer, allocatable :: e_edf_loc(:,:)        !! distribution of ions over energy at certain location inside the plasma
+   integer, allocatable :: i_edf_loc(:,:)        !! distribution of ions over energy at certain location inside the plasma
 
 end module Snapshots
 
