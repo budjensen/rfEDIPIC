@@ -43,6 +43,23 @@ SUBROUTINE INITIATE_DIAGNOSTICS
    INTEGER breakpoint_E(1:200)       ! array for temporary storage of locations (node numbers) of breakpoints ##  input with multiple errors)
    INTEGER probe_location(1:2000)    ! array for temporary storage of locations (node numbers) of probes      ##  input with multiple errors)
 
+   integer flag_Out              !! Flag for input file timing variable WriteOut_step
+                                 !! If flag <= 0:   t_output * 10^(flag) in RF periods
+                                 !! If flag  > 0:   t_output > 0 given in timesteps
+                                 !!                 t_output < 0 given in plasma periods
+   integer flag_Start          !! Flag for input file timing variable WriteStart_step
+                                 !! If flag <= 0:   t_output * 10^(flag) in RF periods
+                                 !! If flag  > 0:   t_output > 0 given in timesteps
+                                 !!                 t_output < 0 given in plasma periods
+   integer flag_Avg              !! Flag for input file timing variable WriteAvg_step
+                                 !! If flag <= 0:   t_output * 10^(flag) in RF periods
+                                 !! If flag  > 0:   t_output > 0 given in timesteps
+                                 !!                 t_output < 0 given in plasma periods
+   real(8) steps_per_period      !! Number of timesteps per RF period
+   real(8) NumStart_RFper       !! Number of RF periods in WriteStart_step
+   real(8) NumOut_RFper         !! Number of RF periods in WriteOut_step
+   real(8) NumAvg_RFper         !! Number of RF periods in WriteAvg_step
+
    CHARACTER (77) buf
    INTEGER ierr
 
@@ -65,12 +82,21 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       END IF
 
       READ (9, '(A77)') buf ! '("********************* TIME DEPENDENCIES CREATION CONTROL ********************")')
-      READ (9, '(A77)') buf ! '("--dddddd----- Step for saving (timesteps >0, plasma periods <0) -------------")')
-      READ (9, '(2x,i6)') WriteOut_step
-      READ (9, '(A77)') buf ! '("--dddddd----- Start collecting data at (timesteps >0, plasma periods <0) ----")')
-      READ (9, '(2x,i6)') WriteStart_step
-      READ (9, '(A77)') buf ! '("--dddddd----- Average during (timesteps >0, plasma periods <0 ) -------------")')
-      READ (9, '(2x,i6)') WriteAvg_step
+      READ (9, '(A77)') buf ! '("------------- Diagnostic output interval, t_flag ----------------------------")')
+      READ (9, '(A77)') buf ! '("--            If t_flag <= 0:   t_output * 10^(t_flag) in RF periods --------")')
+      READ (9, '(A77)') buf ! '("--            If t_flag  > 1:   t_output > 0 given in timesteps -------------")')
+      READ (9, '(A77)') buf ! '("--dddddd-#d--                   t_output < 0 given in plasma periods --------")')
+      READ (9, '(2x,i6,1x,i2)') WriteOut_step, flag_Out
+      READ (9, '(A77)') buf ! '("------------- Diagnostic collection start, t_flag ---------------------------")')
+      READ (9, '(A77)') buf ! '("--            If t_flag <= 0:   t_start * 10^(t_flag) in RF periods ---------")')
+      READ (9, '(A77)') buf ! '("--            If t_flag  > 1:   t_start > 0 given in timesteps --------------")')
+      READ (9, '(A77)') buf ! '("--dddddd-#d--                   t_start < 0 given in plasma periods ---------")')
+      READ (9, '(2x,i6,1x,i2)') WriteStart_step, flag_Start
+      READ (9, '(A77)') buf ! '("------------- Diagnostic average window, t_flag - (NOTE: t_avg <= t_output) -")')
+      READ (9, '(A77)') buf ! '("--            If t_flag <= 0:   t_avg * 10^(t_flag) in RF periods -----------")')
+      READ (9, '(A77)') buf ! '("--            If t_flag  > 1:   t_avg > 0 given in timesteps ----------------")')
+      READ (9, '(A77)') buf ! '("--dddddd-#d--                   t_avg < 0 given in plasma periods -----------")')
+      READ (9, '(2x,i6,1x,i2)') WriteAvg_step, flag_Avg
       READ (9, '(A77)') buf ! '("--dddddd----- Skip periods of averaging between text outputs (>=0) ----------")')
       READ (9, '(2x,i6)') TextOut_avg_prds_to_skip
       READ (9, '(A77)') buf ! '("-----ddd----- Number of probes ( no probes if <= 0 ) ------------------------")')
@@ -163,8 +189,11 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
 !======================= Time dependencies control =======================
       WriteOut_step            = 100
+      flag_Out                 = 1
       WriteStart_step          = 0
+      flag_Start             = 1
       WriteAvg_step            = 1
+      flag_Avg                 = 1
       TextOut_avg_prds_to_skip = 0
       N_of_probes_given        = 0
 !======================= Snapshot control =======================
@@ -192,12 +221,21 @@ SUBROUTINE INITIATE_DIAGNOSTICS
          PRINT '(2x,"Process ",i3," : Create ssc_diagnostics.dat file . . .")', Rank_of_process
 
          WRITE (9, '("********************* TIME DEPENDENCIES CREATION CONTROL ********************")')
-         WRITE (9, '("--dddddd----- Step for saving (timesteps >0, plasma periods <0) -------------")')
-         WRITE (9, '(2x,i6)') WriteOut_step
-         WRITE (9, '("--dddddd----- Start collecting data at (timesteps >0, plasma periods <0) ----")')
-         WRITE (9, '(2x,i6)') WriteStart_step
-         WRITE (9, '("--dddddd----- Average during (timesteps >0, plasma periods <0 ) -------------")')
-         WRITE (9, '(2x,i6)') WriteAvg_step
+         WRITE (9, '("------------- Diagnostic output interval, t_flag ----------------------------")')
+         WRITE (9, '("--            If t_flag <= 0:   t_output * 10^(t_flag) in RF periods --------")')
+         WRITE (9, '("--            If t_flag  > 1:   t_output > 0 given in timesteps -------------")')
+         WRITE (9, '("--dddddd-#d--                   t_output < 0 given in plasma periods --------")')
+         WRITE (9, '(2x,i6,1x,i2)') WriteOut_step, flag_Out
+         WRITE (9, '("------------- Diagnostic collection start, t_flag ---------------------------")')
+         WRITE (9, '("--            If t_flag <= 0:   t_start * 10^(t_flag) in RF periods ---------")')
+         WRITE (9, '("--            If t_flag  > 1:   t_start > 0 given in timesteps --------------")')
+         WRITE (9, '("--dddddd-#d--                   t_start < 0 given in plasma periods ---------")')
+         WRITE (9, '(2x,i6,1x,i2)') WriteStart_step, flag_Start
+         WRITE (9, '("------------- Diagnostic average window, t_flag - (NOTE: t_avg <= t_output) -")')
+         WRITE (9, '("--            If t_flag <= 0:   t_avg * 10^(t_flag) in RF periods -----------")')
+         WRITE (9, '("--            If t_flag  > 1:   t_avg > 0 given in timesteps ----------------")')
+         WRITE (9, '("--dddddd-#d--                   t_avg < 0 given in plasma periods -----------")')
+         WRITE (9, '(2x,i6,1x,i2)') WriteAvg_step, flag_Avg
          WRITE (9, '("--dddddd----- Skip periods of averaging between text outputs (>=0) ----------")')
          WRITE (9, '(2x,i6)') TextOut_avg_prds_to_skip
          WRITE (9, '("-----ddd----- Number of probes ( no probes if <= 0 ) ------------------------")')
@@ -434,23 +472,58 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
 !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-! if WriteOut_step is negative then it is given in plasma periods, assumed to be integer !!!
-   IF (WriteOut_step.LT.0) THEN
-      IF (Rank_of_process.EQ.0) PRINT '(/2x,"Step for data saving was given in the units of electron plasma period ...")'
-      WriteOut_step = ABS(WriteOut_step) * (W_plasma_s1 * delta_t_s) / 6.28318530718_8
-   END IF
+   ! Number of timesteps per RF period
+   steps_per_period = 1. / (f_rf_Hz * delta_t_s)
 
-! if WriteStart_step is negative then it is given in plasma periods, assumed to be integer !!!
-   IF (WriteStart_step.LT.0) THEN
-      IF (Rank_of_process.EQ.0) PRINT '(/2x,"Start moment for data saving was given in the units of electron plasma period ...")'
-      WriteStart_step = ABS(WriteStart_step) * (W_plasma_s1 * delta_t_s) / 6.28318530718_8
-   END IF
+   ! if flag_Out is negative or zero then WriteOut_step is given in units of RF periods
+   if (flag_Out.le.0) then
+      if (Rank_of_process.EQ.0) print '(/2x,"Data output interval was given in units of RF period ...")'
+      ! Multiply the output step (expanded by the flag) by the number of steps per RF period
+      NumOut_RFper = WriteOut_step * (10.**flag_Out)
+      WriteOut_step = NumOut_RFper * steps_per_period
+   else
+      ! if WriteOut_step is negative then it is given in plasma periods, assumed to be integer !!!
+      IF (WriteOut_step.LT.0) THEN
+         IF (Rank_of_process.EQ.0) PRINT '(/2x,"Data output interval was given in units of electron plasma period ...")'
+         WriteOut_step = ABS(WriteOut_step) * 6.28318530718_8 / (W_plasma_s1 * delta_t_s) 
+      END IF
+   endif
 
-! if WriteAvg_step is negative then it is given in plasma periods, assumed to be integer !!!
-   IF (WriteAvg_step.LT.0) THEN
-      IF (Rank_of_process.EQ.0) PRINT '(/2x,"Averaging for data saving was given in the units of electron plasma period ...")'
-      WriteAvg_step = ABS(WriteAvg_step) * (W_plasma_s1 * delta_t_s) / 6.28318530718_8
-   END IF
+   ! if flag_Start is negative or zero then WriteStart_step is given in units of RF periods
+   if (flag_Start.le.0) then
+      if (Rank_of_process.EQ.0) print '(/2x,"Data collection start moment was given in units of RF period ...")'
+      ! Multiply the start step (expanded by the flag) by the number of steps per RF period
+      NumStart_RFper = WriteStart_step * (10.**flag_Start)
+      WriteStart_step = NumStart_RFper * steps_per_period
+   else
+      ! if WriteStart_step is negative then it is given in plasma periods, assumed to be integer !!!
+      IF (WriteStart_step.LT.0) THEN
+         IF (Rank_of_process.EQ.0) PRINT '(/2x,"Data collection start moment was given in units of electron plasma period ...")'
+         WriteStart_step = ABS(WriteStart_step) * 6.28318530718_8 / (W_plasma_s1 * delta_t_s)
+      END IF
+   endif
+
+   ! if flag_Avg is negative or zero then WriteAvg_step is given in units of RF periods
+   if (flag_Avg.le.0) then
+      if (Rank_of_process.EQ.0) print '(2x,"Data averaging window was given in units of RF period ...")'
+      ! Multiply the averaging step (expanded by the flag) by the number of steps per RF period
+      NumAvg_RFper = WriteAvg_step * (10.**flag_Avg)
+      WriteAvg_step = NumAvg_RFper * steps_per_period
+   else
+      ! if WriteAvg_step is negative then it is given in plasma periods, assumed to be integer !!!
+      IF (WriteAvg_step.LT.0) THEN
+         IF (Rank_of_process.EQ.0) PRINT '(2x,"Data averaging window was given in units of electron plasma period ...")'
+         WriteAvg_step = ABS(WriteAvg_step) * 6.28318530718_8 / (W_plasma_s1 * delta_t_s)
+      END IF
+   endif
+
+   if (WriteAvg_step.gt.WriteOut_step) then
+      if (Rank_of_process.EQ.0) then
+         print '(/2x,"Process ",i3," : Data averaging window (WriteAvg_step) is larger than data output interval (WriteOut_step) !!!")', Rank_of_process
+         print  '(2x,"Program will be terminated now :(")'
+      endif
+      stop
+   endif
 
 ! ensure that SaveCheck_step [defined previously in INITIATE_PARAMETERS] is a multiple of WriteOut_step
 !** but never zero in case checkpoints were requested ** Oct. 2016
@@ -462,8 +535,11 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
    IF (Rank_of_process.EQ.0) THEN
       PRINT '(/2x,"Diagnostic values will be written into the file with time interval : ",f9.4," ns")', WriteOut_step * delta_t_s * 1.0e9
-      PRINT  '(2x,"First data will start collecting at the moment                    : ",f9.4," ns")',  WriteStart_step * delta_t_s * 1.0e9
-      PRINT  '(2x,"Averaging will be carried out during the following time interval : ",f13.4," ns")',   WriteAvg_step * delta_t_s * 1.0e9
+      if (flag_Out.le.0) print '(67x,"or, ",f9.4," RF periods")', NumOut_RFper
+      PRINT  '(2x,"First data will start collecting at the moment                     : ",f9.4," ns")',  WriteStart_step * delta_t_s * 1.0e9
+      if (flag_Start.le.0) print '(67x,"or, ",f9.4," RF periods")', NumStart_RFper
+      PRINT  '(2x,"Averaging will be carried out during the following time interval   : ",f13.4," ns")',   WriteAvg_step * delta_t_s * 1.0e9
+      if (flag_Start.le.0) print '(67x,"or, ",f9.4," RF periods")', NumAvg_RFper
       IF (SaveCheck_step.GT.0) THEN
          PRINT '(2x,"Checkpoints will be created with time interval                  : ",f9.4," ns")',  SaveCheck_step * delta_t_s * 1.0e9
       ELSE
