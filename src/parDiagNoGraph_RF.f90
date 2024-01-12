@@ -547,10 +547,15 @@ END SUBROUTINE INITIATE_DIAGNOSTICS
 
 !------------------------------
 subroutine CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps, T2_old, N2_old, timestep)
-!! Function to calculate the timesteps of a snapshot for each snapshot group.
-!! Assigns the first snapshot timestep to be a multiple of WriteOut_step after the
-!! first diagnostic output timestep and ensuing timesteps to be even placed
-!! between the first and last snapshot timesteps (on integer multiples of WriteOut_steps).
+!! Calculates the exact snapshot output timesteps for each snapshot group requested
+!! in ssc_diagnostics.dat. Each snapshot timestep coincides with a diagnostic
+!! Finish_Diag_Tcntr timestep.
+!!
+!! Because Start_diag_Tcntr steps (and thus Finish_diag_Tcntr steps) are spaced apart
+!! by jumps of length WriteOut_step, this subroutine calculates the first snapshot timestep
+!! as a multiple of WriteOut_step after the first diagnostic output timestep and places
+!! all remaining snapshots within the group evenly spaced between the first timestep and 
+!! the final target timestep (Aprx_snap_finish_ns).
 !!
 !! Outside the program we read the parameters of current set of snapshot from the data file:
 !!
@@ -569,9 +574,9 @@ subroutine CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Apr
    integer, intent(inout) :: N2_old                !! Number of WriteOut_steps between the first diagnostic output and T2_old
 
    integer T1                                      !! Start timestep for snapshot group
-   integer T2                                      !! Output timestep for snapshot group
+   integer T2                                      !! End/output timestep for snapshot group
    integer N1                                      !! Number of WriteOut_steps between the first diagnostic output and T1
-   integer N2                                      !! Number of WriteOut_steps between the first diagnostic output and T1
+   integer N2                                      !! Number of WriteOut_steps between the first diagnostic output and T2
 
    integer first_diag_output_step                  !! Temporary variable to increase readability of this function.
                                                    !!   This is calculated later as a module variable and named Finish_diag_Tcntr
@@ -580,60 +585,56 @@ subroutine CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Apr
    integer large_step                              !! Number of WriteOut_steps between T1 and T2 dived by the requested number
                                                    !!   of snapshots in the group. If large_step >=1, then the requested number
                                                    !!   is the actual number of snapshots in the group.
+                                                   !! This factor helps ensure snapshots are evenly spaced within the group. If
+                                                   !!   1 <= large_step < 2 when caculated, then snapshots are outputted every
+                                                   !!  WriteOut_step. If 2 <= large_step < 3, then snapshots are outputted every
+                                                   !!  second WriteOut_step, etc.
 
-
-! try the next group of snapshots if some stupid guy used the group with zero snapshots
+   ! Skip if zero snapshots were requested in the group
    IF (Aprx_n_of_snaps.LT.1) RETURN
 
    first_diag_output_step = WriteStart_step + WriteAvg_step - 1
 
-! get the timestep, coinciding with the diagnostic output timestep and closest to Aprx_snap_start_ns
-   ! Calculate start timestep specified in the file
+   ! Calculate group start timestep asked for in the file
    T1 = Aprx_snap_start_ns / (delta_t_s * 1.0e9)
+   IF (T1.LT.first_diag_output_step) T1 = first_diag_output_step ! If T1 < first_diag_output_step, set T1 = first_diag_output_step
+   N1 = (T1 - first_diag_output_step) / WriteOut_step            ! Calculate number of write steps between T1 and first_diag_output_step
+   T1 = first_diag_output_step + N1 * WriteOut_step              ! Make T1 coincide with a write step after first_diag_output_step
 
-   ! If the start timestep is less than the first timestep for diagnostic output specified in the file,
-   ! then use the first timestep for diagnostic output
-   IF (T1.LT.first_diag_output_step) T1 = first_diag_output_step
-
-   ! Calculate the number of write steps between the start timestep and the first timestep for diagnostic output
-   N1 = (T1 - first_diag_output_step) / WriteOut_step
-
-   ! Save the snapshot start time as the first diagnostic output timestep plus N1 times the number of write steps
-   T1 = first_diag_output_step + N1 * WriteOut_step
-
-! get the timestep, coinciding with the diagnostic output timestep and closest to Aprx_snap_finish_ns
+   ! Calculate group end timestep asked for in the file
    T2 = Aprx_snap_finish_ns / (delta_t_s * 1.0e9)
    IF (T2.LT.first_diag_output_step) T2 = first_diag_output_step
    N2 = (T2 - first_diag_output_step) / WriteOut_step
-   T2 = first_diag_output_step + N2 * WriteOut_step
+   T2 = first_diag_output_step + N2 * WriteOut_step              ! Make T2 coincide with a write step after first_diag_output_step
 
-   ! Ensure the start timesteps after the finish timestep for the previous set of snapshots T2_old
+   ! Ensure T1 falls after T2 for the previous group of snapshots
    IF (T1.LE.T2_old) THEN
       T1 = T2_old + WriteOut_step
       N1 = N2_old + 1
    END IF
 
-   ! Ensure the finish timestep is before the last simulation timestep
+   ! Ensure the T2 falls before the last simulation timestep
    DO WHILE (T2.GT.Max_T_cntr)
       T2 = T2 - WriteOut_step
       N2 = N2 - 1
    END DO
 
-   ! Move to the next line of the data file if the start moment is after (larger than) the finish moment
+   ! Skip this group if T1 falls after T2
    IF (T1.GT.T2) RETURN
 
+   ! ****************
    ! If we are here than the T1 and T2 can be used for calculation of moments of snapshots
+   ! ****************
 
-   ! Calculate the number of snapshots which can be made in current set:
+   ! Calculate the actual number of snapshots in the current group:
    IF (Aprx_n_of_snaps.EQ.1) THEN ! If only one snapshot is requested:
-      ! Make the snapshot output at the finish timestep
       large_step = 0
       Fact_n_of_snaps = 1
-      T2 = T1
+      T2 = T1  ! make the snapshot output at T1
       N2 = N1
 
-   ELSE ! If more than one snapshot:
-      ! Calculate the number of WriteOut_steps between the start and finish timesteps
+   ELSE ! If more than one snapshot, calculate the number of WriteOut_steps between the first and last snapshots
+      ! Determine the number of WriteOut_steps between T1 and T2 (if large_step >=1, then the requested number of snapshots can be created)
       large_step = (N2 - N1) / (Aprx_n_of_snaps - 1)
 
       IF (large_step.EQ.0) THEN
@@ -643,22 +644,22 @@ subroutine CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Apr
                                        !   to the number of WriteOut_steps between T1 and T2 (including an 
                                        !   initial snapshot output at T1)
       ELSE
-         Fact_n_of_snaps = Aprx_n_of_snaps                ! There are over enough WriteOut_steps to make the requested number
-                                                          !   of snapshots, so use the requested number of snapshots
-         N2 = N1 + large_step * (Fact_n_of_snaps - 1)     ! Calculate the number of WriteOut_steps between the first
-                                                          !   diagnostic output and the last snapshot of the set
+         Fact_n_of_snaps = Aprx_n_of_snaps                ! There are over enough WriteOut_steps to make the requested number of snapshots
+         N2 = N1 + large_step * (Fact_n_of_snaps - 1)     ! Calculate the number of WriteOut_steps between first_diag_output_step
+                                                          !   and the last snapshot of the group
          T2 = first_diag_output_step + N2 * WriteOut_step ! Calculate the last snapshot output timestep
       END IF
    END IF
-! save the finish moment for the current set of snapshots
-   T2_old = T2
-   N2_old = N2
-! for all possible snapshots of the current set
+
+   ! for each (possible) snapshot in the group save the snapshot output moment in the temporary array
    DO n = 1, Fact_n_of_snaps
-! Calculate and save the snapshot moment in the temporary array
       N_of_all_snaps = N_of_all_snaps + 1
       timestep(N_of_all_snaps) =  T1 + (n - 1) * large_step * WriteOut_step
-   END DO        ! end of cycle over snapshots in one set
+   END DO
+
+   ! save the finish data for the current set of snapshots
+   T2_old = T2
+   N2_old = N2
 
 end subroutine CALCULATE_SNAPSHOT_TIMES
 
