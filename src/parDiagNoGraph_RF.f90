@@ -182,6 +182,11 @@ SUBROUTINE INITIATE_DIAGNOSTICS
          READ (9, '(2x,f10.3)') Ei_wall_max_eV
          READ (9, '(A77)') buf ! -----ddd----- Number of bins for e-distributions (>0) -----------------------")')
          READ (9, '(5x,i3)') N_E_bins
+         READ (9, '(A77)') buf ! ********************** DISTRIBUTION FUNCTION SWITCHES ***********************")')
+         READ (9, '(A77)') buf ! --d--d--d--d- Velocity ( e-vx, e-vy, e-vz, i-vx, | 1/0 = on/off ) -----------")')
+         READ (9, '(4(2x,i1))') flag_evxdf, flag_evydf, flag_evzdf, flag_ivxdf
+         READ (9, '(A77)') buf ! --d--d--d--d- Energy ( e, i, i l-wall, i r-wall | 1/0 = on/off ) ------------")')
+         READ (9, '(4(2x,i1))') flag_eedf, flag_iedf, flag_ilwedf, flag_irwedf
 
       END IF
 
@@ -214,6 +219,12 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       N_of_E_breakpoints  = 0
       Ei_wall_max_eV      = 100.0_8
       N_E_bins            = 50
+      flag_evxdf          = 1
+      flag_evydf          = 1
+      flag_evzdf          = 1
+      flag_ivxdf          = 1
+      flag_eedf           = 1
+      flag_iedf           = 1
 
       IF (Rank_of_process.EQ.0) THEN
 
@@ -272,6 +283,11 @@ SUBROUTINE INITIATE_DIAGNOSTICS
          WRITE (9, '(2x,f10.3)') Ei_wall_max_eV
          WRITE (9, '("-----ddd----- Number of bins for e-distributions (>0) -----------------------")')
          WRITE (9, '(5x,i3)') N_E_bins
+         WRITE (9, '("********************** DISTRIBUTION FUNCTION SWITCHES ***********************")')
+         WRITE (9, '("--d--d--d--d- Velocity ( e-vx, e-vy, e-vz, i-vx, | 1/0 = on/off ) -----------")')
+         WRITE (9, '(4(2x,i1))') flag_evxdf, flag_evydf, flag_evzdf, flag_ivxdf
+         WRITE (9, '("--d--d--d--d- Energy ( e, i, i l-wall, i r-wall | 1/0 = on/off ) ------------")')
+         WRITE (9, '(4(2x,i1))') flag_eedf, flag_iedf, flag_ilwedf, flag_irwedf
 
       END IF
 
@@ -356,43 +372,45 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       END IF
 
 ! report about the status of local distribution functions creation ===========================
-      IF (N_of_all_vdf_locs.EQ.0) THEN
-         IF (Rank_of_process.EQ.0) PRINT '(2x,"No local velocity distribution functions will be created in snapshots ...")'
-      ELSE
-         IF (Rank_of_process.EQ.0) PRINT '(2x,"The velocity distribution functions will be calculated in ",i3," locations")', &
-         & N_of_all_vdf_locs
-! allocate the array of boundaries of locations for calculation of VDF in snapshots
-         IF (.NOT.ALLOCATED(Vdf_location_bnd)) THEN
-            ALLOCATE(Vdf_location_bnd(1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-            IF(ALLOC_ERR.NE.0)THEN
-               PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Vdf_location_bnd !!!")', Rank_of_process
-               PRINT  '(2x,"Program will be terminated now :(")'
-               STOP
+      if (flag_evxdf.or.flag_evydf.or.flag_evzdf.or.flag_ivxdf) then 
+         IF (N_of_all_vdf_locs.EQ.0) THEN
+            IF (Rank_of_process.EQ.0) PRINT '(2x,"No local velocity distribution functions will be created in snapshots ...")'
+         ELSE
+            IF (Rank_of_process.EQ.0) PRINT '(2x,"The velocity distribution functions will be calculated in ",i3," locations")', &
+            & N_of_all_vdf_locs
+            ! allocate the array of boundaries of locations for calculation of VDF in snapshots
+            IF (.NOT.ALLOCATED(Vdf_location_bnd)) THEN
+               ALLOCATE(Vdf_location_bnd(1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+               IF(ALLOC_ERR.NE.0)THEN
+                  PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Vdf_location_bnd !!!")', Rank_of_process
+                  PRINT  '(2x,"Program will be terminated now :(")'
+                  STOP
+               END IF
+            END IF
+            ! move the calculated locations for VDF from the temporary array to the allocated array
+            Vdf_location_bnd(1:N_of_all_vdf_locs) = breakpoint(1:N_of_all_vdf_locs)
+            ! for server process only:
+            IF (Rank_of_process.EQ.0) THEN
+               ! write locations to the file
+               OPEN (41, FILE = '_vdflocations.dat')
+               !            "---***---#*.*****E#**---#*.*****E#**------******------******"
+               WRITE (41, '("# number   left(mm)       right(mm)     left node   right node")')
+               WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') 1, &
+               & 0.0, &
+               & 1000.0_8 * Vdf_location_bnd(1) * delta_x_m, &
+               & 0, &
+               & Vdf_location_bnd(1)
+               DO i = 2, N_of_all_vdf_locs
+                  WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') i, &
+                  & 1000.0_8 * Vdf_location_bnd(i-1) * delta_x_m, &
+                  & 1000.0_8 * Vdf_location_bnd(i) * delta_x_m, &
+                  & Vdf_location_bnd(i-1), &
+                  & Vdf_location_bnd(i)
+               END DO
+               CLOSE (41, STATUS = 'KEEP')
             END IF
          END IF
-! move the calculated locations for VDF from the temporary array to the allocated array
-         Vdf_location_bnd(1:N_of_all_vdf_locs) = breakpoint(1:N_of_all_vdf_locs)
-! for server process only:
-         IF (Rank_of_process.EQ.0) THEN
-! write locations to the file
-            OPEN (41, FILE = '_vdflocations.dat')
-!                       "---***---#*.*****E#**---#*.*****E#**------******------******"
-            WRITE (41, '("# number   left(mm)       right(mm)     left node   right node")')
-            WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') 1, &
-            & 0.0, &
-            & 1000.0_8 * Vdf_location_bnd(1) * delta_x_m, &
-            & 0, &
-            & Vdf_location_bnd(1)
-            DO i = 2, N_of_all_vdf_locs
-               WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') i, &
-               & 1000.0_8 * Vdf_location_bnd(i-1) * delta_x_m, &
-               & 1000.0_8 * Vdf_location_bnd(i) * delta_x_m, &
-               & Vdf_location_bnd(i-1), &
-               & Vdf_location_bnd(i)
-            END DO
-            CLOSE (41, STATUS = 'KEEP')
-         END IF
-      END IF
+      end if
 
       N_box_Vx_e      = Ve_x_max * N_box_vel - 1
       N_box_Vyz_e     = Ve_yz_max * N_box_vel - 1
@@ -410,43 +428,45 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       N_box_Vx_i_top  =  N_box_Vx_i + 1               !
 
 ! report about the status of local energy distribution functions creation ===========================
-      IF (N_of_all_edf_locs.EQ.0) THEN
-         IF (Rank_of_process.EQ.0) PRINT '(2x,"No local energy distribution functions will be created in snapshots ...")'
-      ELSE
-         IF (Rank_of_process.EQ.0) PRINT '(2x,"The energy distribution functions will be calculated in ",i3," locations")', &
-         & N_of_all_edf_locs
-! allocate the array of boundaries of locations for calculation of VDF in snapshots
-         IF (.NOT.ALLOCATED(Edf_location_bnd)) THEN
-            ALLOCATE(Edf_location_bnd(1:N_of_all_edf_locs), STAT=ALLOC_ERR)
-            IF(ALLOC_ERR.NE.0)THEN
-               PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Edf_location_bnd !!!")', Rank_of_process
-               PRINT  '(2x,"Program will be terminated now :(")'
-               STOP
+      if (flag_eedf.or.flag_iedf) then 
+         IF (N_of_all_edf_locs.EQ.0) THEN
+            IF (Rank_of_process.EQ.0) PRINT '(2x,"No local energy distribution functions will be created in snapshots ...")'
+         ELSE
+            IF (Rank_of_process.EQ.0) PRINT '(2x,"The energy distribution functions will be calculated in ",i3," locations")', &
+            & N_of_all_edf_locs
+            ! allocate the array of boundaries of locations for calculation of VDF in snapshots
+            IF (.NOT.ALLOCATED(Edf_location_bnd)) THEN
+               ALLOCATE(Edf_location_bnd(1:N_of_all_edf_locs), STAT=ALLOC_ERR)
+               IF(ALLOC_ERR.NE.0)THEN
+                  PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Edf_location_bnd !!!")', Rank_of_process
+                  PRINT  '(2x,"Program will be terminated now :(")'
+                  STOP
+               END IF
+            END IF
+            ! move the calculated locations for EDF from the temporary array to the allocated array
+            Edf_location_bnd(1:N_of_all_edf_locs) = breakpoint_E(1:N_of_all_edf_locs)
+            ! for server process only:
+            IF (Rank_of_process.EQ.0) THEN
+               ! write locations to the file
+               OPEN (41, FILE = '_edflocations.dat')
+               !            "---***---#*.*****E#**---#*.*****E#**------******------******"
+               WRITE (41, '("# number   left(mm)       right(mm)     left node   right node")')
+               WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') 1, &
+               & 0.0, &
+               & 1000.0_8 * Edf_location_bnd(1) * delta_x_m, &
+               & 0, &
+               & Edf_location_bnd(1)
+               DO i = 2, N_of_all_edf_locs
+                  WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') i, &
+                  & 1000.0_8 * Edf_location_bnd(i-1) * delta_x_m, &
+                  & 1000.0_8 * Edf_location_bnd(i) * delta_x_m, &
+                  & Edf_location_bnd(i-1), &
+                  & Edf_location_bnd(i)
+               END DO
+               CLOSE (41, STATUS = 'KEEP')
             END IF
          END IF
-! move the calculated locations for EDF from the temporary array to the allocated array
-         Edf_location_bnd(1:N_of_all_edf_locs) = breakpoint_E(1:N_of_all_edf_locs)
-! for server process only:
-         IF (Rank_of_process.EQ.0) THEN
-! write locations to the file
-            OPEN (41, FILE = '_edflocations.dat')
-!                       "---***---#*.*****E#**---#*.*****E#**------******------******"
-            WRITE (41, '("# number   left(mm)       right(mm)     left node   right node")')
-            WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') 1, &
-            & 0.0, &
-            & 1000.0_8 * Edf_location_bnd(1) * delta_x_m, &
-            & 0, &
-            & Edf_location_bnd(1)
-            DO i = 2, N_of_all_edf_locs
-               WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') i, &
-               & 1000.0_8 * Edf_location_bnd(i-1) * delta_x_m, &
-               & 1000.0_8 * Edf_location_bnd(i) * delta_x_m, &
-               & Edf_location_bnd(i-1), &
-               & Edf_location_bnd(i)
-            END DO
-            CLOSE (41, STATUS = 'KEEP')
-         END IF
-      END IF
+      end if
 
       delta_Ee_eV = Ee_max_eV / N_E_bins
       delta_Ei_eV = Ei_max_eV / N_E_bins

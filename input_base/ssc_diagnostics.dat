@@ -53,3 +53,8 @@
      120.000
 -----ddd----- Number of bins for e-distributions (>0) -----------------------
      150
+********************** DISTRIBUTION FUNCTION SWITCHES ***********************
+--d--d--d--d- Velocity ( e-vx, e-vy, e-vz, i-vx, | 1/0 = on/off ) -----------
+  1  1  1  1
+--d--d--d--d- Energy ( e, i, i l-wall, i r-wall | 1/0 = on/off ) ------------
+  1  1  1  1

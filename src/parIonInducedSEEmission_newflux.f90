@@ -9,7 +9,7 @@ SUBROUTINE PROCESS_ION_COLLISION_WITH_LEFT_WALL(x, vx, vy, vz, v2, s)
    USE Diagnostics, ONLY : Factor_energy_eV
    USE IonInducedSEEmission
    USE CurrentProblemValues
-   USE Snapshots, ONLY : N_E_bins, ilwedf, Ei_wall_max_eV, delta_Ei_wall_eV
+   USE Snapshots, ONLY : N_E_bins, ilwedf, Ei_wall_max_eV, delta_Ei_wall_eV, flag_ilwedf
    USE mt19937
    IMPLICIT NONE
 
@@ -39,12 +39,14 @@ SUBROUTINE PROCESS_ION_COLLISION_WITH_LEFT_WALL(x, vx, vy, vz, v2, s)
    ! calculate the energy of incident ion
    energy_inc_eV = v2 * Ms(2) * Factor_energy_eV
 
-   if (energy_inc_eV .le. Ei_wall_max_eV) then
-      index_enr = 1 + int(energy_inc_eV/delta_Ei_wall_eV)
-      if (index_enr .gt. N_E_bins) index_enr = N_E_bins
-      ilwedf(index_enr) = ilwedf(index_enr) + 1.
-   else
-   endif
+   if (flag_ilwedf) then
+      if (energy_inc_eV .le. Ei_wall_max_eV) then
+         index_enr = 1 + int(energy_inc_eV/delta_Ei_wall_eV)
+         if (index_enr .gt. N_E_bins) index_enr = N_E_bins
+         ilwedf(index_enr) = ilwedf(index_enr) + 1.
+      else
+      end if
+   end if
 
    IF (Ion_interac_model.EQ.0) RETURN
 
@@ -240,7 +242,7 @@ SUBROUTINE PROCESS_ION_COLLISION_WITH_RIGHT_WALL(x, vx, vy, vz, v2, s)
 
    USE SEEmission, ONLY : N_of_lost_ions, PlasmaSourceFlag, Ion_interac_model
    USE Diagnostics, ONLY : Factor_energy_eV
-   USE Snapshots, ONLY : N_E_bins, irwedf, delta_Ei_wall_eV, Ei_wall_max_eV
+   USE Snapshots, ONLY : N_E_bins, irwedf, delta_Ei_wall_eV, Ei_wall_max_eV, flag_irwedf
    USE IonInducedSEEmission
    USE CurrentProblemValues
    USE MT19937
@@ -259,12 +261,13 @@ SUBROUTINE PROCESS_ION_COLLISION_WITH_RIGHT_WALL(x, vx, vy, vz, v2, s)
 ! calculate the energy of incident ion
    energy_inc_eV = v2 * Ms(2) * Factor_energy_eV
 
-   if (energy_inc_eV .le. Ei_wall_max_eV) then !! ADD A LINE TO CHECK IF THE TIME IS RIGHT BEFORE A SNAPSHOT (MAYBE MAKE A PROG LIKE THE TIME FOR DF ONE)
-      index_enr = 1 + int(energy_inc_eV/delta_Ei_wall_eV)
-      if (index_enr .gt. N_E_bins) index_enr = N_E_bins
-      irwedf(index_enr) = irwedf(index_enr) + 1.
-   else
-   endif
+   if (flag_irwedf) then
+      if (energy_inc_eV .le. Ei_wall_max_eV) then !! ADD A LINE TO CHECK IF THE TIME IS RIGHT BEFORE A SNAPSHOT (MAYBE MAKE A PROG LIKE THE TIME FOR DF ONE)
+         index_enr = 1 + int(energy_inc_eV/delta_Ei_wall_eV)
+         if (index_enr .gt. N_E_bins) index_enr = N_E_bins
+         irwedf(index_enr) = irwedf(index_enr) + 1.
+      end if
+   end if
 
    IF (Ion_interac_model.EQ.0) RETURN
 
