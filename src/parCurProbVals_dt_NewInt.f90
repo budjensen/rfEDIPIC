@@ -38,7 +38,7 @@ SUBROUTINE INITIATE_PARAMETERS
 ! functions
    REAL(8) Bx_gauss
    REAL(8) By_gauss
-
+   external random_init
 
    INQUIRE (FILE = 'ssc_initial.dat', EXIST = exists)
    CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
@@ -502,7 +502,7 @@ SUBROUTINE INITIATE_PARAMETERS
          PRINT '(/2x,"Process ",i3," : Seed for the random number generator: ",i12)', Rank_of_process, seed(1)
          DO i = 1, N_of_processes - 1
             itmp = int(2.d0**31 * grnd())
-            if (itmp.le.0) itmp = (2**31 - 1) + itmp
+            if (itmp.le.0) itmp = 2147483647 + itmp ! changed from (2**31 - 1) + itmp
             CALL MPI_SEND(itmp, 1, MPI_INTEGER, i, 101, MPI_COMM_WORLD, ierr)
          END DO
       ELSE

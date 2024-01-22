@@ -19,7 +19,7 @@ subroutine SAVE_CHECKPOINT
       open (9, file = check_g_filename, status = 'replace')
 
       I_random_seed = int(2.d0**31 * grnd())
-      if (I_random_seed.le.0) I_random_seed = (2**31 - 1) + I_random_seed
+      if (I_random_seed.le.0) I_random_seed = 2147483647 + I_random_seed ! changed from = (2**31 - 1) + I_random_seed
 
       write (9, '(2x,i14,2x,i14)') T_cntr,           I_random_seed
       write (9, '(2x,i14,2x,i14)') Start_diag_Tcntr, current_snap
@@ -43,7 +43,7 @@ subroutine SAVE_CHECKPOINT
       open (9, file = check_g_filename, status = 'replace')
 
       I_random_seed = int(2.d0**31 * grnd())
-      if (I_random_seed.le.0) I_random_seed = (2**31 - 1) + I_random_seed
+      if (I_random_seed.le.0) I_random_seed = 2147483647 + I_random_seed ! changed from = (2**31 - 1) + I_random_seed
 
       write (9, '(2x,i14,2x,i14)') T_cntr,           I_random_seed
       write (9, '(2x,i14,2x,i14)') Start_diag_Tcntr, current_snap
