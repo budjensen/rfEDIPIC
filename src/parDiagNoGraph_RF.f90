@@ -55,6 +55,10 @@ SUBROUTINE INITIATE_DIAGNOSTICS
                                  !! If flag <= 0:   t_output * 10^(flag) in RF periods
                                  !! If flag  > 0:   t_output > 0 given in timesteps
                                  !!                 t_output < 0 given in plasma periods
+   integer flag_df_temp(1:2,1:4) !! Temporary variable for holding flags for distribution function creation
+                                 !! (1 [velocity], 1:4): 1 - e-vx, 2 - e-vy, 3 - e-vz, 4 - i-vx
+                                 !! (2 [energy], 1:4): 1 - e, 2 - i, 3 - i l-wall, 4 - i r-wall
+
    real(8) steps_per_period      !! Number of timesteps per RF period
    real(8) NumStart_RFper       !! Number of RF periods in WriteStart_step
    real(8) NumOut_RFper         !! Number of RF periods in WriteOut_step
@@ -184,9 +188,9 @@ SUBROUTINE INITIATE_DIAGNOSTICS
          READ (9, '(5x,i3)') N_E_bins
          READ (9, '(A77)') buf ! ********************** DISTRIBUTION FUNCTION SWITCHES ***********************")')
          READ (9, '(A77)') buf ! --d--d--d--d- Velocity ( e-vx, e-vy, e-vz, i-vx, | 1/0 = on/off ) -----------")')
-         READ (9, '(4(2x,i1))') flag_evxdf, flag_evydf, flag_evzdf, flag_ivxdf
+         READ (9, '(4(2x,i1))') flag_df_temp(1,1), flag_df_temp(1,2), flag_df_temp(1,3), flag_df_temp(1,4)
          READ (9, '(A77)') buf ! --d--d--d--d- Energy ( e, i, i l-wall, i r-wall | 1/0 = on/off ) ------------")')
-         READ (9, '(4(2x,i1))') flag_eedf, flag_iedf, flag_ilwedf, flag_irwedf
+         READ (9, '(4(2x,i1))') flag_df_temp(2,1), flag_df_temp(2,2), flag_df_temp(2,3), flag_df_temp(2,4)
 
       END IF
 
@@ -219,12 +223,14 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       N_of_E_breakpoints  = 0
       Ei_wall_max_eV      = 100.0_8
       N_E_bins            = 50
-      flag_evxdf          = 1
-      flag_evydf          = 1
-      flag_evzdf          = 1
-      flag_ivxdf          = 1
-      flag_eedf           = 1
-      flag_iedf           = 1
+      flag_df_temp(1,1)   = 1
+      flag_df_temp(1,2)   = 1
+      flag_df_temp(1,3)   = 1
+      flag_df_temp(1,4)   = 1
+      flag_df_temp(2,1)   = 1
+      flag_df_temp(2,2)   = 1
+      flag_df_temp(2,3)   = 1
+      flag_df_temp(2,4)   = 1
 
       IF (Rank_of_process.EQ.0) THEN
 
@@ -285,9 +291,9 @@ SUBROUTINE INITIATE_DIAGNOSTICS
          WRITE (9, '(5x,i3)') N_E_bins
          WRITE (9, '("********************** DISTRIBUTION FUNCTION SWITCHES ***********************")')
          WRITE (9, '("--d--d--d--d- Velocity ( e-vx, e-vy, e-vz, i-vx, | 1/0 = on/off ) -----------")')
-         WRITE (9, '(4(2x,i1))') flag_evxdf, flag_evydf, flag_evzdf, flag_ivxdf
+         WRITE (9, '(4(2x,i1))') flag_df_temp(1,1), flag_df_temp(1,2), flag_df_temp(1,3), flag_df_temp(1,4)
          WRITE (9, '("--d--d--d--d- Energy ( e, i, i l-wall, i r-wall | 1/0 = on/off ) ------------")')
-         WRITE (9, '(4(2x,i1))') flag_eedf, flag_iedf, flag_ilwedf, flag_irwedf
+         WRITE (9, '(4(2x,i1))') flag_df_temp(1,1), flag_df_temp(1,2), flag_df_temp(1,3), flag_df_temp(1,4)
 
       END IF
 
@@ -372,6 +378,29 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       END IF
 
 ! report about the status of local distribution functions creation ===========================
+      ! First convert the temporary flags to logicals
+      if (flag_df_temp(1,1).eq.0) then
+         flag_evxdf = .false.
+      else
+         flag_evxdf = .true.
+      end if
+      if (flag_df_temp(1,2).eq.0) then
+         flag_evydf = .false.
+      else
+         flag_evydf = .true.
+      end if
+      if (flag_df_temp(1,3).eq.0) then
+         flag_evzdf = .false.
+      else
+         flag_evzdf = .true.
+      end if
+      if (flag_df_temp(1,4).eq.0) then
+         flag_ivxdf = .false.
+      else
+         flag_ivxdf = .true.
+      end if
+
+      ! Next report the status to the output file
       if (flag_evxdf.or.flag_evydf.or.flag_evzdf.or.flag_ivxdf) then 
          IF (N_of_all_vdf_locs.EQ.0) THEN
             IF (Rank_of_process.EQ.0) PRINT '(2x,"No local velocity distribution functions will be created in snapshots ...")'
@@ -428,6 +457,29 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       N_box_Vx_i_top  =  N_box_Vx_i + 1               !
 
 ! report about the status of local energy distribution functions creation ===========================
+      ! First convert the temporary flags to logicals
+      if (flag_df_temp(2,1).eq.0) then
+         flag_eedf = .false.
+      else
+         flag_eedf = .true.
+      end if
+      if (flag_df_temp(2,2).eq.0) then
+         flag_iedf = .false.
+      else
+         flag_iedf = .true.
+      end if
+      if (flag_df_temp(2,3).eq.0) then
+         flag_ilwedf = .false.
+      else
+         flag_ilwedf = .true.
+      end if
+      if (flag_df_temp(2,4).eq.0) then
+         flag_irwedf = .false.
+      else
+         flag_irwedf = .true.
+      end if
+
+      ! Next report the status to the output file
       if (flag_eedf.or.flag_iedf) then 
          IF (N_of_all_edf_locs.EQ.0) THEN
             IF (Rank_of_process.EQ.0) PRINT '(2x,"No local energy distribution functions will be created in snapshots ...")'
