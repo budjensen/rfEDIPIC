@@ -1,7 +1,7 @@
 FC := mpif90
 CC := mpicc
 # Get the actual Fortran compiler invoked by mpif90. Need to use double $$ in awk.
-BASE_FCOMP := $(shell mpif90 -show | awk '{print $$1}' | awk -F/ '{print $$NF}')
+BASE_FCOMP := $(shell mpif90 -show | awk '{print $$1}' | awk -F/ '{print $$NF}' | awk -F- '{print $$NF}')
 
 ifeq ($(BASE_FCOMP),ifort)
    $(info "Using Intel compiler" )
