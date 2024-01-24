@@ -1,29 +1,12 @@
 #!/bin/bash
-#SBATCH -J T_rf_16
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=16
-#SBATCH --ntasks-per-socket=24
-#SBATCH --exclusive
-#SBATCH --time=03:00:00
-##SBATCH -q pppl-short
-#SBATCH --mail-type=all
-#SBATCH --mail-user=bjensen@pppl.gov
+## An example SLURM script for PU's Stellar cluster
+#SBATCH -J Ex_Job                        ## Job name
+#SBATCH --nodes=1                        ## Number of nodes requested
+#SBATCH --ntasks-per-node=48             ## Number of cores requested per node (96/node on Stellar)
+#SBATCH --time=03:00:00                  ## Maximum job runtime (HH:MM:SS)
+#SBATCH --mail-type=all                  ## Request emails when the job begins and ends
+#SBATCH --mail-user=your@email.here
 
-exec=/scratch/gpfs/bj8080/rfEDIPIC/src/dedipic
+exec=/path/to/executable/dedipic
 
-# Load openmpi environment
-#export OMP_NUM_THREADS=1
-nb_cpu=$SLURM_NPROCS
-#Loading relevant modules
-#module purge
-#module load intel/2021.1.2
-#module load intel-mpi/intel/2021.3.1
-
-#Setting relevant environment variables
-#export PETSC_DIR=/scratch/gpfs/apowis/petsc/installs_stellar
-#export LD_LIBRARY_PATH=${PETSC_DIR}/lib:${LD_LIBRARY_PATH}
-
-
-#srun ./edipic2d
-#mpirun -np $nb_cpu $exec > dedipic_ge.${SLURM_JOBID}.out 
 srun $exec > dedipic.${SLURM_JOBID}.out
