@@ -1,22 +1,21 @@
 # rfEDIPIC
 
 This is a modified version of the EDIPIC code from Dmytro Sydorenko. This version of the code directly incorporates
-into the input files the functionality to have an RF biased left wall.
+into input files the functionality to control an RF biased left wall and includes diagnostics designed to analyze
+RF plasma processing devices.
 
-### Other Modifications
+For a complete list of diagnostics, operating instructions, and documentation, please refer to the [wiki](https://github.com/budjensen/rfEDIPIC/wiki).
 
-- Output EDF data at each snapshot
-- Second model of electron-neutral excitation collisions
-- (_in progress_) Output IADF data at each snapshot
+### Quick Start Instructions
 
-### Compiling Instructions (from the original github repo)
-
-To compile, if one has fortran binded with an MPI, for example, do the following:
+To compile, provided that you have fortran binded to MPI, do the following:
 
 ```console
-mpif90 -c parModules.f90
-mpif90 -o edipic1d.out par\*f90
+mpif90 -c parMT19937.f90 parModules.f90 par*f90
+mpif90 -o edipic1d.out par*o
 ```
+
+You may need to specify input flags e.g. `-ffree-line-length-none`, depending on your specific fortran and mpi build. For ease, use the included Makefile.
 
 To run, copy the executable file and the input data files (ssc_\*dat, inluding the cross sections for the selected ion species) into some directory, edit the input data files as necessary (note that the input is formatted, so one has to follow patterns provided in corresponding description lines), then do for example:
 
