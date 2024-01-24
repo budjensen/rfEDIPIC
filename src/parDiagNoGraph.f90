@@ -43,6 +43,27 @@ SUBROUTINE INITIATE_DIAGNOSTICS
    INTEGER breakpoint_E(1:200)       ! array for temporary storage of locations (node numbers) of breakpoints ##  input with multiple errors)
    INTEGER probe_location(1:2000)    ! array for temporary storage of locations (node numbers) of probes      ##  input with multiple errors)
 
+   integer flag_Out              !! Flag for input file timing variable WriteOut_step
+                                 !! If flag <= 0:   t_output * 10^(flag) in RF periods
+                                 !! If flag  > 0:   t_output > 0 given in timesteps
+                                 !!                 t_output < 0 given in plasma periods
+   integer flag_Start          !! Flag for input file timing variable WriteStart_step
+                                 !! If flag <= 0:   t_output * 10^(flag) in RF periods
+                                 !! If flag  > 0:   t_output > 0 given in timesteps
+                                 !!                 t_output < 0 given in plasma periods
+   integer flag_Avg              !! Flag for input file timing variable WriteAvg_step
+                                 !! If flag <= 0:   t_output * 10^(flag) in RF periods
+                                 !! If flag  > 0:   t_output > 0 given in timesteps
+                                 !!                 t_output < 0 given in plasma periods
+   integer flag_df_temp(1:2,1:4) !! Temporary variable for holding flags for distribution function creation
+                                 !! (1 [velocity], 1:4): 1 - e-vx, 2 - e-vy, 3 - e-vz, 4 - i-vx
+                                 !! (2 [energy], 1:4): 1 - e, 2 - i, 3 - i l-wall, 4 - i r-wall
+
+   real(8) steps_per_period      !! Number of timesteps per RF period
+   real(8) NumStart_RFper       !! Number of RF periods in WriteStart_step
+   real(8) NumOut_RFper         !! Number of RF periods in WriteOut_step
+   real(8) NumAvg_RFper         !! Number of RF periods in WriteAvg_step
+
    CHARACTER (77) buf
    INTEGER ierr
 
@@ -65,12 +86,21 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       END IF
 
       READ (9, '(A77)') buf ! '("********************* TIME DEPENDENCIES CREATION CONTROL ********************")')
-      READ (9, '(A77)') buf ! '("--dddddd----- Step for saving (timesteps >0, plasma periods <0) -------------")')
-      READ (9, '(2x,i6)') WriteOut_step
-      READ (9, '(A77)') buf ! '("--dddddd----- Start collecting data at (timesteps >0, plasma periods <0) ----")')
-      READ (9, '(2x,i6)') WriteStart_step
-      READ (9, '(A77)') buf ! '("--dddddd----- Average during (timesteps >0, plasma periods <0 ) -------------")')
-      READ (9, '(2x,i6)') WriteAvg_step
+      READ (9, '(A77)') buf ! '("------------- Diagnostic output interval, t_flag ----------------------------")')
+      READ (9, '(A77)') buf ! '("--            If t_flag <= 0:   t_output * 10^(t_flag) in RF periods --------")')
+      READ (9, '(A77)') buf ! '("--            If t_flag  > 1:   t_output > 0 given in timesteps -------------")')
+      READ (9, '(A77)') buf ! '("--dddddd-#d--                   t_output < 0 given in plasma periods --------")')
+      READ (9, '(2x,i6,1x,i2)') WriteOut_step, flag_Out
+      READ (9, '(A77)') buf ! '("------------- Diagnostic collection start, t_flag ---------------------------")')
+      READ (9, '(A77)') buf ! '("--            If t_flag <= 0:   t_start * 10^(t_flag) in RF periods ---------")')
+      READ (9, '(A77)') buf ! '("--            If t_flag  > 1:   t_start > 0 given in timesteps --------------")')
+      READ (9, '(A77)') buf ! '("--dddddd-#d--                   t_start < 0 given in plasma periods ---------")')
+      READ (9, '(2x,i6,1x,i2)') WriteStart_step, flag_Start
+      READ (9, '(A77)') buf ! '("------------- Diagnostic average window, t_flag - (NOTE: t_avg <= t_output) -")')
+      READ (9, '(A77)') buf ! '("--            If t_flag <= 0:   t_avg * 10^(t_flag) in RF periods -----------")')
+      READ (9, '(A77)') buf ! '("--            If t_flag  > 1:   t_avg > 0 given in timesteps ----------------")')
+      READ (9, '(A77)') buf ! '("--dddddd-#d--                   t_avg < 0 given in plasma periods -----------")')
+      READ (9, '(2x,i6,1x,i2)') WriteAvg_step, flag_Avg
       READ (9, '(A77)') buf ! '("--dddddd----- Skip periods of averaging between text outputs (>=0) ----------")')
       READ (9, '(2x,i6)') TextOut_avg_prds_to_skip
       READ (9, '(A77)') buf ! '("-----ddd----- Number of probes ( no probes if <= 0 ) ------------------------")')
@@ -156,6 +186,11 @@ SUBROUTINE INITIATE_DIAGNOSTICS
          READ (9, '(2x,f10.3)') Ei_wall_max_eV
          READ (9, '(A77)') buf ! -----ddd----- Number of bins for e-distributions (>0) -----------------------")')
          READ (9, '(5x,i3)') N_E_bins
+         READ (9, '(A77)') buf ! ********************** DISTRIBUTION FUNCTION SWITCHES ***********************")')
+         READ (9, '(A77)') buf ! --d--d--d--d- Velocity ( e-vx, e-vy, e-vz, i-vx, | 1/0 = on/off ) -----------")')
+         READ (9, '(4(2x,i1))') flag_df_temp(1,1), flag_df_temp(1,2), flag_df_temp(1,3), flag_df_temp(1,4)
+         READ (9, '(A77)') buf ! --d--d--d--d- Energy ( e, i, i l-wall, i r-wall | 1/0 = on/off ) ------------")')
+         READ (9, '(4(2x,i1))') flag_df_temp(2,1), flag_df_temp(2,2), flag_df_temp(2,3), flag_df_temp(2,4)
 
       END IF
 
@@ -163,8 +198,11 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
 !======================= Time dependencies control =======================
       WriteOut_step            = 100
+      flag_Out                 = 1
       WriteStart_step          = 0
+      flag_Start             = 1
       WriteAvg_step            = 1
+      flag_Avg                 = 1
       TextOut_avg_prds_to_skip = 0
       N_of_probes_given        = 0
 !======================= Snapshot control =======================
@@ -185,6 +223,14 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       N_of_E_breakpoints  = 0
       Ei_wall_max_eV      = 100.0_8
       N_E_bins            = 50
+      flag_df_temp(1,1)   = 1
+      flag_df_temp(1,2)   = 1
+      flag_df_temp(1,3)   = 1
+      flag_df_temp(1,4)   = 1
+      flag_df_temp(2,1)   = 1
+      flag_df_temp(2,2)   = 1
+      flag_df_temp(2,3)   = 1
+      flag_df_temp(2,4)   = 1
 
       IF (Rank_of_process.EQ.0) THEN
 
@@ -192,12 +238,21 @@ SUBROUTINE INITIATE_DIAGNOSTICS
          PRINT '(2x,"Process ",i3," : Create ssc_diagnostics.dat file . . .")', Rank_of_process
 
          WRITE (9, '("********************* TIME DEPENDENCIES CREATION CONTROL ********************")')
-         WRITE (9, '("--dddddd----- Step for saving (timesteps >0, plasma periods <0) -------------")')
-         WRITE (9, '(2x,i6)') WriteOut_step
-         WRITE (9, '("--dddddd----- Start collecting data at (timesteps >0, plasma periods <0) ----")')
-         WRITE (9, '(2x,i6)') WriteStart_step
-         WRITE (9, '("--dddddd----- Average during (timesteps >0, plasma periods <0 ) -------------")')
-         WRITE (9, '(2x,i6)') WriteAvg_step
+         WRITE (9, '("------------- Diagnostic output interval, t_flag ----------------------------")')
+         WRITE (9, '("--            If t_flag <= 0:   t_output * 10^(t_flag) in RF periods --------")')
+         WRITE (9, '("--            If t_flag  > 1:   t_output > 0 given in timesteps -------------")')
+         WRITE (9, '("--dddddd-#d--                   t_output < 0 given in plasma periods --------")')
+         WRITE (9, '(2x,i6,1x,i2)') WriteOut_step, flag_Out
+         WRITE (9, '("------------- Diagnostic collection start, t_flag ---------------------------")')
+         WRITE (9, '("--            If t_flag <= 0:   t_start * 10^(t_flag) in RF periods ---------")')
+         WRITE (9, '("--            If t_flag  > 1:   t_start > 0 given in timesteps --------------")')
+         WRITE (9, '("--dddddd-#d--                   t_start < 0 given in plasma periods ---------")')
+         WRITE (9, '(2x,i6,1x,i2)') WriteStart_step, flag_Start
+         WRITE (9, '("------------- Diagnostic average window, t_flag - (NOTE: t_avg <= t_output) -")')
+         WRITE (9, '("--            If t_flag <= 0:   t_avg * 10^(t_flag) in RF periods -----------")')
+         WRITE (9, '("--            If t_flag  > 1:   t_avg > 0 given in timesteps ----------------")')
+         WRITE (9, '("--dddddd-#d--                   t_avg < 0 given in plasma periods -----------")')
+         WRITE (9, '(2x,i6,1x,i2)') WriteAvg_step, flag_Avg
          WRITE (9, '("--dddddd----- Skip periods of averaging between text outputs (>=0) ----------")')
          WRITE (9, '(2x,i6)') TextOut_avg_prds_to_skip
          WRITE (9, '("-----ddd----- Number of probes ( no probes if <= 0 ) ------------------------")')
@@ -234,6 +289,11 @@ SUBROUTINE INITIATE_DIAGNOSTICS
          WRITE (9, '(2x,f10.3)') Ei_wall_max_eV
          WRITE (9, '("-----ddd----- Number of bins for e-distributions (>0) -----------------------")')
          WRITE (9, '(5x,i3)') N_E_bins
+         WRITE (9, '("********************** DISTRIBUTION FUNCTION SWITCHES ***********************")')
+         WRITE (9, '("--d--d--d--d- Velocity ( e-vx, e-vy, e-vz, i-vx, | 1/0 = on/off ) -----------")')
+         WRITE (9, '(4(2x,i1))') flag_df_temp(1,1), flag_df_temp(1,2), flag_df_temp(1,3), flag_df_temp(1,4)
+         WRITE (9, '("--d--d--d--d- Energy ( e, i, i l-wall, i r-wall | 1/0 = on/off ) ------------")')
+         WRITE (9, '(4(2x,i1))') flag_df_temp(1,1), flag_df_temp(1,2), flag_df_temp(1,3), flag_df_temp(1,4)
 
       END IF
 
@@ -318,43 +378,68 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       END IF
 
 ! report about the status of local distribution functions creation ===========================
-      IF (N_of_all_vdf_locs.EQ.0) THEN
-         IF (Rank_of_process.EQ.0) PRINT '(2x,"No local velocity distribution functions will be created in snapshots ...")'
-      ELSE
-         IF (Rank_of_process.EQ.0) PRINT '(2x,"The velocity distribution functions will be calculated in ",i3," locations")', &
-         & N_of_all_vdf_locs
-! allocate the array of boundaries of locations for calculation of VDF in snapshots
-         IF (.NOT.ALLOCATED(Vdf_location_bnd)) THEN
-            ALLOCATE(Vdf_location_bnd(1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-            IF(ALLOC_ERR.NE.0)THEN
-               PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Vdf_location_bnd !!!")', Rank_of_process
-               PRINT  '(2x,"Program will be terminated now :(")'
-               STOP
+      ! First convert the temporary flags to logicals
+      if (flag_df_temp(1,1).eq.0) then
+         flag_evxdf = .false.
+      else
+         flag_evxdf = .true.
+      end if
+      if (flag_df_temp(1,2).eq.0) then
+         flag_evydf = .false.
+      else
+         flag_evydf = .true.
+      end if
+      if (flag_df_temp(1,3).eq.0) then
+         flag_evzdf = .false.
+      else
+         flag_evzdf = .true.
+      end if
+      if (flag_df_temp(1,4).eq.0) then
+         flag_ivxdf = .false.
+      else
+         flag_ivxdf = .true.
+      end if
+
+      ! Next report the status to the output file
+      if (flag_evxdf.or.flag_evydf.or.flag_evzdf.or.flag_ivxdf) then 
+         IF (N_of_all_vdf_locs.EQ.0) THEN
+            IF (Rank_of_process.EQ.0) PRINT '(2x,"No local velocity distribution functions will be created in snapshots ...")'
+         ELSE
+            IF (Rank_of_process.EQ.0) PRINT '(2x,"The velocity distribution functions will be calculated in ",i3," locations")', &
+            & N_of_all_vdf_locs
+            ! allocate the array of boundaries of locations for calculation of VDF in snapshots
+            IF (.NOT.ALLOCATED(Vdf_location_bnd)) THEN
+               ALLOCATE(Vdf_location_bnd(1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+               IF(ALLOC_ERR.NE.0)THEN
+                  PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Vdf_location_bnd !!!")', Rank_of_process
+                  PRINT  '(2x,"Program will be terminated now :(")'
+                  STOP
+               END IF
+            END IF
+            ! move the calculated locations for VDF from the temporary array to the allocated array
+            Vdf_location_bnd(1:N_of_all_vdf_locs) = breakpoint(1:N_of_all_vdf_locs)
+            ! for server process only:
+            IF (Rank_of_process.EQ.0) THEN
+               ! write locations to the file
+               OPEN (41, FILE = '_vdflocations.dat')
+               !            "---***---#*.*****E#**---#*.*****E#**------******------******"
+               WRITE (41, '("# number   left(mm)       right(mm)     left node   right node")')
+               WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') 1, &
+               & 0.0, &
+               & 1000.0_8 * Vdf_location_bnd(1) * delta_x_m, &
+               & 0, &
+               & Vdf_location_bnd(1)
+               DO i = 2, N_of_all_vdf_locs
+                  WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') i, &
+                  & 1000.0_8 * Vdf_location_bnd(i-1) * delta_x_m, &
+                  & 1000.0_8 * Vdf_location_bnd(i) * delta_x_m, &
+                  & Vdf_location_bnd(i-1), &
+                  & Vdf_location_bnd(i)
+               END DO
+               CLOSE (41, STATUS = 'KEEP')
             END IF
          END IF
-! move the calculated locations for VDF from the temporary array to the allocated array
-         Vdf_location_bnd(1:N_of_all_vdf_locs) = breakpoint(1:N_of_all_vdf_locs)
-! for server process only:
-         IF (Rank_of_process.EQ.0) THEN
-! write locations to the file
-            OPEN (41, FILE = '_vdflocations.dat')
-!                       "---***---#*.*****E#**---#*.*****E#**------******------******"
-            WRITE (41, '("# number   left(mm)       right(mm)     left node   right node")')
-            WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') 1, &
-            & 0.0, &
-            & 1000.0_8 * Vdf_location_bnd(1) * delta_x_m, &
-            & 0, &
-            & Vdf_location_bnd(1)
-            DO i = 2, N_of_all_vdf_locs
-               WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') i, &
-               & 1000.0_8 * Vdf_location_bnd(i-1) * delta_x_m, &
-               & 1000.0_8 * Vdf_location_bnd(i) * delta_x_m, &
-               & Vdf_location_bnd(i-1), &
-               & Vdf_location_bnd(i)
-            END DO
-            CLOSE (41, STATUS = 'KEEP')
-         END IF
-      END IF
+      end if
 
       N_box_Vx_e      = Ve_x_max * N_box_vel - 1
       N_box_Vyz_e     = Ve_yz_max * N_box_vel - 1
@@ -372,43 +457,68 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       N_box_Vx_i_top  =  N_box_Vx_i + 1               !
 
 ! report about the status of local energy distribution functions creation ===========================
-      IF (N_of_all_edf_locs.EQ.0) THEN
-         IF (Rank_of_process.EQ.0) PRINT '(2x,"No local energy distribution functions will be created in snapshots ...")'
-      ELSE
-         IF (Rank_of_process.EQ.0) PRINT '(2x,"The energy distribution functions will be calculated in ",i3," locations")', &
-         & N_of_all_edf_locs
-! allocate the array of boundaries of locations for calculation of VDF in snapshots
-         IF (.NOT.ALLOCATED(Edf_location_bnd)) THEN
-            ALLOCATE(Edf_location_bnd(1:N_of_all_edf_locs), STAT=ALLOC_ERR)
-            IF(ALLOC_ERR.NE.0)THEN
-               PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Edf_location_bnd !!!")', Rank_of_process
-               PRINT  '(2x,"Program will be terminated now :(")'
-               STOP
+      ! First convert the temporary flags to logicals
+      if (flag_df_temp(2,1).eq.0) then
+         flag_eedf = .false.
+      else
+         flag_eedf = .true.
+      end if
+      if (flag_df_temp(2,2).eq.0) then
+         flag_iedf = .false.
+      else
+         flag_iedf = .true.
+      end if
+      if (flag_df_temp(2,3).eq.0) then
+         flag_ilwedf = .false.
+      else
+         flag_ilwedf = .true.
+      end if
+      if (flag_df_temp(2,4).eq.0) then
+         flag_irwedf = .false.
+      else
+         flag_irwedf = .true.
+      end if
+
+      ! Next report the status to the output file
+      if (flag_eedf.or.flag_iedf) then 
+         IF (N_of_all_edf_locs.EQ.0) THEN
+            IF (Rank_of_process.EQ.0) PRINT '(2x,"No local energy distribution functions will be created in snapshots ...")'
+         ELSE
+            IF (Rank_of_process.EQ.0) PRINT '(2x,"The energy distribution functions will be calculated in ",i3," locations")', &
+            & N_of_all_edf_locs
+            ! allocate the array of boundaries of locations for calculation of VDF in snapshots
+            IF (.NOT.ALLOCATED(Edf_location_bnd)) THEN
+               ALLOCATE(Edf_location_bnd(1:N_of_all_edf_locs), STAT=ALLOC_ERR)
+               IF(ALLOC_ERR.NE.0)THEN
+                  PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Edf_location_bnd !!!")', Rank_of_process
+                  PRINT  '(2x,"Program will be terminated now :(")'
+                  STOP
+               END IF
+            END IF
+            ! move the calculated locations for EDF from the temporary array to the allocated array
+            Edf_location_bnd(1:N_of_all_edf_locs) = breakpoint_E(1:N_of_all_edf_locs)
+            ! for server process only:
+            IF (Rank_of_process.EQ.0) THEN
+               ! write locations to the file
+               OPEN (41, FILE = '_edflocations.dat')
+               !            "---***---#*.*****E#**---#*.*****E#**------******------******"
+               WRITE (41, '("# number   left(mm)       right(mm)     left node   right node")')
+               WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') 1, &
+               & 0.0, &
+               & 1000.0_8 * Edf_location_bnd(1) * delta_x_m, &
+               & 0, &
+               & Edf_location_bnd(1)
+               DO i = 2, N_of_all_edf_locs
+                  WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') i, &
+                  & 1000.0_8 * Edf_location_bnd(i-1) * delta_x_m, &
+                  & 1000.0_8 * Edf_location_bnd(i) * delta_x_m, &
+                  & Edf_location_bnd(i-1), &
+                  & Edf_location_bnd(i)
+               END DO
+               CLOSE (41, STATUS = 'KEEP')
             END IF
          END IF
-! move the calculated locations for EDF from the temporary array to the allocated array
-         Edf_location_bnd(1:N_of_all_edf_locs) = breakpoint_E(1:N_of_all_edf_locs)
-! for server process only:
-         IF (Rank_of_process.EQ.0) THEN
-! write locations to the file
-            OPEN (41, FILE = '_edflocations.dat')
-!                       "---***---#*.*****E#**---#*.*****E#**------******------******"
-            WRITE (41, '("# number   left(mm)       right(mm)     left node   right node")')
-            WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') 1, &
-            & 0.0, &
-            & 1000.0_8 * Edf_location_bnd(1) * delta_x_m, &
-            & 0, &
-            & Edf_location_bnd(1)
-            DO i = 2, N_of_all_edf_locs
-               WRITE (41, '(3x,i3,2(3x,e12.5),2(6x,i6))') i, &
-               & 1000.0_8 * Edf_location_bnd(i-1) * delta_x_m, &
-               & 1000.0_8 * Edf_location_bnd(i) * delta_x_m, &
-               & Edf_location_bnd(i-1), &
-               & Edf_location_bnd(i)
-            END DO
-            CLOSE (41, STATUS = 'KEEP')
-         END IF
-      END IF
+      end if
 
       delta_Ee_eV = Ee_max_eV / N_E_bins
       delta_Ei_eV = Ei_max_eV / N_E_bins
@@ -434,23 +544,58 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
 !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-! if WriteOut_step is negative then it is given in plasma periods, assumed to be integer !!!
-   IF (WriteOut_step.LT.0) THEN
-      IF (Rank_of_process.EQ.0) PRINT '(/2x,"Step for data saving was given in the units of electron plasma period ...")'
-      WriteOut_step = ABS(WriteOut_step) * (W_plasma_s1 * delta_t_s) / 6.28318530718_8
-   END IF
+   ! Number of timesteps per RF period
+   steps_per_period = 1. / (f_rf_Hz * delta_t_s)
 
-! if WriteStart_step is negative then it is given in plasma periods, assumed to be integer !!!
-   IF (WriteStart_step.LT.0) THEN
-      IF (Rank_of_process.EQ.0) PRINT '(/2x,"Start moment for data saving was given in the units of electron plasma period ...")'
-      WriteStart_step = ABS(WriteStart_step) * (W_plasma_s1 * delta_t_s) / 6.28318530718_8
-   END IF
+   ! if flag_Out is negative or zero then WriteOut_step is given in units of RF periods
+   if (flag_Out.le.0) then
+      if (Rank_of_process.EQ.0) print '(/2x,"Data output interval was given in units of RF period ...")'
+      ! Multiply the output step (expanded by the flag) by the number of steps per RF period
+      NumOut_RFper = WriteOut_step * (10.**flag_Out)
+      WriteOut_step = NumOut_RFper * steps_per_period
+   else
+      ! if WriteOut_step is negative then it is given in plasma periods, assumed to be integer !!!
+      IF (WriteOut_step.LT.0) THEN
+         IF (Rank_of_process.EQ.0) PRINT '(/2x,"Data output interval was given in units of electron plasma period ...")'
+         WriteOut_step = ABS(WriteOut_step) * 6.28318530718_8 / (W_plasma_s1 * delta_t_s) 
+      END IF
+   endif
 
-! if WriteAvg_step is negative then it is given in plasma periods, assumed to be integer !!!
-   IF (WriteAvg_step.LT.0) THEN
-      IF (Rank_of_process.EQ.0) PRINT '(/2x,"Averaging for data saving was given in the units of electron plasma period ...")'
-      WriteAvg_step = ABS(WriteAvg_step) * (W_plasma_s1 * delta_t_s) / 6.28318530718_8
-   END IF
+   ! if flag_Start is negative or zero then WriteStart_step is given in units of RF periods
+   if (flag_Start.le.0) then
+      if (Rank_of_process.EQ.0) print '(/2x,"Data collection start moment was given in units of RF period ...")'
+      ! Multiply the start step (expanded by the flag) by the number of steps per RF period
+      NumStart_RFper = WriteStart_step * (10.**flag_Start)
+      WriteStart_step = NumStart_RFper * steps_per_period
+   else
+      ! if WriteStart_step is negative then it is given in plasma periods, assumed to be integer !!!
+      IF (WriteStart_step.LT.0) THEN
+         IF (Rank_of_process.EQ.0) PRINT '(/2x,"Data collection start moment was given in units of electron plasma period ...")'
+         WriteStart_step = ABS(WriteStart_step) * 6.28318530718_8 / (W_plasma_s1 * delta_t_s)
+      END IF
+   endif
+
+   ! if flag_Avg is negative or zero then WriteAvg_step is given in units of RF periods
+   if (flag_Avg.le.0) then
+      if (Rank_of_process.EQ.0) print '(2x,"Data averaging window was given in units of RF period ...")'
+      ! Multiply the averaging step (expanded by the flag) by the number of steps per RF period
+      NumAvg_RFper = WriteAvg_step * (10.**flag_Avg)
+      WriteAvg_step = NumAvg_RFper * steps_per_period
+   else
+      ! if WriteAvg_step is negative then it is given in plasma periods, assumed to be integer !!!
+      IF (WriteAvg_step.LT.0) THEN
+         IF (Rank_of_process.EQ.0) PRINT '(2x,"Data averaging window was given in units of electron plasma period ...")'
+         WriteAvg_step = ABS(WriteAvg_step) * 6.28318530718_8 / (W_plasma_s1 * delta_t_s)
+      END IF
+   endif
+
+   if (WriteAvg_step.gt.WriteOut_step) then
+      if (Rank_of_process.EQ.0) then
+         print '(/2x,"Process ",i3," : Data averaging window (WriteAvg_step) is larger than data output interval (WriteOut_step) !!!")', Rank_of_process
+         print  '(2x,"Program will be terminated now :(")'
+      endif
+      stop
+   endif
 
 ! ensure that SaveCheck_step [defined previously in INITIATE_PARAMETERS] is a multiple of WriteOut_step
 !** but never zero in case checkpoints were requested ** Oct. 2016
@@ -462,8 +607,11 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
    IF (Rank_of_process.EQ.0) THEN
       PRINT '(/2x,"Diagnostic values will be written into the file with time interval : ",f9.4," ns")', WriteOut_step * delta_t_s * 1.0e9
-      PRINT  '(2x,"First data will start collecting at the moment                    : ",f9.4," ns")',  WriteStart_step * delta_t_s * 1.0e9
-      PRINT  '(2x,"Averaging will be carried out during the following time interval : ",f13.4," ns")',   WriteAvg_step * delta_t_s * 1.0e9
+      if (flag_Out.le.0) print '(67x,"or, ",f9.4," RF periods")', NumOut_RFper
+      PRINT  '(2x,"First data will start collecting at the moment                     : ",f9.4," ns")',  WriteStart_step * delta_t_s * 1.0e9
+      if (flag_Start.le.0) print '(67x,"or, ",f9.4," RF periods")', NumStart_RFper
+      PRINT  '(2x,"Averaging will be carried out during the following time interval   : ",f13.4," ns")',   WriteAvg_step * delta_t_s * 1.0e9
+      if (flag_Start.le.0) print '(67x,"or, ",f9.4," RF periods")', NumAvg_RFper
       IF (SaveCheck_step.GT.0) THEN
          PRINT '(2x,"Checkpoints will be created with time interval                  : ",f9.4," ns")',  SaveCheck_step * delta_t_s * 1.0e9
       ELSE
@@ -546,96 +694,122 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 END SUBROUTINE INITIATE_DIAGNOSTICS
 
 !------------------------------
-SUBROUTINE CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps, T2_old, N2_old, timestep)
-!! Function to calculate the timesteps of a snapshot for each snapshot group
+subroutine CALCULATE_SNAPSHOT_TIMES(Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps, T2_old, N2_old, timestep)
+!! Calculates the exact snapshot output timesteps for each snapshot group requested
+!! in ssc_diagnostics.dat. Each snapshot timestep coincides with a diagnostic
+!! Finish_Diag_Tcntr timestep.
+!!
+!! Because Start_diag_Tcntr steps (and thus Finish_diag_Tcntr steps) are spaced apart
+!! by jumps of length WriteOut_step, this subroutine calculates the first snapshot timestep
+!! as a multiple of WriteOut_step after the first diagnostic output timestep and places
+!! all remaining snapshots within the group evenly spaced between the first timestep and 
+!! the final target timestep (Aprx_snap_finish_ns).
+!!
+!! Outside the program we read the parameters of current set of snapshot from the data file:
+!!
+!!   READ (9, '(12x,f10.3,12x,f10.3,14x,i4)') Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps
 
-   USE CurrentProblemValues, ONLY : delta_t_s, Max_T_cntr
-   USE Diagnostics, ONLY : WriteOut_step, WriteStart_step, WriteAvg_step
-   USE Snapshots, ONLY : N_of_all_snaps
+   use CurrentProblemValues, only : delta_t_s, Max_T_cntr
+   use Diagnostics, only : WriteOut_step, WriteStart_step, WriteAvg_step
+   use Snapshots, only : N_of_all_snaps
 
    IMPLICIT NONE
-   REAL(8) Aprx_snap_start_ns        ! approximate start of current set of snapshots [ns], read from file
-   REAL(8) Aprx_snap_finish_ns       ! approximate finish of current set of snapshots [ns], read from file
-   INTEGER Aprx_n_of_snaps           ! approximate number of snapshots in current set, read from file
+   real(8), intent(in) :: Aprx_snap_start_ns       !! Requested time [ns] of first snapshot output, passed from file
+   real(8), intent(in) :: Aprx_snap_finish_ns      !! Requested time [ns] of final snapshot output, passed from file
+   integer, intent(in) :: Aprx_n_of_snaps          !! Requested number of snapshots in group, passed from file
+   integer, intent(inout) :: timestep(1:9999)      !! Array of snapshot timesteps
+   integer, intent(inout) :: T2_old                !! Finish timestep for prior snapshot group
+   integer, intent(inout) :: N2_old                !! Number of WriteOut_steps between the first diagnostic output and T2_old
 
-   INTEGER T1, T2, N1, N2, T2_old, N2_old, large_step
-   INTEGER n      ! ordering number of snapshot in the set
-   INTEGER Fact_n_of_snaps           ! calculated number of snapshots in one set
+   integer T1                                      !! Start timestep for snapshot group
+   integer T2                                      !! End/output timestep for snapshot group
+   integer N1                                      !! Number of WriteOut_steps between the first diagnostic output and T1
+   integer N2                                      !! Number of WriteOut_steps between the first diagnostic output and T2
 
-   INTEGER timestep(1:9999)          ! array for temporary storage of moments (timesteps) of snapshots
+   integer first_diag_output_step                  !! Temporary variable to increase readability of this function.
+                                                   !!   This is calculated later as a module variable and named Finish_diag_Tcntr
+   integer n                                       !! Snapshot index
+   integer Fact_n_of_snaps                         !! Actual number of snapshots in group
+   integer large_step                              !! Number of WriteOut_steps between T1 and T2 dived by the requested number
+                                                   !!   of snapshots in the group. If large_step >=1, then the requested number
+                                                   !!   is the actual number of snapshots in the group.
+                                                   !! This factor helps ensure snapshots are evenly spaced within the group. If
+                                                   !!   1 <= large_step < 2 when caculated, then snapshots are outputted every
+                                                   !!  WriteOut_step. If 2 <= large_step < 3, then snapshots are outputted every
+                                                   !!  second WriteOut_step, etc.
 
-! Outside the program we read the parameters of current set of snapshot from the data file
-!
-!   READ (9, '(12x,f10.3,12x,f10.3,14x,i4)') Aprx_snap_start_ns, Aprx_snap_finish_ns, Aprx_n_of_snaps
-!
-
-! try the next group of snapshots if some stupid guy used the group with zero snapshots
+   ! Skip if zero snapshots were requested in the group
    IF (Aprx_n_of_snaps.LT.1) RETURN
 
-! get the timestep, coinciding with the diagnostic output timestep and closest to Aprx_snap_start_ns
-   ! Calculate start timestep specified in the file
+   first_diag_output_step = WriteStart_step + WriteAvg_step - 1
+
+   ! Calculate group start timestep asked for in the file
    T1 = Aprx_snap_start_ns / (delta_t_s * 1.0e9)
+   IF (T1.LT.first_diag_output_step) T1 = first_diag_output_step ! If T1 < first_diag_output_step, set T1 = first_diag_output_step
+   N1 = (T1 - first_diag_output_step) / WriteOut_step            ! Calculate number of write steps between T1 and first_diag_output_step
+   T1 = first_diag_output_step + N1 * WriteOut_step              ! Make T1 coincide with a write step after first_diag_output_step
 
-   ! If the start timestep is less than the first timestep for diagnostic output specified in the file,
-   ! then use the first timestep for diagnostic output
-   IF (T1.LT.(WriteStart_step + WriteAvg_step - 1)) T1 = WriteStart_step + WriteAvg_step - 1
-
-   ! Calculate the number of write steps between the start timestep and the first timestep for diagnostic output
-   N1 = (T1 - (WriteStart_step + WriteAvg_step - 1)) / WriteOut_step
-
-   !
-   T1 = WriteStart_step + N1 * WriteOut_step + WriteAvg_step - 1
-
-! get the timestep, coinciding with the diagnostic output timestep and closest to Aprx_snap_finish_ns
+   ! Calculate group end timestep asked for in the file
    T2 = Aprx_snap_finish_ns / (delta_t_s * 1.0e9)
-   IF (T2.LT.(WriteStart_step + WriteAvg_step - 1)) T2 = WriteStart_step + WriteAvg_step - 1
-   N2 = (T2 - (WriteStart_step + WriteAvg_step - 1)) / WriteOut_step
-   T2 = WriteStart_step + N2 * WriteOut_step + WriteAvg_step - 1
+   IF (T2.LT.first_diag_output_step) T2 = first_diag_output_step
+   N2 = (T2 - first_diag_output_step) / WriteOut_step
+   T2 = first_diag_output_step + N2 * WriteOut_step              ! Make T2 coincide with a write step after first_diag_output_step
 
-   ! Ensure the start timesteps after the finish timestep for the previous set of snapshots T2_old
+   ! Ensure T1 falls after T2 for the previous group of snapshots
    IF (T1.LE.T2_old) THEN
       T1 = T2_old + WriteOut_step
       N1 = N2_old + 1
    END IF
 
-   ! Ensure the finish timestep is before the last simulation timestep
+   ! Ensure the T2 falls before the last simulation timestep
    DO WHILE (T2.GT.Max_T_cntr)
       T2 = T2 - WriteOut_step
       N2 = N2 - 1
    END DO
 
-   ! Move to the next line of the data file if the start moment is after (larger than) the finish moment
+   ! Skip this group if T1 falls after T2
    IF (T1.GT.T2) RETURN
 
-   ! if we are here than the T1 and T2 can be used for calculation of moments of snapshots
-   ! calculate the number of snapshots which can be made in current set
-   IF (Aprx_n_of_snaps.EQ.1) THEN
+   ! ****************
+   ! If we are here than the T1 and T2 can be used for calculation of moments of snapshots
+   ! ****************
+
+   ! Calculate the actual number of snapshots in the current group:
+   IF (Aprx_n_of_snaps.EQ.1) THEN ! If only one snapshot is requested:
       large_step = 0
       Fact_n_of_snaps = 1
-      T2 = T1
+      T2 = T1  ! make the snapshot output at T1
       N2 = N1
-   ELSE
+
+   ELSE ! If more than one snapshot, calculate the number of WriteOut_steps between the first and last snapshots
+      ! Determine the number of WriteOut_steps between T1 and T2 (if large_step >=1, then the requested number of snapshots can be created)
       large_step = (N2 - N1) / (Aprx_n_of_snaps - 1)
+
       IF (large_step.EQ.0) THEN
          large_step = 1
-         Fact_n_of_snaps = N2 - N1 + 1
+         Fact_n_of_snaps = N2 - N1 + 1 ! If the number of snapshots requested is larger than the number of
+                                       !   WriteOut_steps available, then make the number of snapshots equal
+                                       !   to the number of WriteOut_steps between T1 and T2 (including an 
+                                       !   initial snapshot output at T1)
       ELSE
-         Fact_n_of_snaps = Aprx_n_of_snaps
-         N2 = N1 + large_step * (Fact_n_of_snaps - 1)
-         T2 = WriteStart_step + N2 * WriteOut_step + WriteAvg_step - 1
+         Fact_n_of_snaps = Aprx_n_of_snaps                ! There are over enough WriteOut_steps to make the requested number of snapshots
+         N2 = N1 + large_step * (Fact_n_of_snaps - 1)     ! Calculate the number of WriteOut_steps between first_diag_output_step
+                                                          !   and the last snapshot of the group
+         T2 = first_diag_output_step + N2 * WriteOut_step ! Calculate the last snapshot output timestep
       END IF
    END IF
-! save the finish moment for the current set of snapshots
-   T2_old = T2
-   N2_old = N2
-! for all possible snapshots of the current set
+
+   ! for each (possible) snapshot in the group save the snapshot output moment in the temporary array
    DO n = 1, Fact_n_of_snaps
-! Calculate and save the snapshot moment in the temporary array
       N_of_all_snaps = N_of_all_snaps + 1
       timestep(N_of_all_snaps) =  T1 + (n - 1) * large_step * WriteOut_step
-   END DO        ! end of cycle over snapshots in one set
+   END DO
 
-END SUBROUTINE CALCULATE_SNAPSHOT_TIMES
+   ! save the finish data for the current set of snapshots
+   T2_old = T2
+   N2_old = N2
+
+end subroutine CALCULATE_SNAPSHOT_TIMES
 
 !------------------------------
 !
@@ -1336,7 +1510,8 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
    INTEGER left_node, right_node, node  !
    REAL(8) x                      ! temporary variables, used for convenience
    REAL(8) vx, vy, vz             !
-   REAL(8) dn_left, dn_right, dq_left, dq_right      !
+   REAL(8) dn_left, dn_right, dq_left, dq_right                         ! charge density at neighboring nodes
+   REAL(8) jx_left, jy_left, jz_left, jx_right, jy_right, jz_right      ! current elements at neighboring nodes
 
    IF (Rank_of_process.EQ.0) THEN          ! the server process is responsible for updating the buffers of the potential
       DO n = length_of_fbufer,2,-1
@@ -1379,18 +1554,31 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
 
             Npart_cell(right_node, s) = Npart_cell(right_node, s) + 1
 
+            ! Charge density at neighboring nodes
             dn_right = x - left_node
             dn_left  = right_node - x
             dq_left  = Qs(s) * dn_left
             dq_right = Qs(s) * dn_right
 
-            QVX_mesh(left_node) = QVX_mesh(left_node) + dq_left * vx
-            QVY_mesh(left_node) = QVY_mesh(left_node) + dq_left * vy
-            QVZ_mesh(left_node) = QVZ_mesh(left_node) + dq_left * vz
+            ! Current elements at neighboring nodes
+            jx_left = dq_left * vx
+            jy_left = dq_left * vy
+            jz_left = dq_left * vz
+            jx_right = dq_right * vx
+            jy_right = dq_right * vy
+            jz_right = dq_right * vz
 
-            QVX_mesh(right_node) = QVX_mesh(right_node) + dq_right * vx
-            QVY_mesh(right_node) = QVY_mesh(right_node) + dq_right * vy
-            QVZ_mesh(right_node) = QVZ_mesh(right_node) + dq_right * vz
+            QVX_mesh(left_node) = QVX_mesh(left_node) + jx_left
+            QVY_mesh(left_node) = QVY_mesh(left_node) + jy_left
+            QVZ_mesh(left_node) = QVZ_mesh(left_node) + jz_left
+
+            QVX_mesh(right_node) = QVX_mesh(right_node) + jx_right
+            QVY_mesh(right_node) = QVY_mesh(right_node) + jy_right
+            QVZ_mesh(right_node) = QVZ_mesh(right_node) + jz_right
+
+            ! Check units on next line before implementing
+            ! Rate_energy_heat(s) = Rate_energy_heat(s) + (jx_left * J_scl_Am2) * (EX(left_node) * E_scl_Vm) + &
+            !                       & (jx_right * J_scl_Am2) * (EX(right_node) * * E_scl_Vm)
 
 ! **** fluxes are updated in the pusher and various emission functions **********
 !           NVX_mesh(left_node,s) = NVX_mesh(left_node,s) + dn_left * vx
@@ -1414,7 +1602,7 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
 
             IF (T_cntr.EQ.Finish_diag_Tcntr) THEN
 
-               Energy_pot = Energy_pot + dq_left * F(left_node) + dq_right * F(right_node)
+               Energy_pot(s) = Energy_pot(s) + dq_left * F(left_node) + dq_right * F(right_node)
 
                Avg_kin_energy_x(s) = Avg_kin_energy_x(s) + vx * vx
                Avg_kin_energy_y(s) = Avg_kin_energy_y(s) + vy * vy
@@ -1586,8 +1774,8 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
    REAL(8) old_Energy_full_eV
    REAL(8) old_Energy_kin_eV(1 : N_spec) ! was (1:2)
-   REAL(8) old_Energy_pot_eV
-   REAL(8) old_Energy_heat_eV
+   REAL(8) old_Energy_pot_eV(1:N_spec)
+   REAL(8) old_Energy_heat_eV(1:N_spec)
    REAL(8) t_s, old_Sigma_electrode, dSigma, j_Am2, P_Wm2 !** for capacitive discharge (BC_flag = 4)
 
    REAL(8) time_ns
@@ -1602,9 +1790,9 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
    INTEGER ierr
    INTEGER ibufer(1:42)
-   REAL(8) dbufer(1:40)
+   REAL(8) dbufer(1:42)
    INTEGER ibufer2(1:42)
-   REAL(8) dbufer2(1:40)
+   REAL(8) dbufer2(1:42)
 !  INTEGER stattus(MPI_STATUS_SIZE)
 !  INTEGER tag, source, dest
 !  LOGICAL flag
@@ -1691,28 +1879,30 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
       dbufer(22) = ion_reemit_energy
       dbufer(23) = ion_left_reflect_energy
       dbufer(24) = ion_right_reflect_energy
-      dbufer(25) = Rate_energy_heat
-      dbufer(26) = Rate_energy_coll(1)
-      dbufer(27) = Rate_energy_coll(2)
-      dbufer(28) = Energy_pot
-      dbufer(29) = Avg_kin_energy_x(1)
-      dbufer(30) = Avg_kin_energy_x(2)
-      dbufer(31) = Avg_kin_energy_y(1)
-      dbufer(32) = Avg_kin_energy_y(2)
-      dbufer(33) = Avg_kin_energy_z(1)
-      dbufer(34) = Avg_kin_energy_z(2)
-      dbufer(35) = prie_left_from_right_energy
-      dbufer(36) = prie_left_after_coll_energy
-      dbufer(37) = prie_right_from_left_energy
-      dbufer(38) = prie_right_after_coll_energy
-      dbufer(39) = ionsee_left_energy
-      dbufer(40) = ionsee_right_energy
+      dbufer(25) = Rate_energy_heat(1)
+      dbufer(26) = Rate_energy_heat(2)
+      dbufer(27) = Rate_energy_coll(1)
+      dbufer(28) = Rate_energy_coll(2)
+      dbufer(29) = Energy_pot(1)
+      dbufer(30) = Energy_pot(2)
+      dbufer(31) = Avg_kin_energy_x(1)
+      dbufer(32) = Avg_kin_energy_x(2)
+      dbufer(33) = Avg_kin_energy_y(1)
+      dbufer(34) = Avg_kin_energy_y(2)
+      dbufer(35) = Avg_kin_energy_z(1)
+      dbufer(36) = Avg_kin_energy_z(2)
+      dbufer(37) = prie_left_from_right_energy
+      dbufer(38) = prie_left_after_coll_energy
+      dbufer(39) = prie_right_from_left_energy
+      dbufer(40) = prie_right_after_coll_energy
+      dbufer(41) = ionsee_left_energy
+      dbufer(42) = ionsee_right_energy
 
 ! transmit
       CALL MPI_REDUCE(ibufer, ibufer2, 42, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
       CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
-      CALL MPI_REDUCE(dbufer, dbufer2, 40, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+      CALL MPI_REDUCE(dbufer, dbufer2, 41, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
       CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
 ! quit
@@ -1730,7 +1920,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
       CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
 !print '(2x,"Process ",i3," will receive DBUFER from all processes")', Rank_of_process
-      CALL MPI_REDUCE(dbufer2, dbufer, 40, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+      CALL MPI_REDUCE(dbufer2, dbufer, 42, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
       CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
 ! restore integer data from the buffer
@@ -1804,22 +1994,24 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
       ion_reemit_energy            = dbufer(22)
       ion_left_reflect_energy      = dbufer(23)
       ion_right_reflect_energy     = dbufer(24)
-      Rate_energy_heat             = dbufer(25)
-      Rate_energy_coll(1)          = dbufer(26)
-      Rate_energy_coll(2)          = dbufer(27)
-      Energy_pot                   = dbufer(28)   !    sum of dQ * F
-      Avg_kin_energy_x(1)          = dbufer(29)   !    sum of VX**2, electrons
-      Avg_kin_energy_x(2)          = dbufer(30)   !    sum of VX**2, ions
-      Avg_kin_energy_y(1)          = dbufer(31)   !    sum of VY**2, electrons
-      Avg_kin_energy_y(2)          = dbufer(32)   !    sum of VY**2, ions
-      Avg_kin_energy_z(1)          = dbufer(33)   !    sum of VZ**2, electrons
-      Avg_kin_energy_z(2)          = dbufer(34)   !    sum of VZ**2, ions
-      prie_left_from_right_energy  = dbufer(35)
-      prie_left_after_coll_energy  = dbufer(36)
-      prie_right_from_left_energy  = dbufer(37)
-      prie_right_after_coll_energy = dbufer(38)
-      ionsee_left_energy           = dbufer(39)
-      ionsee_right_energy          = dbufer(40)
+      Rate_energy_heat(1)          = dbufer(25)
+      Rate_energy_heat(2)          = dbufer(26)
+      Rate_energy_coll(1)          = dbufer(27)
+      Rate_energy_coll(2)          = dbufer(28)
+      Energy_pot(1)                = dbufer(29)   !    sum of dQ * F, electrons
+      Energy_pot(2)                = dbufer(30)   !    sum of dQ * F, ions
+      Avg_kin_energy_x(1)          = dbufer(31)   !    sum of VX**2, electrons
+      Avg_kin_energy_x(2)          = dbufer(32)   !    sum of VX**2, ions
+      Avg_kin_energy_y(1)          = dbufer(33)   !    sum of VY**2, electrons
+      Avg_kin_energy_y(2)          = dbufer(34)   !    sum of VY**2, ions
+      Avg_kin_energy_z(1)          = dbufer(35)   !    sum of VZ**2, electrons
+      Avg_kin_energy_z(2)          = dbufer(36)   !    sum of VZ**2, ions
+      prie_left_from_right_energy  = dbufer(37)
+      prie_left_after_coll_energy  = dbufer(38)
+      prie_right_from_left_energy  = dbufer(39)
+      prie_right_after_coll_energy = dbufer(40)
+      ionsee_left_energy           = dbufer(41)
+      ionsee_right_energy          = dbufer(42)
 
    END IF
 
@@ -1864,16 +2056,20 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
       Avg_kin_energy_eV(s)   = Avg_kin_energy_x_eV(s) + Avg_kin_energy_y_eV(s) + Avg_kin_energy_z_eV(s)
    END DO
 
-! calculate the potential energy (one common value for all species)
-   Energy_pot_eV = Factor_energy_pot_eV * (Energy_pot + Q_left * F(0) + Q_right * F(N_cells))
+! calculate the potential energy
+   DO s = 1, N_spec
+      Energy_pot_eV(s) = Factor_energy_pot_eV * (Energy_pot(s) + Q_left * F(0) + Q_right * F(N_cells))
+   END DO
 
 ! a correction for the walls with given potential; does not include energy stored in dielectric layer
    IF (BC_flag.EQ.0 .or. BC_flag.eq.4) THEN
-      Energy_pot_eV = Energy_pot_eV + 0.5_8 * eps_0_Fm * F(0) * EX(0) * E_scl_Vm / e_Cl
+      DO s = 1, N_spec
+         Energy_pot_eV(s) = Energy_pot_eV(s) + 0.5_8 * eps_0_Fm * F(0) * EX(0) * E_scl_Vm / e_Cl
+      END DO
    END IF
 
 ! new full energy of system
-   Energy_full_eV = Energy_kin_eV(1) + Energy_kin_eV(2) + Energy_pot_eV
+   Energy_full_eV = Energy_kin_eV(1) + Energy_kin_eV(2) + Energy_pot_eV(1) + Energy_pot_eV(2)
 
 ! rate of change of full energy, kinetic energy, potential energy
    ! If we are at the first Finish_diag_Tcntr step
@@ -1999,7 +2195,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
    CLOSE (50, STATUS = 'KEEP')
 
    OPEN  (50, FILE = 'dim_potenergy_vst.dat', POSITION = 'APPEND')
-   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Energy_pot_eV
+   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Energy_pot_eV(1) + Energy_pot_eV(2), Energy_pot_eV(1), Energy_pot_eV(2)
    CLOSE (50, STATUS = 'KEEP')
 
    OPEN  (50, FILE = 'dim_kinenergy_vst.dat', POSITION = 'APPEND')
@@ -2041,7 +2237,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
    WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, 100.0_8 * (Energy_full_eV - (Energy_wall_eV(1) + Energy_wall_eV(2) + &
    & Energy_emit_eV(1) + Energy_emit_eV(2) + &
    & Energy_coll_eV(1) + Energy_coll_eV(2) + &
-   & Energy_heat_eV) - Init_energy_full_eV) / Energy_full_eV
+   & Energy_heat_eV(1) + Energy_heat_eV(2)) - Init_energy_full_eV) / Energy_full_eV
    CLOSE (50, STATUS = 'KEEP')
 
 ! full energy of system (kinetic + potential)
@@ -2051,7 +2247,8 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
 ! potential energy of system
    OPEN  (50, FILE = 'dim_rate_potenergy_vst.dat', POSITION = 'APPEND')
-   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Rate_energy_pot_eVns1
+   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Rate_energy_pot_eVns1(1) + Rate_energy_pot_eVns1(2), &
+   & Rate_energy_pot_eVns1(1), Rate_energy_pot_eVns1(2)
    CLOSE (50, STATUS = 'KEEP')
 
 ! kinetic energy of system: all species / electrons / ions
@@ -2080,7 +2277,8 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
 ! energy of Joule heating of plasma by accelerating electric field
    OPEN  (50, FILE = 'dim_rate_energy_heat_vst.dat', POSITION = 'APPEND')
-   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Rate_energy_heat_eVns1
+   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Rate_energy_heat_eVns1(1) + Rate_energy_heat_eVns1(2), &
+   & Rate_energy_heat_eVns1(1), Rate_energy_heat_eVns1(2)
    CLOSE (50, STATUS = 'KEEP')
 
 ! velocity of electron Y-flow
@@ -2168,7 +2366,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
    ELSE IF (BC_flag.EQ.0) THEN           ! constant potential, R_external = 0
       J_Ohm_A = 0.0_8                    ! cannot use Ohm's law here
    ELSE IF (BC_flag.EQ.2) THEN           ! external circuit
-      J_Ohm_A = (U_ext - F(0)) * U_scl_V / R_ext_ohm
+      J_Ohm_A = (U_ext_vst(t_s) - F(0)) * U_scl_V / R_ext_ohm ! Old implementation, which was incorrect for rf sources: (U_ext - F(0)) * U_scl_V / R_ext_ohm
    END IF
 
    J_external_A = ( full_Q_left - &
@@ -2202,7 +2400,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
 ! energy of Joule heating of plasma by accelerating electric field
    OPEN  (50, FILE = 'dim_energy_heat_vst.dat', POSITION = 'APPEND')
-   WRITE (50, '(7(2x, e12.5))')  time_ns, Energy_heat_eV, Enr_consumed_Jm2, j_Am2, U_app_V, U_cap_V, P_Wm2
+   WRITE (50, '(7(2x, e12.5))')  time_ns, Energy_heat_eV(1) + Energy_heat_eV(2), Energy_heat_eV(1), Energy_heat_eV(2)!, Enr_consumed_Jm2, j_Am2, U_app_V, U_cap_V, P_Wm2
    CLOSE (50, STATUS = 'KEEP')
 
 ! number of particles that hit the right wall: electrons / ions
@@ -2214,7 +2412,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
    ELSE IF (BC_flag.EQ.0) THEN           ! constant potential, R_external = 0
       J_Ohm_A = 0.0_8                    ! cannot use Ohm's law here
    ELSE IF (BC_flag.EQ.2) THEN           ! external circuit
-      J_Ohm_A = (U_ext - F(0)) * U_scl_V / R_ext_ohm
+      J_Ohm_A = (U_ext_vst(t_s) - F(0)) * U_scl_V / R_ext_ohm ! Old implementation, which was incorrect for rf sources: (U_ext - F(0)) * U_scl_V / R_ext_ohm
    END IF
 
    J_external_A = -( full_Q_right - &
@@ -2372,9 +2570,11 @@ SUBROUTINE DoTextOutput
    PRINT '(/,"Diagnostics report at step : ",i9,", time interval : ",f12.4," ns ... ",f12.4," ns")', &
    & T_cntr, (T_cntr - WriteAvg_step) * delta_t_s * 1.0e9, &
    & T_cntr * delta_t_s * 1.0e9
-   PRINT &
-   & '("Parts of full system energy [eV]:         pot. = ",e11.4,",  kin. = ",e11.4,", kin.e. = ",e11.4,", kin.i. = ",e11.4)', &
-   & Energy_pot_eV, &
+   PRINT  '("Parts of full system energy [eV]:         pot. = ",e11.4,", pot.e. = ",e11.4,", pot.i. = ",e11.4)', &
+   & Energy_pot_eV(1) + Energy_pot_eV(2), &
+   & Energy_pot_eV(1), &
+   & Energy_pot_eV(2)
+   PRINT  '("                                          kin. = ",e11.4,", kin.e. = ",e11.4,", kin.i. = ",e11.4)', &
    & Energy_kin_eV(1) + Energy_kin_eV(2), &
    & Energy_kin_eV(1), &
    & Energy_kin_eV(2)
@@ -2384,7 +2584,7 @@ SUBROUTINE DoTextOutput
    & Energy_wall_eV(1) + Energy_wall_eV(2), &
    & Energy_emit_eV(1) + Energy_emit_eV(2), &
    & Energy_coll_eV(1) + Energy_coll_eV(2), &
-   & Energy_heat_eV
+   & Energy_heat_eV(1) + Energy_heat_eV(2)
 
    PRINT  '("Full system energy (kinetic + potential) :       ",e11.4," eV" )', Energy_full_eV
 
@@ -2392,13 +2592,14 @@ SUBROUTINE DoTextOutput
    & Energy_wall_eV(1) + Energy_wall_eV(2) + &
    & Energy_emit_eV(1) + Energy_emit_eV(2) + &
    & Energy_coll_eV(1) + Energy_coll_eV(2) + &
-   & Energy_heat_eV + Init_energy_full_eV
+   & Energy_heat_eV(1) + Energy_heat_eV(2) + &
+   & Init_energy_full_eV
 
    PRINT  '("Violation of full energy conservation law:       ",f11.1," %" )', &
    & 100.0_8 * (Energy_full_eV - (Energy_wall_eV(1) + Energy_wall_eV(2) + &
    & Energy_emit_eV(1) + Energy_emit_eV(2) + &
    & Energy_coll_eV(1) + Energy_coll_eV(2) + &
-   & Energy_heat_eV) - Init_energy_full_eV) / Energy_full_eV
+   & Energy_heat_eV(1) + Energy_heat_eV(2)) - Init_energy_full_eV) / Energy_full_eV
 
    PRINT &
    & '("Energy rates [eV/ns]: full = ",e11.4,", wall = ",e11.4,", emit. = ",e11.4,",  coll. = ",e11.4,",  heat. = ",e11.4)', &
@@ -2406,18 +2607,13 @@ SUBROUTINE DoTextOutput
    & Rate_energy_wall_eVns1(1) + Rate_energy_wall_eVns1(2), &
    & Rate_energy_emit_eVns1(1) + Rate_energy_emit_eVns1(2), &
    & Rate_energy_coll_eVns1(1) + Rate_energy_coll_eVns1(2), &
-   & Rate_energy_heat_eVns1
+   & Rate_energy_heat_eVns1(1) + Rate_energy_heat_eVns1(2)
 
    PRINT  '("Sum of particular rates:     ",e11.4," eV/ns" )', &
    & Rate_energy_wall_eVns1(1) + Rate_energy_wall_eVns1(2) + &
    & Rate_energy_emit_eVns1(1) + Rate_energy_emit_eVns1(2) + &
    & Rate_energy_coll_eVns1(1) + Rate_energy_coll_eVns1(2) + &
-   & Rate_energy_heat_eVns1
-
-   !Electrons, primary : number [1/ns] , <energy> [eV] : left = 11111111111 , 11111111111 ; right = 11111111111 , 11111111111
-   !                                  [macroparticles] : left = 11111111111               ; right = 11111111111
-   !Electrons, emitted : number [1/ns] , <energy> [eV] : left = 11111111111 , 11111111111 ; right = 11111111111 , 11111111111
-   !                                  [macroparticles] : left = 11111111111               ; right = 11111111111               ::
+   & Rate_energy_heat_eVns1(1) + Rate_energy_heat_eVns1(2)
 
    PRINT &
    & '(/,"Electrons, primary : number [1/ns] , <energy> [eV] : left = ",  e11.4," , ",  f11.4," ; right = ",  e11.4," , ",f11.4)',&

@@ -1,7 +1,7 @@
 FC := mpif90
 CC := mpicc
 # Get the actual Fortran compiler invoked by mpif90. Need to use double $$ in awk.
-BASE_FCOMP := $(shell mpif90 -show | awk '{print $$1}' | awk -F/ '{print $$NF}')
+BASE_FCOMP := $(shell mpif90 -show | awk '{print $$1}' | awk -F/ '{print $$NF}' | awk -F- '{print $$NF}')
 
 ifeq ($(BASE_FCOMP),ifort)
    $(info "Using Intel compiler" )
@@ -9,7 +9,7 @@ ifeq ($(BASE_FCOMP),ifort)
    CFLAGS := -O2
 else ifeq ($(BASE_FCOMP),gfortran)
    $(info "Using gcc/gfortran compilers" )
-   FFLAGS := -O2 -ffree-line-length-none -I${PETSC_DIR}/include
+   FFLAGS := -O2 -ffree-line-length-none
    CFLAGS := -O2
 else
    FFLAGS := -O2
@@ -17,25 +17,25 @@ else
 endif
 
 OBJ := parMT19937.o \
-       parModules_RF.o \
-       parBeamInjection_newflux.o \
-       parBeamInPlasma_newflux.o \
+       parModules.o \
+       parBeamInjection.o \
+       parBeamInPlasma.o \
        parCheckpoint.o \
        parCollisionProc.o \
-       parCurProbVals_dt_NewInt.o \
-       parDiagNoGraph_RF.o \
-       parFieldCalcProc_RF_diel.o \
-       parIonInducedSEEmission_newflux.o \
+       parCurProbVals.o \
+       parDiagNoGraph.o \
+       parFieldCalcProc.o \
+       parIonInducedSEEmission.o \
        parLangevinColl.o \
        parMagneticFieldProfiles_zero.o \
        parMainProgram.o \
-       parMCCollisions_BoxMuller_orig.o \
-       parPartDynamicProc_Gauss.o \
+       parMCCollisions.o \
+       parPartDynamicProc.o \
        parPartExchangeProc.o \
-       parPlasmaSourceProc_newflux.o \
+       parPlasmaSourceProc.o \
        parRandomInit.o \
-       parSEEmission_newflux.o \
-       parSnapshot_newflux_heat.o
+       parSEEmission.o \
+       parSnapshot.o
 
 dedipic : $(OBJ)
 	$(FC) $(FFLAGS) -o $@ $(OBJ)

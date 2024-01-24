@@ -167,10 +167,11 @@ REAL(8) FUNCTION FREQUENCY_OF_COLLISION(energy_eV, active_coll, s)
 
 END FUNCTION FREQUENCY_OF_COLLISION
 
+!=====================================================================================================
 !************************** elastic electron-neutral collisions, model 1 *****************************
-! FREQUENCY
-!
+
 REAL(8) FUNCTION Frequency_EN_s1_1(energy_eV)
+!! Calculates the frequency of e-n elastic collisions
 
    USE MCCollisions, ONLY : N_en_elast, Energy_en_elast_eV, CrSect_en_elast_m2, N_neutral_m3
    USE CurrentProblemValues, ONLY : m_e_kg, e_Cl
@@ -231,6 +232,7 @@ END FUNCTION Frequency_EN_s1_1
 ! COLLISION PROCESSING -------------------------------------------------------------------------------
 !
 SUBROUTINE CollideElectron_1(num, energy_eV)
+!! Carries out an e-n elastic collision
 
    USE MCCollisions
    USE CurrentProblemValues
@@ -383,12 +385,12 @@ SUBROUTINE CollideElectron_1(num, energy_eV)
    if (cell_number.ge.1) P_heat_cell(cell_number, 1) = P_heat_cell(cell_number, 1) - energy_change
 
 END SUBROUTINE CollideElectron_1
-!=====================================================================================================
 
+!=====================================================================================================
 !******************* excitation (inelastic) electron-neutral collisions, model 1 *********************
-! FREQUENCY
-!
+
 REAL(8) FUNCTION Frequency_EN_s1_2(energy_eV)
+!! Calculates the frequency of e-n excitation model 1 collisions
 
    USE MCCollisions, ONLY : N_en_excit, Energy_en_excit_eV, CrSect_en_excit_m2, N_neutral_m3, Thresh_en_excit_eV
    USE CurrentProblemValues, ONLY : m_e_kg, e_Cl
@@ -450,6 +452,7 @@ END FUNCTION Frequency_EN_s1_2
 ! COLLISION PROCESSING -------------------------------------------------------------------------------
 !
 SUBROUTINE CollideElectron_2(num, energy_eV) !, random_seed)
+!! Carries out an e-n excitation model 1 collision
 
    USE ParallelOperationValues
    USE MCCollisions
@@ -600,12 +603,12 @@ SUBROUTINE CollideElectron_2(num, energy_eV) !, random_seed)
 !print *, 'excitation, exit'
 
 END SUBROUTINE CollideElectron_2
-!=====================================================================================================
 
+!=====================================================================================================
 !******************** ionization (inelastic) electron-neutral collisions, model 1 ********************
-! FREQUENCY
-!
+
 REAL(8) FUNCTION Frequency_EN_s1_3(energy_eV)
+!! Calculates the frequency of e-n ionization collisions
 
    USE MCCollisions, ONLY : N_en_ioniz, Energy_en_ioniz_eV, CrSect_en_ioniz_m2, N_neutral_m3, Thresh_en_ioniz_eV
    USE CurrentProblemValues, ONLY : m_e_kg, e_Cl
@@ -667,6 +670,7 @@ END FUNCTION Frequency_EN_s1_3
 ! COLLISION PROCESSING -------------------------------------------------------------------------------
 !
 SUBROUTINE CollideElectron_3(num, energy_inc_eV)
+!! Carries out an e-n ionization collision
 
    USE ParallelOperationValues
    USE MCCollisions
@@ -1023,12 +1027,12 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
    N_new_cell(right_node) = N_new_cell(right_node) + 1
 
 END SUBROUTINE CollideElectron_3
-!=====================================================================================================
 
+!=====================================================================================================
 !**************************** electron turbulence collisions, model 1 ********************************
-! FREQUENCY
-!
+
 REAL(8) FUNCTION Frequency_ET_s1_4(energy_eV)                 !@#$
+!! Calculates the frequency of electron turbulence interactions
 
    USE MCCollisions
    IMPLICIT NONE
@@ -1044,6 +1048,7 @@ END FUNCTION Frequency_ET_s1_4
 ! COLLISION PROCESSING -------------------------------------------------------------------------------
 !
 SUBROUTINE CollideElectron_4(num)       !@#$
+!! Carries out an electron turbulence interaction
 
    USE MCCollisions
    USE CurrentProblemValues
@@ -1078,12 +1083,12 @@ SUBROUTINE CollideElectron_4(num)       !@#$
 ! energy is not changed here
 
 END SUBROUTINE CollideElectron_4
-!=====================================================================================================
 
+!=====================================================================================================
 !******************* excitation (inelastic) electron-neutral collisions, model 2 *********************
-! FREQUENCY
-!
+
 REAL(8) FUNCTION Frequency_EN_s1_5(energy_eV)
+!! Calculates the frequency of e-n excitation model 2 collisions
 
    USE MCCollisions, ONLY : N_en_excit_2, Energy_en_excit_2_eV, CrSect_en_excit_2_m2, N_neutral_m3, Thresh_en_excit_2_eV
    USE CurrentProblemValues, ONLY : m_e_kg, e_Cl
@@ -1145,6 +1150,7 @@ END FUNCTION Frequency_EN_s1_5
 ! COLLISION PROCESSING -------------------------------------------------------------------------------
 !
 SUBROUTINE CollideElectron_5(num, energy_eV) !, random_seed)
+!! Carries out an e-n excitation model 2 collision
 
    USE ParallelOperationValues
    USE MCCollisions
@@ -1295,12 +1301,12 @@ SUBROUTINE CollideElectron_5(num, energy_eV) !, random_seed)
 !print *, 'excitation, exit'
 
 END SUBROUTINE CollideElectron_5
-!=====================================================================================================
 
+!=====================================================================================================
 !****************************** elastic ion-neutral collisions, model 1 ******************************
-! FREQUENCY
-!
+
 REAL(8) FUNCTION Frequency_IN_s1_1(energy_eV)
+!! Calculates the frequency of i-n elastic collisions
 
    USE MCCollisions
    IMPLICIT NONE
@@ -1315,6 +1321,8 @@ END FUNCTION Frequency_IN_s1_1
 ! COLLISION PROCESSING -------------------------------------------------------------------------------
 !
 SUBROUTINE CollideIon_1(num, Vx_n, Vy_n, Vz_n) !, random_seed)
+!! Carries out an i-n elastic collision
+
    USE MCCollisions
    USE CurrentProblemValues
    USE Diagnostics, ONLY : Rate_energy_coll
@@ -1384,25 +1392,14 @@ SUBROUTINE CollideIon_1(num, Vx_n, Vy_n, Vz_n) !, random_seed)
    Rate_energy_coll(2) = Rate_energy_coll(2) + energy_change
 
 END SUBROUTINE CollideIon_1
+
 !=====================================================================================================
-
 !************************* charge exchange ion-neutral collisions, model 1 ***************************
-! FREQUENCY
-!
-!REAL(8) FUNCTION Frequency_IN_s1_2(energy_eV)
 
-!  USE MCCollisions
-!  IMPLICIT NONE
-
-!  REAL energy_eV
-
-!  Frequency_IN_s1_2 = 1.0e7
-
-!END FUNCTION Frequency_IN_s1_2
-
-!******************************
 REAL(8) FUNCTION Frequency_IN_s1_2(energy_eV)
-! energy corresponds to relative velocity
+!! Calculates the frequency of i-n charge exchange collisions
+!! Note: energy corresponds to relative velocity
+
    USE MCCollisions
    USE CurrentProblemValues, ONLY : e_Cl, amu_kg
    IMPLICIT NONE
@@ -1432,11 +1429,11 @@ REAL(8) FUNCTION Frequency_IN_s1_2(energy_eV)
    Frequency_IN_s1_2 = dble(V_rel_ms * N_neutral_m3 * sigma_ct_m2)
 
 END FUNCTION Frequency_IN_s1_2
-!*****************************
 !
 ! COLLISION PROCESSING -------------------------------------------------------------------------------
 !
 SUBROUTINE CollideIon_2( num, Vx_n, Vy_n, Vz_n )
+!! Carries out an i-n charge exchange collision
 
    USE MCCollisions
    USE CurrentProblemValues
@@ -1469,12 +1466,12 @@ SUBROUTINE CollideIon_2( num, Vx_n, Vy_n, Vz_n )
    if (cell_number.ge.1) P_heat_cell(cell_number, 2) = P_heat_cell(cell_number, 2) - energy_change
 
 END SUBROUTINE CollideIon_2
-!=====================================================================================================
 
+!=====================================================================================================
 !******************************* ion turbulence collisions, model 1 **********************************
-! FREQUENCY
-!
+
 REAL(8) FUNCTION Frequency_IT_s1_3(energy_eV)                 !@#$
+!! Calculates the frequency of ion turbulence interactions
 
    USE MCCollisions
    IMPLICIT NONE
@@ -1490,6 +1487,7 @@ END FUNCTION Frequency_IT_s1_3
 ! COLLISION PROCESSING -------------------------------------------------------------------------------
 !
 SUBROUTINE CollideIon_3(num)       !@#$
+!! Carries out an ion turbulence interaction
 
    USE MCCollisions
    USE CurrentProblemValues

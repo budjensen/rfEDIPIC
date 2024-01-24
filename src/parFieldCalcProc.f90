@@ -1,7 +1,6 @@
 !============================================================================
-! This subroutine calculates the mesh values of the streaming charge density
-!
 SUBROUTINE CALCULATE_STR_CHARGE_DENSITY
+!! This subroutine calculates the mesh values of the streaming charge density
 
    use mpi
    USE ParallelOperationValues
@@ -78,11 +77,11 @@ SUBROUTINE CALCULATE_STR_CHARGE_DENSITY
          Q_ext = 0.0_8
       end if
 
-      IF (BC_flag.NE.0 .and. BC_flag.NE.2) THEN
+      IF (BC_flag.NE.0 .and. BC_flag.NE.2) THEN ! i.e. if (BC_flag.EQ.1 .or. BC_flag.EQ.3 .or. BC_flag.EQ.4) then
 ! floating wall or specified charge moved through or U_ext behind dielectric layer, direct accumulation
          full_Q_left  = DBLE(Q_left)  + Q_ext !** continously integrated from the initial moment
          full_Q_right = DBLE(Q_right) - Q_ext
-      ELSE
+      ELSE ! i.e. if (BC_flag.EQ.0 .or. BC_flag.EQ.2) then
 ! constant given potential or external circuit, the accumulated value is the correction
          full_Q_left  = full_Q_left  + DBLE(Q_left)
          full_Q_right = full_Q_right + DBLE(Q_right)
@@ -136,11 +135,10 @@ SUBROUTINE CALCULATE_STR_CHARGE_DENSITY
 END SUBROUTINE CALCULATE_STR_CHARGE_DENSITY
 
 !=====================================================================================
-! This subroutine calculates the mesh values of the potential F(1:N_nodes)
-! at the integer nodes. Then it calculates the mesh values of the longitudinal electric field
-! EZ(1:N_nodes)
 ! Besides, the energy of the longitudinal electric field is calculated too. IN FUTURE!!!
 SUBROUTINE CALCULATE_STR_LONG_ELECTR_FIELD
+!! Calculates the mesh values of the potential F(1:N_nodes) at the integer nodes.
+!! Then calculates the mesh values of the longitudinal electric field, EX(1:N_nodes).
 
    use mpi
    USE ParallelOperationValues

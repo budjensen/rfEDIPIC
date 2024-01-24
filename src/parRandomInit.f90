@@ -7,7 +7,7 @@ subroutine random_init
    call random_seed(size=k)
    allocate(seed(1:k))
    j = values(8)**5 - 1
-   if (j.le.0) j = (2**31 - 1) + j !** if integer overflow occurs
+   if (j.le.0) j = 2147483647 + j ! changed from (2**31 - 1) + j !** if integer overflow occurs
    seed(:) = j
    call random_seed(put=seed)
    write(*,*) 'Initializing pseudorandom numbers:'

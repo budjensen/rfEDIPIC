@@ -49,8 +49,14 @@ SUBROUTINE CREATE_SNAPSHOT
 
    INTEGER snap_blnks
 
-   REAL(8) Ne_m3, Ni_m3
-   REAL(8) Jx_Am2, Jy_Am2, Jz_Am2
+   REAL(8) Ne_m3, Ni_m3             ! These are multiplied by 2 at the first and last node since N_scl_m3 = N_plasma_m3 / N_of_particles_cell.
+                                    ! To tally up the total number of particles correctly we need to ensure each node point counts
+                                    ! the particles in one cell, except for the end nodes which count the particles in half a cell
+                                    ! (thus the number of particles is correctly tallied)
+   REAL(8) Jx_Am2, Jy_Am2, Jz_Am2   ! These are multiplied by 2 at the first and last node since N_scl_m3 = N_plasma_m3 / N_of_particles_cell.
+                                    ! To tally up the total number of particles correctly we need to ensure each node point counts
+                                    ! the particles in one cell, except for the end nodes which count the particles in half a cell
+                                    ! (thus the number of particles is correctly tallied)
    REAL(8) Vex_ms, Vey_ms, Vez_ms
    REAL(8) Wex_eV, Wey_eV, Wez_eV
    REAL(8) Vix_ms, Viy_ms, Viz_ms
@@ -59,8 +65,18 @@ SUBROUTINE CREATE_SNAPSHOT
    INTEGER s
 
    REAL(8) aa, bb, wxtemp, wytemp, wztemp !for calcualting "random" energy requested by Tim, 01/02/14
-   REAL(8) density_e, ionization_sum, qe_m2s, qi_m2s, factor_flux, factor_ionrate_int, factor_ionrate
-   REAL(8) coll_rate_factor, ionization_rate, factor_Watt_cm3, factor_eV
+   REAL(8) density_e, ionization_sum, qe_m2s, qi_m2s
+   REAL(8) factor_flux              !! factor_flux = coll_rate_factor / delta_t_s * N_in_macro
+   REAL(8) factor_ionrate_int       !! factor_ionrate_int = factor_ionrate * delta_x_m
+   REAL(8) factor_ionrate           !! factor_ionrate = (N_plasma_m3 / N_of_particles_cell) * coll_rate_factor / delta_t_s
+   REAL(8) coll_rate_factor         !! Inverse of the collection time for flux counted by NVX_mesh
+                                    !! coll_rate_factor = 1 / WriteOut_step
+                                    !! OR               = Averaging_factor = 1 / WriteAvg_step for the first snapshot
+   REAL(8) ionization_rate
+   REAL(8) factor_Watt_cm3          !! Converts energy deposition due to collisions into physical units
+                                    !! factor_Watt_cm3 = factor_ionrate * Factor_energy_eV * e_Cl * 1.e-6
+   REAL(8) factor_eV                !! Unused conversion factor
+                                    !! factor_eV = 0.5_8 * m_e_kg / e_Cl
 
    INTEGER ierr, ALLOC_ERR, DEALLOC_ERR
    INTEGER, ALLOCATABLE :: ibufer(:) !(1:N_cells)
@@ -781,16 +797,16 @@ SUBROUTINE CREATE_SNAPSHOT
    END IF
 
 !!** disabled  CALL SNAP_ELECTRON_2D_VDF_WALLS
-   CALL SNAP_LOCAL_ELECTRON_VDFS
-   CALL SNAP_LOCAL_ELECTRON_EDFS
+   if (flag_evxdf.or.flag_evydf.or.flag_evzdf) CALL SNAP_LOCAL_ELECTRON_VDFS
+   if(flag_eedf) CALL SNAP_LOCAL_ELECTRON_EDFS
    CALL SNAP_ELECTRON_PHASE_PLANES
 
    IF (N_spec.EQ.2) THEN
 
-      CALL SNAP_LOCAL_ION_VDFS
-      CALL SNAP_LOCAL_ION_EDFS
+      if (flag_ivxdf) CALL SNAP_LOCAL_ION_VDFS
+      if (flag_iedf) CALL SNAP_LOCAL_ION_EDFS
       CALL SNAP_ION_PHASE_PLANE
-      CALL SNAP_ION_EDF_RW_LW
+      if (flag_ilwedf.or.flag_irwedf) CALL SNAP_ION_EDF_RW_LW
 
    END IF
 
@@ -1062,26 +1078,32 @@ SUBROUTINE SNAP_LOCAL_ELECTRON_VDFS
 ! calculate arrays of distribution function
       DO k = 1, N_part(1)                             !
 
-         indx_x = INT(VX_of_spec(1)%part(k))
-         IF (VX_of_spec(1)%part(k).GT.0.0_8) indx_x = indx_x + 1
-         IF ((indx_x.LT.N_box_Vx_e_low).OR.(indx_x.GT.N_box_Vx_e_top))   CYCLE ! skip electron if it is too fast
+         if (flag_evxdf) then
+            indx_x = INT(VX_of_spec(1)%part(k))
+            IF (VX_of_spec(1)%part(k).GT.0.0_8) indx_x = indx_x + 1
+            IF ((indx_x.LT.N_box_Vx_e_low).OR.(indx_x.GT.N_box_Vx_e_top))   CYCLE ! skip electron if it is too fast
+         end if
 
-         indx_y = INT(VY_of_spec(1)%part(k))
-         IF (VY_of_spec(1)%part(k).GT.0.0_8) indx_y = indx_y + 1
-         IF ((indx_y.LT.N_box_Vyz_e_low).OR.(indx_y.GT.N_box_Vyz_e_top)) CYCLE ! skip electron if it is too fast
+         if (flag_evydf) then
+            indx_y = INT(VY_of_spec(1)%part(k))
+            IF (VY_of_spec(1)%part(k).GT.0.0_8) indx_y = indx_y + 1
+            IF ((indx_y.LT.N_box_Vyz_e_low).OR.(indx_y.GT.N_box_Vyz_e_top)) CYCLE ! skip electron if it is too fast
+         end if
 
-         indx_z = INT(VZ_of_spec(1)%part(k))
-         IF (VZ_of_spec(1)%part(k).GT.0.0_8) indx_z = indx_z + 1
-         IF ((indx_z.LT.N_box_Vyz_e_low).OR.(indx_z.GT.N_box_Vyz_e_top)) CYCLE ! skip electron if it is too fast
+         if (flag_evzdf) then
+            indx_z = INT(VZ_of_spec(1)%part(k))
+            IF (VZ_of_spec(1)%part(k).GT.0.0_8) indx_z = indx_z + 1
+            IF ((indx_z.LT.N_box_Vyz_e_low).OR.(indx_z.GT.N_box_Vyz_e_top)) CYCLE ! skip electron if it is too fast
+         end if
 
          cell = INT(X_of_spec(1)%part(k))
 
          DO loc = 1, N_of_all_vdf_locs
             IF (cell.LE.Vdf_location_bnd(loc)) THEN
 
-               e_vxdf_loc(indx_x, loc) = e_vxdf_loc(indx_x, loc) + 1
-               e_vydf_loc(indx_y, loc) = e_vydf_loc(indx_y, loc) + 1
-               e_vzdf_loc(indx_z, loc) = e_vzdf_loc(indx_z, loc) + 1
+               if (flag_evxdf) e_vxdf_loc(indx_x, loc) = e_vxdf_loc(indx_x, loc) + 1
+               if (flag_evydf) e_vydf_loc(indx_y, loc) = e_vydf_loc(indx_y, loc) + 1
+               if (flag_evzdf) e_vzdf_loc(indx_z, loc) = e_vzdf_loc(indx_z, loc) + 1
                N_in_loc(loc) = N_in_loc(loc) + 1
 
                IF (Tag_of_spec(1)%part(k).EQ.eTag_Emit_Left) THEN
@@ -1101,31 +1123,40 @@ SUBROUTINE SNAP_LOCAL_ELECTRON_VDFS
       END DO
 
 ! transmit data to the server
-! N_in_loc
+      ! N_in_loc
       ibufer(1:N_of_all_vdf_locs)  = N_in_loc(1:N_of_all_vdf_locs)
       ibufer2(1:N_of_all_vdf_locs) = 0
       CALL MPI_REDUCE(ibufer, ibufer2, N_of_all_vdf_locs, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
       CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
-! distributions . . .
+      ! distributions . . .
       DO loc = 1, N_of_all_vdf_locs          ! cycle over locations
-! common
-! e_vxdf_loc
-         ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))  = e_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc)
-         ibufer2(1:(N_box_Vx_e_top+N_box_Vx_e_top)) = 0
-         CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vx_e_top+N_box_Vx_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! e_vydf_loc
-         ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))  = e_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc)
-         ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
-         CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! e_vzdf_loc
-         ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))  = e_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc)
-         ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
-         CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! emitted from the left
+      ! common
+         if (flag_evxdf) then
+            ! e_vxdf_loc
+            ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))  = e_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc)
+            ibufer2(1:(N_box_Vx_e_top+N_box_Vx_e_top)) = 0
+            CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vx_e_top+N_box_Vx_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+
+         if (flag_evydf) then
+            ! e_vydf_loc
+            ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))  = e_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc)
+            ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
+            CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+
+         if (flag_evzdf) then
+            ! e_vzdf_loc
+            ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))  = e_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc)
+            ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
+            CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+
+      ! emitted from the left
 ! ebl_vxdf_loc
          ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))  = ebl_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc)
          ibufer2(1:(N_box_Vx_e_top+N_box_Vx_e_top)) = 0
@@ -1141,7 +1172,8 @@ SUBROUTINE SNAP_LOCAL_ELECTRON_VDFS
          ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
          CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! emitted from the right
+
+      ! emitted from the right
 ! ebr_vxdf_loc
          ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))  = ebr_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc)
          ibufer2(1:(N_box_Vx_e_top+N_box_Vx_e_top)) = 0
@@ -1172,26 +1204,35 @@ SUBROUTINE SNAP_LOCAL_ELECTRON_VDFS
 
 ! distributions . . .
       DO loc = 1, N_of_all_vdf_locs          ! cycle over locations
-! common
-! e_vxdf_loc
-         ibufer  = 0
-         ibufer2 = 0
-         CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vx_e_top+N_box_Vx_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         e_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc) = ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! e_vydf_loc
-         ibufer = 0
-         ibufer2 = 0
-         CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         e_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! e_vzdf_loc
-         ibufer = 0
-         ibufer2 = 0
-         CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         e_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! emitted from the left
+      ! common
+         if (flag_evxdf) then
+            ! e_vxdf_loc
+            ibufer  = 0
+            ibufer2 = 0
+            CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vx_e_top+N_box_Vx_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            e_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc) = ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+
+         if (flag_evydf) then
+            ! e_vydf_loc
+            ibufer = 0
+            ibufer2 = 0
+            CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            e_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+
+         if (flag_evzdf) then
+            ! e_vzdf_loc
+            ibufer = 0
+            ibufer2 = 0
+            CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            e_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+
+      ! emitted from the left
 ! ebl_vxdf_loc
          ibufer  = 0
          ibufer2 = 0
@@ -1210,7 +1251,8 @@ SUBROUTINE SNAP_LOCAL_ELECTRON_VDFS
          CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
          ebl_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! emitted from the right
+
+      ! emitted from the right
 ! ebr_vxdf_loc
          ibufer  = 0
          ibufer2 = 0
@@ -1231,80 +1273,87 @@ SUBROUTINE SNAP_LOCAL_ELECTRON_VDFS
          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
       END DO                                 ! end of cycle over locations
 
-! EVDF(VX)
-      evxdf_filename = '_TTTT_evxdf.dat'
-      evxdf_filename(2:5) = snapnumber_txt
-      OPEN (99, FILE = evxdf_filename)
-      WRITE (99, '("# col   1 is Vx [in units of V_th_e = ",e12.5," m/s]")') V_Te_ms
-      WRITE (99, '("#----------")')
-      DO loc = 1, N_of_all_vdf_locs
-         WRITE (99, '("# location ",i2," with ",i8," macroparticles")') loc, N_in_loc(loc)
-         WRITE (99, '("# col ",i3," is VDF(Vx) of ALL electrons")')                         3*loc-1 !1+1+3*(k-1)
-         WRITE (99, '("# col ",i3," is VDF(Vx) of electrons emitted from the LEFT wall")')  3*loc   !1+2+3*(k-1)
-         WRITE (99, '("# col ",i3," is VDF(Vx) of electrons emitted from the RIGHT wall")') 3*loc+1 !1+3+3*(k-1)
+      if (flag_evxdf) then
+         ! EVDF(VX)
+         evxdf_filename = '_TTTT_evxdf.dat'
+         evxdf_filename(2:5) = snapnumber_txt
+         OPEN (99, FILE = evxdf_filename)
+         WRITE (99, '("# col   1 is Vx [in units of V_th_e = ",e12.5," m/s]")') V_Te_ms
          WRITE (99, '("#----------")')
-      END DO
-      DO indx_x = N_box_Vx_e_low, N_box_Vx_e_top
          DO loc = 1, N_of_all_vdf_locs
-            temp_arr(3*loc-2) = DBLE(  e_vxdf_loc(indx_x,loc)) * DBLE(N_box_vel)
-            temp_arr(3*loc-1) = DBLE(ebl_vxdf_loc(indx_x,loc)) * DBLE(N_box_vel)
-            temp_arr(3*loc)   = DBLE(ebr_vxdf_loc(indx_x,loc)) * DBLE(N_box_vel)
+            WRITE (99, '("# location ",i2," with ",i8," macroparticles")') loc, N_in_loc(loc)
+            WRITE (99, '("# col ",i3," is VDF(Vx) of ALL electrons")')                         3*loc-1 !1+1+3*(k-1)
+            WRITE (99, '("# col ",i3," is VDF(Vx) of electrons emitted from the LEFT wall")')  3*loc   !1+2+3*(k-1)
+            WRITE (99, '("# col ",i3," is VDF(Vx) of electrons emitted from the RIGHT wall")') 3*loc+1 !1+3+3*(k-1)
+            WRITE (99, '("#----------")')
          END DO
-         WRITE (99, '(2x,f10.5,297(1x,e12.5))') evx_mid_of_box(indx_x), temp_arr(1:(3*N_of_all_vdf_locs))
-      END DO
-      CLOSE (99, STATUS = 'KEEP')
+         DO indx_x = N_box_Vx_e_low, N_box_Vx_e_top
+            DO loc = 1, N_of_all_vdf_locs
+               temp_arr(3*loc-2) = DBLE(  e_vxdf_loc(indx_x,loc)) * DBLE(N_box_vel)
+               temp_arr(3*loc-1) = DBLE(ebl_vxdf_loc(indx_x,loc)) * DBLE(N_box_vel)
+               temp_arr(3*loc)   = DBLE(ebr_vxdf_loc(indx_x,loc)) * DBLE(N_box_vel)
+            END DO
+            WRITE (99, '(2x,f10.5,297(1x,e12.5))') evx_mid_of_box(indx_x), temp_arr(1:(3*N_of_all_vdf_locs))
+         END DO
+         CLOSE (99, STATUS = 'KEEP')
+      end if
 
-! EVDF(VY)
-      evydf_filename = '_TTTT_evydf.dat'
-      evydf_filename(2:5) = snapnumber_txt
-      OPEN (99, FILE = evydf_filename)
-      WRITE (99, '("# col   1 is Vy [in units of V_th_e = ",e12.5," m/s]")') V_Te_ms
-      WRITE (99, '("#----------")')
-      DO loc = 1, N_of_all_vdf_locs
-         WRITE (99, '("# location ",i2," with ",i8," macroparticles")') loc, N_in_loc(loc)
-         WRITE (99, '("# col ",i3," is VDF(Vy) of ALL electrons")')                         3*loc-1 !1+1+3*(k-1)
-         WRITE (99, '("# col ",i3," is VDF(Vy) of electrons emitted from the LEFT wall")')  3*loc   !1+2+3*(k-1)
-         WRITE (99, '("# col ",i3," is VDF(Vy) of electrons emitted from the RIGHT wall")') 3*loc+1 !1+3+3*(k-1)
+      if (flag_evydf) then
+         ! EVDF(VY)
+         evydf_filename = '_TTTT_evydf.dat'
+         evydf_filename(2:5) = snapnumber_txt
+         OPEN (99, FILE = evydf_filename)
+         WRITE (99, '("# col   1 is Vy [in units of V_th_e = ",e12.5," m/s]")') V_Te_ms
          WRITE (99, '("#----------")')
-      END DO
-      DO indx_y = N_box_Vyz_e_low, N_box_Vyz_e_top
          DO loc = 1, N_of_all_vdf_locs
-            temp_arr(3*loc-2) = DBLE(  e_vydf_loc(indx_y,loc)) * DBLE(N_box_vel)
-            temp_arr(3*loc-1) = DBLE(ebl_vydf_loc(indx_y,loc)) * DBLE(N_box_vel)
-            temp_arr(3*loc)   = DBLE(ebr_vydf_loc(indx_y,loc)) * DBLE(N_box_vel)
+            WRITE (99, '("# location ",i2," with ",i8," macroparticles")') loc, N_in_loc(loc)
+            WRITE (99, '("# col ",i3," is VDF(Vy) of ALL electrons")')                         3*loc-1 !1+1+3*(k-1)
+            WRITE (99, '("# col ",i3," is VDF(Vy) of electrons emitted from the LEFT wall")')  3*loc   !1+2+3*(k-1)
+            WRITE (99, '("# col ",i3," is VDF(Vy) of electrons emitted from the RIGHT wall")') 3*loc+1 !1+3+3*(k-1)
+            WRITE (99, '("#----------")')
          END DO
-         WRITE (99, '(2x,f10.5,297(1x,e12.5))') evyz_mid_of_box(indx_y), temp_arr(1:(3*N_of_all_vdf_locs))
-      END DO
-      CLOSE (99, STATUS = 'KEEP')
+         DO indx_y = N_box_Vyz_e_low, N_box_Vyz_e_top
+            DO loc = 1, N_of_all_vdf_locs
+               temp_arr(3*loc-2) = DBLE(  e_vydf_loc(indx_y,loc)) * DBLE(N_box_vel)
+               temp_arr(3*loc-1) = DBLE(ebl_vydf_loc(indx_y,loc)) * DBLE(N_box_vel)
+               temp_arr(3*loc)   = DBLE(ebr_vydf_loc(indx_y,loc)) * DBLE(N_box_vel)
+            END DO
+            WRITE (99, '(2x,f10.5,297(1x,e12.5))') evyz_mid_of_box(indx_y), temp_arr(1:(3*N_of_all_vdf_locs))
+         END DO
+         CLOSE (99, STATUS = 'KEEP')
+      end if
 
-! EVDF(VZ)
-      evzdf_filename = '_TTTT_evzdf.dat'
-      evzdf_filename(2:5) = snapnumber_txt
-      OPEN (99, FILE = evzdf_filename)
-      WRITE (99, '("# col   1 is Vz [in units of V_th_e = ",e12.5," m/s]")') V_Te_ms
-      WRITE (99, '("#----------")')
-      DO loc = 1, N_of_all_vdf_locs
-         WRITE (99, '("# location ",i2," with ",i8," macroparticles")') loc, N_in_loc(loc)
-         WRITE (99, '("# col ",i3," is VDF(Vz) of ALL electrons")')                         3*loc-1 !1+1+3*(k-1)
-         WRITE (99, '("# col ",i3," is VDF(Vz) of electrons emitted from the LEFT wall")')  3*loc   !1+2+3*(k-1)
-         WRITE (99, '("# col ",i3," is VDF(Vz) of electrons emitted from the RIGHT wall")') 3*loc+1 !1+3+3*(k-1)
+      if (flag_evzdf) then
+         ! EVDF(VZ)
+         evzdf_filename = '_TTTT_evzdf.dat'
+         evzdf_filename(2:5) = snapnumber_txt
+         OPEN (99, FILE = evzdf_filename)
+         WRITE (99, '("# col   1 is Vz [in units of V_th_e = ",e12.5," m/s]")') V_Te_ms
          WRITE (99, '("#----------")')
-      END DO
-      DO indx_z = N_box_Vyz_e_low, N_box_Vyz_e_top
          DO loc = 1, N_of_all_vdf_locs
-            temp_arr(3*loc-2)= DBLE(  e_vzdf_loc(indx_z,loc)) * DBLE(N_box_vel)
-            temp_arr(3*loc-1)= DBLE(ebl_vzdf_loc(indx_z,loc)) * DBLE(N_box_vel)
-            temp_arr(3*loc)  = DBLE(ebr_vzdf_loc(indx_z,loc)) * DBLE(N_box_vel)
+            WRITE (99, '("# location ",i2," with ",i8," macroparticles")') loc, N_in_loc(loc)
+            WRITE (99, '("# col ",i3," is VDF(Vz) of ALL electrons")')                         3*loc-1 !1+1+3*(k-1)
+            WRITE (99, '("# col ",i3," is VDF(Vz) of electrons emitted from the LEFT wall")')  3*loc   !1+2+3*(k-1)
+            WRITE (99, '("# col ",i3," is VDF(Vz) of electrons emitted from the RIGHT wall")') 3*loc+1 !1+3+3*(k-1)
+            WRITE (99, '("#----------")')
          END DO
-         WRITE (99, '(2x,f10.5,297(1x,e12.5))') evyz_mid_of_box(indx_z), temp_arr(1:(3*N_of_all_vdf_locs))
-      END DO
-      CLOSE (99, STATUS = 'KEEP')
+         DO indx_z = N_box_Vyz_e_low, N_box_Vyz_e_top
+            DO loc = 1, N_of_all_vdf_locs
+               temp_arr(3*loc-2)= DBLE(  e_vzdf_loc(indx_z,loc)) * DBLE(N_box_vel)
+               temp_arr(3*loc-1)= DBLE(ebl_vzdf_loc(indx_z,loc)) * DBLE(N_box_vel)
+               temp_arr(3*loc)  = DBLE(ebr_vzdf_loc(indx_z,loc)) * DBLE(N_box_vel)
+            END DO
+            WRITE (99, '(2x,f10.5,297(1x,e12.5))') evyz_mid_of_box(indx_z), temp_arr(1:(3*N_of_all_vdf_locs))
+         END DO
+         CLOSE (99, STATUS = 'KEEP')
+      end if
 
    END IF
 
-   e_vxdf_loc = 0
-   e_vydf_loc = 0
-   e_vzdf_loc = 0
+   
+   if (flag_evxdf) e_vxdf_loc = 0
+   if (flag_evydf) e_vydf_loc = 0
+   if (flag_evzdf) e_vzdf_loc = 0
 
    ebl_vxdf_loc = 0
    ebl_vydf_loc = 0
@@ -1646,14 +1695,14 @@ SUBROUTINE SNAP_LOCAL_ION_VDFS
 
    INTEGER k               ! particle index
    INTEGER indx_x          ! index of velocity box
-   INTEGER indx_y          ! index of y-velocity box
-   INTEGER indx_z          ! index of z-velocity box
+   ! INTEGER indx_y          ! index of y-velocity box
+   ! INTEGER indx_z          ! index of z-velocity box
    INTEGER loc             ! index of current location
    INTEGER cell            ! index of cell where the particle is
 
    CHARACTER(15) ivxdf_filename
-   CHARACTER(15) ivydf_filename
-   CHARACTER(15) ivzdf_filename
+   ! CHARACTER(15) ivydf_filename
+   ! CHARACTER(15) ivzdf_filename
 
    INTEGER N_in_loc(1:N_of_all_vdf_locs)     ! number of particles inside the regions, where the distribution function is calculated
    ! these values are used for normalization
@@ -1697,21 +1746,21 @@ SUBROUTINE SNAP_LOCAL_ION_VDFS
          IF (VX_of_spec(2)%part(k).GT.0.0_8) indx_x = indx_x + 1
          IF ((indx_x.LT.N_box_Vx_i_low).OR.(indx_x.GT.N_box_Vx_i_top)) CYCLE ! skip ions which are too fast
 
-         indx_y = INT( VY_of_spec(2)%part(k) * SQRT(Ms(2)) )
-         IF (VY_of_spec(2)%part(k).GT.0.0_8) indx_y = indx_y + 1
-         IF ((indx_y.LT.N_box_Vx_i_low).OR.(indx_y.GT.N_box_Vx_i_top)) CYCLE ! skip ions which are too fast
+         ! indx_y = INT( VY_of_spec(2)%part(k) * SQRT(Ms(2)) )
+         ! IF (VY_of_spec(2)%part(k).GT.0.0_8) indx_y = indx_y + 1
+         ! IF ((indx_y.LT.N_box_Vx_i_low).OR.(indx_y.GT.N_box_Vx_i_top)) CYCLE ! skip ions which are too fast
 
-         indx_z = INT( VZ_of_spec(2)%part(k) * SQRT(Ms(2)) )
-         IF (VZ_of_spec(2)%part(k).GT.0.0_8) indx_z = indx_z + 1
-         IF ((indx_z.LT.N_box_Vx_i_low).OR.(indx_z.GT.N_box_Vx_i_top)) CYCLE ! skip ions which are too fast
+         ! indx_z = INT( VZ_of_spec(2)%part(k) * SQRT(Ms(2)) )
+         ! IF (VZ_of_spec(2)%part(k).GT.0.0_8) indx_z = indx_z + 1
+         ! IF ((indx_z.LT.N_box_Vx_i_low).OR.(indx_z.GT.N_box_Vx_i_top)) CYCLE ! skip ions which are too fast
 
          cell = INT(X_of_spec(2)%part(k))
          DO loc = 1, N_of_all_vdf_locs
             IF (cell.LE.Vdf_location_bnd(loc)) THEN
 
                i_vxdf_loc(indx_x, loc) = i_vxdf_loc(indx_x, loc) + 1
-               i_vydf_loc(indx_y, loc) = i_vydf_loc(indx_y, loc) + 1
-               i_vzdf_loc(indx_z, loc) = i_vzdf_loc(indx_z, loc) + 1
+               ! i_vydf_loc(indx_y, loc) = i_vydf_loc(indx_y, loc) + 1
+               ! i_vzdf_loc(indx_z, loc) = i_vzdf_loc(indx_z, loc) + 1
                N_in_loc(loc) = N_in_loc(loc) + 1
 
                EXIT
@@ -1733,16 +1782,16 @@ SUBROUTINE SNAP_LOCAL_ION_VDFS
          ibufer2(1:(N_box_Vx_i_top+N_box_Vx_i_top)) = 0
          CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vx_i_top+N_box_Vx_i_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! i_vydf_loc
-         ibufer(1:(N_box_Vx_i_top+N_box_Vx_i_top))  = i_vydf_loc(N_box_Vx_i_low:N_box_Vx_i_top, loc)
-         ibufer2(1:(N_box_Vx_i_top+N_box_Vx_i_top)) = 0
-         CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vx_i_top+N_box_Vx_i_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! i_vzdf_loc
-         ibufer(1:(N_box_Vx_i_top+N_box_Vx_i_top))  = i_vzdf_loc(N_box_Vx_i_low:N_box_Vx_i_top, loc)
-         ibufer2(1:(N_box_Vx_i_top+N_box_Vx_i_top)) = 0
-         CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vx_i_top+N_box_Vx_i_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+! ! i_vydf_loc
+!          ibufer(1:(N_box_Vx_i_top+N_box_Vx_i_top))  = i_vydf_loc(N_box_Vx_i_low:N_box_Vx_i_top, loc)
+!          ibufer2(1:(N_box_Vx_i_top+N_box_Vx_i_top)) = 0
+!          CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vx_i_top+N_box_Vx_i_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+!          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+! ! i_vzdf_loc
+!          ibufer(1:(N_box_Vx_i_top+N_box_Vx_i_top))  = i_vzdf_loc(N_box_Vx_i_low:N_box_Vx_i_top, loc)
+!          ibufer2(1:(N_box_Vx_i_top+N_box_Vx_i_top)) = 0
+!          CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vx_i_top+N_box_Vx_i_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+!          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
       END DO
 
    ELSE                                                                                     ! server >>>
@@ -1762,18 +1811,18 @@ SUBROUTINE SNAP_LOCAL_ION_VDFS
          CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vx_i_top+N_box_Vx_i_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
          i_vxdf_loc(N_box_Vx_i_low:N_box_Vx_i_top, loc) = ibufer(1:(N_box_Vx_i_top+N_box_Vx_i_top))
          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! i_vydf_loc
-         ibufer  = 0
-         ibufer2 = 0
-         CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vx_i_top+N_box_Vx_i_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         i_vydf_loc(N_box_Vx_i_low:N_box_Vx_i_top, loc) = ibufer(1:(N_box_Vx_i_top+N_box_Vx_i_top))
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! i_vzdf_loc
-         ibufer  = 0
-         ibufer2 = 0
-         CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vx_i_top+N_box_Vx_i_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         i_vzdf_loc(N_box_Vx_i_low:N_box_Vx_i_top, loc) = ibufer(1:(N_box_Vx_i_top+N_box_Vx_i_top))
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+! ! i_vydf_loc
+!          ibufer  = 0
+!          ibufer2 = 0
+!          CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vx_i_top+N_box_Vx_i_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+!          i_vydf_loc(N_box_Vx_i_low:N_box_Vx_i_top, loc) = ibufer(1:(N_box_Vx_i_top+N_box_Vx_i_top))
+!          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+! ! i_vzdf_loc
+!          ibufer  = 0
+!          ibufer2 = 0
+!          CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vx_i_top+N_box_Vx_i_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+!          i_vzdf_loc(N_box_Vx_i_low:N_box_Vx_i_top, loc) = ibufer(1:(N_box_Vx_i_top+N_box_Vx_i_top))
+!          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
       END DO
 
 ! IVDF(VX)
@@ -1794,8 +1843,8 @@ SUBROUTINE SNAP_LOCAL_ION_VDFS
    END IF
 
    i_vxdf_loc = 0
-   i_vydf_loc = 0
-   i_vzdf_loc = 0
+   ! i_vydf_loc = 0
+   ! i_vzdf_loc = 0
 
    IF (ALLOCATED(ibufer)) THEN
       DEALLOCATE(ibufer, STAT = DEALLOC_ERR)
@@ -2075,6 +2124,10 @@ SUBROUTINE CREATE_DF_ARRAYS
 !  N_box_Vx_i_top  =  N_box_Vx_i + 1
 
 ! create and store the middles of the velocity boxes for the velocity distributions (in units of electron thermal velocity !!!)
+   ! Note: we do not allocate velocity mid of box arrays based on distribution function
+   !       flags in order to ensure they exist for reference distribution function creation.
+   !       This could of course be changed in the future, if you want to make reference
+   !       distribution functions flagged as well. Cheers.
    ALLOCATE(evx_mid_of_box(N_box_Vx_e_low:N_box_Vx_e_top), STAT=ALLOC_ERR)
    IF(ALLOC_ERR.NE.0)THEN
       PRINT *, 'Error in ALLOCATE evx_mid_of_box !!!'
@@ -2098,16 +2151,18 @@ SUBROUTINE CREATE_DF_ARRAYS
    END DO
 
    ! create and store the middles of the velocity boxes for the velocity distributions (in units of electron thermal velocity !!!)
-   ALLOCATE(eedf_mid_of_box_eV(1:N_E_bins), STAT=ALLOC_ERR)
-   IF(ALLOC_ERR.NE.0)THEN
-      PRINT *, 'Error in ALLOCATE eedf_mid_of_box_eV !!!'
-      PRINT *, 'The program will be terminated now :('
-      STOP
-   END IF
+   if (flag_eedf) then
+      ALLOCATE(eedf_mid_of_box_eV(1:N_E_bins), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in ALLOCATE eedf_mid_of_box_eV !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
 
-   DO i = 1, N_E_bins
-      eedf_mid_of_box_eV(i) = (DBLE(i) - 0.5_8) * delta_Ee_eV
-   END DO
+      DO i = 1, N_E_bins
+         eedf_mid_of_box_eV(i) = (DBLE(i) - 0.5_8) * delta_Ee_eV
+      END DO
+   end if
 
 !  IF (Rank_of_process.EQ.0) THEN
 !! the two files below are necessary for processing of distributions, depending only on the absolute value of electron velocity
@@ -2192,27 +2247,45 @@ SUBROUTINE CREATE_DF_ARRAYS
 !     PRINT *, 'The program will be terminated now :('
 !     STOP
 !  END IF
+   if (flag_evxdf) then
+      ALLOCATE(e_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in ALLOCATE e_vxdf_loc !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+      e_vxdf_loc = 0
+   end if
 
-   ALLOCATE(e_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-   IF(ALLOC_ERR.NE.0)THEN
-      PRINT *, 'Error in ALLOCATE e_vxdf_loc !!!'
-      PRINT *, 'The program will be terminated now :('
-      STOP
-   END IF
+   if (flag_evydf) then
+      ALLOCATE(e_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in ALLOCATE e_vydf_loc !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+      e_vydf_loc = 0
+   end if
 
-   ALLOCATE(e_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-   IF(ALLOC_ERR.NE.0)THEN
-      PRINT *, 'Error in ALLOCATE e_vydf_loc !!!'
-      PRINT *, 'The program will be terminated now :('
-      STOP
-   END IF
+   if (flag_evzdf) then
+      ALLOCATE(e_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in ALLOCATE e_vzdf_loc !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+      e_vzdf_loc = 0
+   end if
 
-   ALLOCATE(e_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-   IF(ALLOC_ERR.NE.0)THEN
-      PRINT *, 'Error in ALLOCATE e_vzdf_loc !!!'
-      PRINT *, 'The program will be terminated now :('
-      STOP
-   END IF
+   if (flag_eedf) then
+      ALLOCATE(e_edf_loc(1:N_E_bins,1:N_of_all_edf_locs), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in ALLOCATE e_edf_loc !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+      e_edf_loc = 0
+   end if
 
 !--------- emitted from the left
 !  ALLOCATE(ebl_2vxvydf_loc(N_box_Vx_e_low:N_box_Vx_e_top, N_box_Vyz_e_low:N_box_Vyz_e_top, 1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
@@ -2288,9 +2361,6 @@ SUBROUTINE CREATE_DF_ARRAYS
 
 !  e_2vxvydf_loc = 0
 !  e_2vxvzdf_loc = 0
-   e_vxdf_loc = 0
-   e_vydf_loc = 0
-   e_vzdf_loc = 0
 
 !  ebl_2vxvydf_loc = 0
 !  ebl_2vxvzdf_loc = 0
@@ -2304,32 +2374,41 @@ SUBROUTINE CREATE_DF_ARRAYS
    ebr_vydf_loc = 0
    ebr_vzdf_loc = 0
 
-   ALLOCATE(e_edf_loc(1:N_E_bins,1:N_of_all_edf_locs), STAT=ALLOC_ERR)
-   IF(ALLOC_ERR.NE.0)THEN
-      PRINT *, 'Error in ALLOCATE e_edf_loc !!!'
-      PRINT *, 'The program will be terminated now :('
-      STOP
-   END IF
-
-   e_edf_loc = 0
-
 !---------
    IF (N_spec.ge.2) THEN   ! if ions are accounted in simulation
 
-      ALLOCATE(irwedf(1 : N_E_bins), STAT=ALLOC_ERR)
-      IF(ALLOC_ERR.NE.0)THEN
-         PRINT *, 'Error in ALLOCATE irwedf !!!'
-         PRINT *, 'The program will be terminated now :('
-         STOP
-      END IF
-      ALLOCATE(ilwedf(1 : N_E_bins), STAT=ALLOC_ERR)
-      IF(ALLOC_ERR.NE.0)THEN
-         PRINT *, 'Error in ALLOCATE ilwedf !!!'
-         PRINT *, 'The program will be terminated now :('
-         STOP
-      END IF
-      ilwedf = 0.0_8
-      irwedf = 0.0_8 !initialized here, cleared after each snapshot
+      if (flag_ilwedf.or.flag_irwedf) then
+         ALLOCATE(iedf_wall_mid_of_box_eV(1:N_E_bins), STAT=ALLOC_ERR)
+         IF(ALLOC_ERR.NE.0)THEN
+            PRINT *, 'Error in ALLOCATE iedf_wall_mid_of_box_eV !!!'
+            PRINT *, 'The program will be terminated now :('
+            STOP
+         END IF
+         DO i = 1, N_E_bins
+            iedf_wall_mid_of_box_eV(i) = (DBLE(i) - 0.5_8) * delta_Ei_wall_eV
+         END DO
+
+         if (flag_irwedf) then
+            ALLOCATE(irwedf(1 : N_E_bins), STAT=ALLOC_ERR)
+            IF(ALLOC_ERR.NE.0)THEN
+               PRINT *, 'Error in ALLOCATE irwedf !!!'
+               PRINT *, 'The program will be terminated now :('
+               STOP
+            END IF
+            irwedf = 0.0_8 !initialized here, cleared after each snapshot
+         end if
+   
+         if (flag_ilwedf) then
+            ALLOCATE(ilwedf(1 : N_E_bins), STAT=ALLOC_ERR)
+            IF(ALLOC_ERR.NE.0)THEN
+               PRINT *, 'Error in ALLOCATE ilwedf !!!'
+               PRINT *, 'The program will be terminated now :('
+               STOP
+            END IF
+            ilwedf = 0.0_8 !initialized here, cleared after each snapshot
+         end if
+
+      end if
 
       ALLOCATE(ivx_mid_of_box(N_box_Vx_i_low:N_box_Vx_i_top), STAT=ALLOC_ERR)
       IF(ALLOC_ERR.NE.0)THEN
@@ -2337,33 +2416,39 @@ SUBROUTINE CREATE_DF_ARRAYS
          PRINT *, 'The program will be terminated now :('
          STOP
       END IF
-
       DO i = N_box_Vx_i_low, N_box_Vx_i_top
          ivx_mid_of_box(i) = (DBLE(i) - 0.5_8) / (DBLE(N_box_vel) * SQRT(Ms(2)))
       END DO
 
-      ALLOCATE(iedf_mid_of_box_eV(1:N_E_bins), STAT=ALLOC_ERR)
-      IF(ALLOC_ERR.NE.0)THEN
-         PRINT *, 'Error in ALLOCATE iedf_mid_of_box_eV !!!'
-         PRINT *, 'The program will be terminated now :('
-         STOP
-      END IF
+      if (flag_ivxdf) then
+         ALLOCATE(i_vxdf_loc(N_box_Vx_i_low:N_box_Vx_i_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+         IF(ALLOC_ERR.NE.0)THEN
+            PRINT *, 'Error in ALLOCATE i_vxdf_loc !!!'
+            PRINT *, 'The program will be terminated now :('
+            STOP
+         END IF
+         i_vxdf_loc = 0
+      end if
 
-      ALLOCATE(iedf_wall_mid_of_box_eV(1:N_E_bins), STAT=ALLOC_ERR)
-      IF(ALLOC_ERR.NE.0)THEN
-         PRINT *, 'Error in ALLOCATE iedf_wall_mid_of_box_eV !!!'
-         PRINT *, 'The program will be terminated now :('
-         STOP
-      END IF
+      if (flag_iedf) then
+         ALLOCATE(iedf_mid_of_box_eV(1:N_E_bins), STAT=ALLOC_ERR)
+         IF(ALLOC_ERR.NE.0)THEN
+            PRINT *, 'Error in ALLOCATE iedf_mid_of_box_eV !!!'
+            PRINT *, 'The program will be terminated now :('
+            STOP
+         END IF
+         DO i = 1, N_E_bins
+            iedf_mid_of_box_eV(i) = (DBLE(i) - 0.5_8) * delta_Ei_eV
+         END DO
 
-      DO i = 1, N_E_bins
-         iedf_mid_of_box_eV(i) = (DBLE(i) - 0.5_8) * delta_Ei_eV
-      END DO
-
-      DO i = 1, N_E_bins
-         iedf_wall_mid_of_box_eV(i) = (DBLE(i) - 0.5_8) * delta_Ei_wall_eV
-      END DO
-
+         ALLOCATE(i_edf_loc(1:N_E_bins,1:N_of_all_edf_locs), STAT=ALLOC_ERR)
+         IF(ALLOC_ERR.NE.0)THEN
+            PRINT *, 'Error in ALLOCATE i_edf_loc !!!'
+            PRINT *, 'The program will be terminated now :('
+            STOP
+         END IF
+         i_edf_loc = 0
+      end if
 
 !     IF (Rank_of_process.EQ.0) THEN
 !        OPEN (99, FILE = 'dim_mid_ivx.dat')
@@ -2373,39 +2458,21 @@ SUBROUTINE CREATE_DF_ARRAYS
 !        CLOSE (99, STATUS = 'KEEP')
 !     END IF
 
-      ALLOCATE(i_vxdf_loc(N_box_Vx_i_low:N_box_Vx_i_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-      IF(ALLOC_ERR.NE.0)THEN
-         PRINT *, 'Error in ALLOCATE i_vxdf_loc !!!'
-         PRINT *, 'The program will be terminated now :('
-         STOP
-      END IF
+      ! ALLOCATE(i_vydf_loc(N_box_Vx_i_low:N_box_Vx_i_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+      ! IF(ALLOC_ERR.NE.0)THEN
+      !    PRINT *, 'Error in ALLOCATE i_vydf_loc !!!'
+      !    PRINT *, 'The program will be terminated now :('
+      !    STOP
+      ! END IF
+      ! i_vydf_loc = 0
 
-      ALLOCATE(i_vydf_loc(N_box_Vx_i_low:N_box_Vx_i_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-      IF(ALLOC_ERR.NE.0)THEN
-         PRINT *, 'Error in ALLOCATE i_vydf_loc !!!'
-         PRINT *, 'The program will be terminated now :('
-         STOP
-      END IF
-
-      ALLOCATE(i_vzdf_loc(N_box_Vx_i_low:N_box_Vx_i_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-      IF(ALLOC_ERR.NE.0)THEN
-         PRINT *, 'Error in ALLOCATE i_vzdf_loc !!!'
-         PRINT *, 'The program will be terminated now :('
-         STOP
-      END IF
-
-      i_vxdf_loc = 0
-      i_vydf_loc = 0
-      i_vzdf_loc = 0
-
-      ALLOCATE(i_edf_loc(1:N_E_bins,1:N_of_all_edf_locs), STAT=ALLOC_ERR)
-      IF(ALLOC_ERR.NE.0)THEN
-         PRINT *, 'Error in ALLOCATE i_edf_loc !!!'
-         PRINT *, 'The program will be terminated now :('
-         STOP
-      END IF
-
-      i_edf_loc = 0
+      ! ALLOCATE(i_vzdf_loc(N_box_Vx_i_low:N_box_Vx_i_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+      ! IF(ALLOC_ERR.NE.0)THEN
+      !    PRINT *, 'Error in ALLOCATE i_vzdf_loc !!!'
+      !    PRINT *, 'The program will be terminated now :('
+      !    STOP
+      ! END IF
+      ! i_vzdf_loc = 0
 
    END IF
 
@@ -2889,43 +2956,58 @@ SUBROUTINE SNAP_ION_EDF_RW_LW
    END IF
 
    IF (Rank_of_process.GT.0) THEN  !transmit data to server
-      rbufer(1:N_E_bins)  = irwedf(1:N_E_bins)
-      rbufer2(1:N_E_bins) = 0.0_8
-      CALL MPI_REDUCE(rbufer, rbufer2, N_E_bins, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-      rbufer(1:N_E_bins)  = ilwedf(1:N_E_bins)
-      rbufer2(1:N_E_bins) = 0.0_8
-      CALL MPI_REDUCE(rbufer, rbufer2, N_E_bins, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+      if (flag_irwedf) then
+         rbufer(1:N_E_bins)  = irwedf(1:N_E_bins)
+         rbufer2(1:N_E_bins) = 0.0_8
+         CALL MPI_REDUCE(rbufer, rbufer2, N_E_bins, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+      end if
+      if (flag_ilwedf) then
+         rbufer(1:N_E_bins)  = ilwedf(1:N_E_bins)
+         rbufer2(1:N_E_bins) = 0.0_8
+         CALL MPI_REDUCE(rbufer, rbufer2, N_E_bins, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+      end if
    ELSE  !receive data from clients
-      rbufer  = 0.0_8
-      rbufer2 = 0.0_8
-      CALL MPI_REDUCE(rbufer2, rbufer, N_E_bins, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-      irwedf(1:N_E_bins) = rbufer(1:N_E_bins)
-      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-      rbufer  = 0.0_8
-      rbufer2 = 0.0_8
-      CALL MPI_REDUCE(rbufer2, rbufer, N_E_bins, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-      ilwedf(1:N_E_bins) = rbufer(1:N_E_bins)
-      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+      if (flag_irwedf) then
+         rbufer  = 0.0_8
+         rbufer2 = 0.0_8
+         CALL MPI_REDUCE(rbufer2, rbufer, N_E_bins, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         irwedf(1:N_E_bins) = rbufer(1:N_E_bins)
+         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+      end if
+      if (flag_ilwedf) then
+         rbufer  = 0.0_8
+         rbufer2 = 0.0_8
+         CALL MPI_REDUCE(rbufer2, rbufer, N_E_bins, MPI_double_precision, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+         ilwedf(1:N_E_bins) = rbufer(1:N_E_bins)
+         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+      end if
    END IF
 
-   irwedf_filename = '_TTTT_irwedf.dat'
-   irwedf_filename(2:5) = snapnumber_txt
-   ilwedf_filename = '_TTTT_ilwedf.dat'
-   ilwedf_filename(2:5) = snapnumber_txt
-   OPEN (99, FILE = irwedf_filename)
-   OPEN (98, FILE = ilwedf_filename)
-   DO index_enr = 1, N_E_bins
-      WRITE (99, '(2(1x,e12.5))') iedf_wall_mid_of_box_eV(index_enr), irwedf(index_enr)
-      WRITE (98, '(2(1x,e12.5))') iedf_wall_mid_of_box_eV(index_enr), ilwedf(index_enr)
-   END DO
+   ! Print to the right wall df file for the current snapshot
+   if (flag_irwedf) then
+      irwedf_filename = '_TTTT_irwedf.dat'
+      irwedf_filename(2:5) = snapnumber_txt
+      OPEN (99, FILE = irwedf_filename)
+      DO index_enr = 1, N_E_bins
+         WRITE (99, '(2(1x,e12.5))') iedf_wall_mid_of_box_eV(index_enr), irwedf(index_enr)
+      END DO
+      CLOSE (99, STATUS = 'KEEP')
+      irwedf = 0.0_8 !!!! cleared to accumulate again for the next snapshot, if any
+   end if
 
-   CLOSE (99, STATUS = 'KEEP')
-   CLOSE (98, STATUS = 'KEEP')
-
-   irwedf = 0.0_8 !!!! cleared to accumulate again for the next snapshot, if any
-   ilwedf = 0.0_8
+   ! Print to the left wall df file for the current snapshot
+   if (flag_ilwedf) then
+      ilwedf_filename = '_TTTT_ilwedf.dat'
+      ilwedf_filename(2:5) = snapnumber_txt
+      OPEN (98, FILE = ilwedf_filename)
+      DO index_enr = 1, N_E_bins
+         WRITE (98, '(2(1x,e12.5))') iedf_wall_mid_of_box_eV(index_enr), ilwedf(index_enr)
+      END DO
+      CLOSE (98, STATUS = 'KEEP')
+      ilwedf = 0.0_8 !!!! cleared to accumulate again for the next snapshot, if any
+   end if
 
    IF (ALLOCATED(rbufer)) THEN
       DEALLOCATE(rbufer, STAT = DEALLOC_ERR)
