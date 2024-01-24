@@ -77,11 +77,11 @@ SUBROUTINE CALCULATE_STR_CHARGE_DENSITY
          Q_ext = 0.0_8
       end if
 
-      IF (BC_flag.NE.0 .and. BC_flag.NE.2) THEN
+      IF (BC_flag.NE.0 .and. BC_flag.NE.2) THEN ! i.e. if (BC_flag.EQ.1 .or. BC_flag.EQ.3 .or. BC_flag.EQ.4) then
 ! floating wall or specified charge moved through or U_ext behind dielectric layer, direct accumulation
          full_Q_left  = DBLE(Q_left)  + Q_ext !** continously integrated from the initial moment
          full_Q_right = DBLE(Q_right) - Q_ext
-      ELSE
+      ELSE ! i.e. if (BC_flag.EQ.0 .or. BC_flag.EQ.2) then
 ! constant given potential or external circuit, the accumulated value is the correction
          full_Q_left  = full_Q_left  + DBLE(Q_left)
          full_Q_right = full_Q_right + DBLE(Q_right)

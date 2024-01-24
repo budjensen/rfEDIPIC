@@ -17,25 +17,25 @@ else
 endif
 
 OBJ := parMT19937.o \
-       parModules_RF.o \
-       parBeamInjection_newflux.o \
-       parBeamInPlasma_newflux.o \
+       parModules.o \
+       parBeamInjection.o \
+       parBeamInPlasma.o \
        parCheckpoint.o \
        parCollisionProc.o \
-       parCurProbVals_dt_NewInt.o \
-       parDiagNoGraph_RF.o \
-       parFieldCalcProc_RF_diel.o \
-       parIonInducedSEEmission_newflux.o \
+       parCurProbVals.o \
+       parDiagNoGraph.o \
+       parFieldCalcProc.o \
+       parIonInducedSEEmission.o \
        parLangevinColl.o \
        parMagneticFieldProfiles_zero.o \
        parMainProgram.o \
-       parMCCollisions_BoxMuller_orig.o \
-       parPartDynamicProc_Gauss.o \
+       parMCCollisions.o \
+       parPartDynamicProc.o \
        parPartExchangeProc.o \
-       parPlasmaSourceProc_newflux.o \
+       parPlasmaSourceProc.o \
        parRandomInit.o \
-       parSEEmission_newflux.o \
-       parSnapshot_newflux_heat.o
+       parSEEmission.o \
+       parSnapshot.o
 
 dedipic : $(OBJ)
 	$(FC) $(FFLAGS) -o $@ $(OBJ)
