@@ -37,7 +37,7 @@ OBJ := parMT19937.o \
        parSEEmission.o \
        parSnapshot.o
 
-dedipic : $(OBJ)
+rfedipic : $(OBJ)
 	$(FC) $(FFLAGS) -o $@ $(OBJ)
 
 %.o : %.f90
@@ -49,10 +49,11 @@ dedipic : $(OBJ)
 %.o : %.c
 	$(CC) $(CFLAGS) -c $<
 
-debug: FFLAGS += -g  # Add debugging flags to FFLAGS
-debug: CFLAGS += -g  # Add debugging flags to CFLAGS
-debug: dedipic       # Build the debug version
+debug : FFLAGS := -g $(if $(filter ifort,$(BASE_FCOMP)),,-ffree-line-length-none)# Add debugging flags to FFLAGS
+debug : CFLAGS := -g # Add debugging flags to CFLAGS
+debug : $(OBJ)       # Build the debug version
+	$(FC) $(FFLAGS) -o $@ $(OBJ)
 
-clean:
-	rm -f *.mod *.o dedipic
+clean :
+	rm -f *.mod *.o rfedipic debug
 
