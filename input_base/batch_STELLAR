@@ -7,6 +7,6 @@
 #SBATCH --mail-type=all                  ## Request emails when the job begins and ends
 #SBATCH --mail-user=your@email.here
 
-exec=/path/to/executable/dedipic
+exec=/path/to/executable/rfedipic
 
 srun $exec > dedipic.${SLURM_JOBID}.out
