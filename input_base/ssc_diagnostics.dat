@@ -2,18 +2,18 @@
 ------------- Diagnostic output interval, t_flag ----------------------------
 --            If t_flag <= 0:   t_output * 10^(t_flag) in RF periods --------
 --            If t_flag  > 1:   t_output > 0 given in timesteps -------------
---dddddd-#d--                   t_output < 0 given in plasma periods --------
-     128  1
+-dddddddd-#d-                   t_output < 0 given in plasma periods --------
+      128  1
 ------------- Diagnostic collection start, t_flag ---------------------------
 --            If t_flag <= 0:   t_start * 10^(t_flag) in RF periods ---------
 --            If t_flag  > 1:   t_start > 0 given in timesteps --------------
---dddddd-#d--                   t_start < 0 given in plasma periods ---------
-       0  1 
+-dddddddd-#d-                   t_start < 0 given in plasma periods ---------
+        0  1 
 ------------- Diagnostic average window, t_flag - (NOTE: t_avg <= t_output) -
 --            If t_flag <= 0:   t_avg * 10^(t_flag) in RF periods -----------
 --            If t_flag  > 1:   t_avg > 0 given in timesteps ----------------
---dddddd-#d--                   t_avg < 0 given in plasma periods -----------
-     128  1
+-dddddddd-#d-                   t_avg < 0 given in plasma periods -----------
+      128  1
 --dddddd----- Skip periods of averaging between text outputs (>=0) ----------
       10
 -----ddd----- Number of probes ( no probes if <= 0 ) ------------------------

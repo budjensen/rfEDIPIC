@@ -89,18 +89,18 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       READ (9, '(A77)') buf ! '("------------- Diagnostic output interval, t_flag ----------------------------")')
       READ (9, '(A77)') buf ! '("--            If t_flag <= 0:   t_output * 10^(t_flag) in RF periods --------")')
       READ (9, '(A77)') buf ! '("--            If t_flag  > 1:   t_output > 0 given in timesteps -------------")')
-      READ (9, '(A77)') buf ! '("--dddddd-#d--                   t_output < 0 given in plasma periods --------")')
-      READ (9, '(2x,i6,1x,i2)') WriteOut_step, flag_Out
+      READ (9, '(A77)') buf ! '("-ddddddd-#d--                   t_output < 0 given in plasma periods --------")')
+      READ (9, '(1x,i7,1x,i2)') WriteOut_step, flag_Out
       READ (9, '(A77)') buf ! '("------------- Diagnostic collection start, t_flag ---------------------------")')
       READ (9, '(A77)') buf ! '("--            If t_flag <= 0:   t_start * 10^(t_flag) in RF periods ---------")')
       READ (9, '(A77)') buf ! '("--            If t_flag  > 1:   t_start > 0 given in timesteps --------------")')
-      READ (9, '(A77)') buf ! '("--dddddd-#d--                   t_start < 0 given in plasma periods ---------")')
-      READ (9, '(2x,i6,1x,i2)') WriteStart_step, flag_Start
+      READ (9, '(A77)') buf ! '("-dddddddd-#d-                   t_start < 0 given in plasma periods ---------")')
+      READ (9, '(1x,i8,1x,i2)') WriteStart_step, flag_Start
       READ (9, '(A77)') buf ! '("------------- Diagnostic average window, t_flag - (NOTE: t_avg <= t_output) -")')
       READ (9, '(A77)') buf ! '("--            If t_flag <= 0:   t_avg * 10^(t_flag) in RF periods -----------")')
       READ (9, '(A77)') buf ! '("--            If t_flag  > 1:   t_avg > 0 given in timesteps ----------------")')
-      READ (9, '(A77)') buf ! '("--dddddd-#d--                   t_avg < 0 given in plasma periods -----------")')
-      READ (9, '(2x,i6,1x,i2)') WriteAvg_step, flag_Avg
+      READ (9, '(A77)') buf ! '("-ddddddd-#d--                   t_avg < 0 given in plasma periods -----------")')
+      READ (9, '(1x,i7,1x,i2)') WriteAvg_step, flag_Avg
       READ (9, '(A77)') buf ! '("--dddddd----- Skip periods of averaging between text outputs (>=0) ----------")')
       READ (9, '(2x,i6)') TextOut_avg_prds_to_skip
       READ (9, '(A77)') buf ! '("-----ddd----- Number of probes ( no probes if <= 0 ) ------------------------")')
@@ -241,18 +241,18 @@ SUBROUTINE INITIATE_DIAGNOSTICS
          WRITE (9, '("------------- Diagnostic output interval, t_flag ----------------------------")')
          WRITE (9, '("--            If t_flag <= 0:   t_output * 10^(t_flag) in RF periods --------")')
          WRITE (9, '("--            If t_flag  > 1:   t_output > 0 given in timesteps -------------")')
-         WRITE (9, '("--dddddd-#d--                   t_output < 0 given in plasma periods --------")')
-         WRITE (9, '(2x,i6,1x,i2)') WriteOut_step, flag_Out
+         WRITE (9, '("-ddddddd-#d--                   t_output < 0 given in plasma periods --------")')
+         WRITE (9, '(1x,i7,1x,i2)') WriteOut_step, flag_Out
          WRITE (9, '("------------- Diagnostic collection start, t_flag ---------------------------")')
          WRITE (9, '("--            If t_flag <= 0:   t_start * 10^(t_flag) in RF periods ---------")')
          WRITE (9, '("--            If t_flag  > 1:   t_start > 0 given in timesteps --------------")')
-         WRITE (9, '("--dddddd-#d--                   t_start < 0 given in plasma periods ---------")')
-         WRITE (9, '(2x,i6,1x,i2)') WriteStart_step, flag_Start
+         WRITE (9, '("-dddddddd-#d-                   t_start < 0 given in plasma periods ---------")')
+         WRITE (9, '(1x,i8,1x,i2)') WriteStart_step, flag_Start
          WRITE (9, '("------------- Diagnostic average window, t_flag - (NOTE: t_avg <= t_output) -")')
          WRITE (9, '("--            If t_flag <= 0:   t_avg * 10^(t_flag) in RF periods -----------")')
          WRITE (9, '("--            If t_flag  > 1:   t_avg > 0 given in timesteps ----------------")')
-         WRITE (9, '("--dddddd-#d--                   t_avg < 0 given in plasma periods -----------")')
-         WRITE (9, '(2x,i6,1x,i2)') WriteAvg_step, flag_Avg
+         WRITE (9, '("-ddddddd-#d--                   t_avg < 0 given in plasma periods -----------")')
+         WRITE (9, '(1x,i7,1x,i2)') WriteAvg_step, flag_Avg
          WRITE (9, '("--dddddd----- Skip periods of averaging between text outputs (>=0) ----------")')
          WRITE (9, '(2x,i6)') TextOut_avg_prds_to_skip
          WRITE (9, '("-----ddd----- Number of probes ( no probes if <= 0 ) ------------------------")')
@@ -606,14 +606,14 @@ SUBROUTINE INITIATE_DIAGNOSTICS
    endif
 
    IF (Rank_of_process.EQ.0) THEN
-      PRINT '(/2x,"Diagnostic values will be written into the file with time interval : ",f9.4," ns")', WriteOut_step * delta_t_s * 1.0e9
+      PRINT '(/2x,"Diagnostic values will be written into the file with time interval : ",f13.4," ns")', WriteOut_step * delta_t_s * 1.0e9
       if (flag_Out.le.0) print '(67x,"or, ",f9.4," RF periods")', NumOut_RFper
-      PRINT  '(2x,"First data will start collecting at the moment                     : ",f9.4," ns")',  WriteStart_step * delta_t_s * 1.0e9
+      PRINT  '(2x,"First data will start collecting at the moment                     : ",f13.4," ns")',  WriteStart_step * delta_t_s * 1.0e9
       if (flag_Start.le.0) print '(67x,"or, ",f9.4," RF periods")', NumStart_RFper
       PRINT  '(2x,"Averaging will be carried out during the following time interval   : ",f13.4," ns")',   WriteAvg_step * delta_t_s * 1.0e9
       if (flag_Start.le.0) print '(67x,"or, ",f9.4," RF periods")', NumAvg_RFper
       IF (SaveCheck_step.GT.0) THEN
-         PRINT '(2x,"Checkpoints will be created with time interval                  : ",f9.4," ns")',  SaveCheck_step * delta_t_s * 1.0e9
+         PRINT '(2x,"Checkpoints will be created with time interval                    : ",f13.4," ns")',  SaveCheck_step * delta_t_s * 1.0e9
       ELSE
          PRINT '(2x,"Checkpoints will NOT be created...")'
       END IF
@@ -1294,7 +1294,7 @@ SUBROUTINE PREPARE_TIME_DEPENDENCE_DATAFILES
       IF (exists) THEN
          OPEN (50, FILE = 'dim_fen_collisions_vst.dat', STATUS = 'OLD')
          DO i = 1, N_of_saved_records
-            READ (50, '(2x,f12.5,4(2x,e12.5))') r_dummy !, r_dummy, r_dummy, r_dummy, r_dummy
+            READ (50, '(2x,f12.5,5(2x,e12.5))') r_dummy !, r_dummy, r_dummy, r_dummy, r_dummy
          END DO
          ENDFILE 50
          CLOSE (50, STATUS = 'KEEP')
@@ -1501,6 +1501,8 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
    & sece_left_from_right_count,  sece_left_after_coll_count, &
    & sece_right_from_left_count,  sece_right_after_coll_count
 
+   ! use Snapshots, only :  irwedf, ilwedf  ! TEMP-EDF-CLEAR
+
    IMPLICIT NONE
 
    INTEGER n       ! index for the bufers of the potential in the midplane and at x=0
@@ -1521,6 +1523,10 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_1
       fmid_bufer( 1) = F(N_cells/2)
       fwall_bufer(1) = F(0)
    END IF
+   ! if (T_cntr.EQ.WriteStart_step) then   ! TEMP-EDF-CLEAR
+   !    irwedf = 0.0_8                     ! TEMP-EDF-CLEAR
+   !    ilwedf = 0.0_8                     ! TEMP-EDF-CLEAR
+   ! end if                                ! TEMP-EDF-CLEAR
 
 ! exit if the current time layer is out of the diagnostics time window
    IF (T_cntr.LT.Start_diag_Tcntr) RETURN
@@ -2347,7 +2353,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
 ! frequencies of electron-neutral collisions: elastic / excitation-1 / excitation-2 / ionization / turbulence
    OPEN  (50, FILE = 'dim_fen_collisions_vst.dat', POSITION = 'APPEND')
-   WRITE (50, '(2x,f12.5,4(2x,e12.5))') time_ns, e_n_1_count * f_factor(1), e_n_2_count * f_factor(1),  e_n_5_count * f_factor(1), e_n_3_count * f_factor(1), e_t_4_count * f_factor(1)
+   WRITE (50, '(2x,f12.5,5(2x,e12.5))') time_ns, e_n_1_count * f_factor(1), e_n_2_count * f_factor(1),  e_n_5_count * f_factor(1), e_n_3_count * f_factor(1), e_t_4_count * f_factor(1)
    CLOSE (50, STATUS = 'KEEP')
 
 ! frequencies of ion-neutral collisions: elastic / charge exchange / turbulence
