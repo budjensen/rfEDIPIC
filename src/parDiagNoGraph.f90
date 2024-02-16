@@ -89,8 +89,8 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       READ (9, '(A77)') buf ! '("------------- Diagnostic output interval, t_flag ----------------------------")')
       READ (9, '(A77)') buf ! '("--            If t_flag <= 0:   t_output * 10^(t_flag) in RF periods --------")')
       READ (9, '(A77)') buf ! '("--            If t_flag  > 1:   t_output > 0 given in timesteps -------------")')
-      READ (9, '(A77)') buf ! '("-ddddddd-#d--                   t_output < 0 given in plasma periods --------")')
-      READ (9, '(1x,i7,1x,i2)') WriteOut_step, flag_Out
+      READ (9, '(A77)') buf ! '("-dddddddd-#d-                   t_output < 0 given in plasma periods --------")')
+      READ (9, '(1x,i8,1x,i2)') WriteOut_step, flag_Out
       READ (9, '(A77)') buf ! '("------------- Diagnostic collection start, t_flag ---------------------------")')
       READ (9, '(A77)') buf ! '("--            If t_flag <= 0:   t_start * 10^(t_flag) in RF periods ---------")')
       READ (9, '(A77)') buf ! '("--            If t_flag  > 1:   t_start > 0 given in timesteps --------------")')
@@ -99,8 +99,8 @@ SUBROUTINE INITIATE_DIAGNOSTICS
       READ (9, '(A77)') buf ! '("------------- Diagnostic average window, t_flag - (NOTE: t_avg <= t_output) -")')
       READ (9, '(A77)') buf ! '("--            If t_flag <= 0:   t_avg * 10^(t_flag) in RF periods -----------")')
       READ (9, '(A77)') buf ! '("--            If t_flag  > 1:   t_avg > 0 given in timesteps ----------------")')
-      READ (9, '(A77)') buf ! '("-ddddddd-#d--                   t_avg < 0 given in plasma periods -----------")')
-      READ (9, '(1x,i7,1x,i2)') WriteAvg_step, flag_Avg
+      READ (9, '(A77)') buf ! '("-dddddddd-#d-                   t_avg < 0 given in plasma periods -----------")')
+      READ (9, '(1x,i8,1x,i2)') WriteAvg_step, flag_Avg
       READ (9, '(A77)') buf ! '("--dddddd----- Skip periods of averaging between text outputs (>=0) ----------")')
       READ (9, '(2x,i6)') TextOut_avg_prds_to_skip
       READ (9, '(A77)') buf ! '("-----ddd----- Number of probes ( no probes if <= 0 ) ------------------------")')
@@ -241,7 +241,7 @@ SUBROUTINE INITIATE_DIAGNOSTICS
          WRITE (9, '("------------- Diagnostic output interval, t_flag ----------------------------")')
          WRITE (9, '("--            If t_flag <= 0:   t_output * 10^(t_flag) in RF periods --------")')
          WRITE (9, '("--            If t_flag  > 1:   t_output > 0 given in timesteps -------------")')
-         WRITE (9, '("-ddddddd-#d--                   t_output < 0 given in plasma periods --------")')
+         WRITE (9, '("-dddddddd-#d-                   t_output < 0 given in plasma periods --------")')
          WRITE (9, '(1x,i7,1x,i2)') WriteOut_step, flag_Out
          WRITE (9, '("------------- Diagnostic collection start, t_flag ---------------------------")')
          WRITE (9, '("--            If t_flag <= 0:   t_start * 10^(t_flag) in RF periods ---------")')
@@ -251,7 +251,7 @@ SUBROUTINE INITIATE_DIAGNOSTICS
          WRITE (9, '("------------- Diagnostic average window, t_flag - (NOTE: t_avg <= t_output) -")')
          WRITE (9, '("--            If t_flag <= 0:   t_avg * 10^(t_flag) in RF periods -----------")')
          WRITE (9, '("--            If t_flag  > 1:   t_avg > 0 given in timesteps ----------------")')
-         WRITE (9, '("-ddddddd-#d--                   t_avg < 0 given in plasma periods -----------")')
+         WRITE (9, '("-dddddddd-#d-                   t_avg < 0 given in plasma periods -----------")')
          WRITE (9, '(1x,i7,1x,i2)') WriteAvg_step, flag_Avg
          WRITE (9, '("--dddddd----- Skip periods of averaging between text outputs (>=0) ----------")')
          WRITE (9, '(2x,i6)') TextOut_avg_prds_to_skip
@@ -549,6 +549,12 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
    ! if flag_Out is negative or zero then WriteOut_step is given in units of RF periods
    if (flag_Out.le.0) then
+      if (.not.rf_on) then 
+         print '(/2x,"Process ",i3," : WriteOut_Step in ssc_diagnostics.dat was given in terms of RF period")', Rank_of_process
+         print '(/16x,"but RF is turned off. Change method of specifying WriteOut_Step to continue.")'
+         print '(2x,"Program will be terminated now")'
+         stop
+      endif
       if (Rank_of_process.EQ.0) print '(/2x,"Data output interval was given in units of RF period ...")'
       ! Multiply the output step (expanded by the flag) by the number of steps per RF period
       NumOut_RFper = WriteOut_step * (10.**flag_Out)
@@ -563,6 +569,12 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
    ! if flag_Start is negative or zero then WriteStart_step is given in units of RF periods
    if (flag_Start.le.0) then
+      if (.not.rf_on) then 
+         print '(/2x,"Process ",i3," : WriteStart_Step in ssc_diagnostics.dat was given in terms of RF period")', Rank_of_process
+         print '(/16x,"but RF is turned off. Change method of specifying WriteStart_Step to continue.")'
+         print '(2x,"Program will be terminated now")'
+         stop
+      endif
       if (Rank_of_process.EQ.0) print '(/2x,"Data collection start moment was given in units of RF period ...")'
       ! Multiply the start step (expanded by the flag) by the number of steps per RF period
       NumStart_RFper = WriteStart_step * (10.**flag_Start)
@@ -577,6 +589,12 @@ SUBROUTINE INITIATE_DIAGNOSTICS
 
    ! if flag_Avg is negative or zero then WriteAvg_step is given in units of RF periods
    if (flag_Avg.le.0) then
+      if (.not.rf_on) then 
+         print '(/2x,"Process ",i3," : WriteAvg_Step in ssc_diagnostics.dat was given in terms of RF period")', Rank_of_process
+         print '(/16x,"but RF is turned off. Change method of specifying WriteAvg_Step to continue.")'
+         print '(2x,"Program will be terminated now")'
+         stop
+      endif
       if (Rank_of_process.EQ.0) print '(2x,"Data averaging window was given in units of RF period ...")'
       ! Multiply the averaging step (expanded by the flag) by the number of steps per RF period
       NumAvg_RFper = WriteAvg_step * (10.**flag_Avg)
