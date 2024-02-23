@@ -11,15 +11,15 @@ end module ParallelOperationValues
 !
 module CurrentProblemValues
 
-   integer, parameter :: N_spec = 2                   ! The number of species of particles used in simulations
+   integer, parameter :: N_spec = 2                   !! The number of species of particles used in simulations
 
-   real(8), parameter :: e_Cl     = 1.602189d-19      ! Charge of single electron [Cl]
-   real(8), parameter :: m_e_kg   = 9.109534d-31      ! Mass of single electron [kg]
-   real(8), parameter :: eps_0_Fm = 8.854188d-12      ! The dielectric constant [F/m]
-   real(8), parameter :: mu_0_Hm  = 1.256637d-6       ! The magnetic constant [H/m]
-   real(8), parameter :: amu_kg = 1.660565d-27        ! atomic mass unit [kg]
+   real(8), parameter :: e_Cl     = 1.602189d-19      !! Charge of single electron [Cl]
+   real(8), parameter :: m_e_kg   = 9.109534d-31      !! Mass of single electron [kg]
+   real(8), parameter :: eps_0_Fm = 8.854188d-12      !! The dielectric constant [F/m]
+   real(8), parameter :: mu_0_Hm  = 1.256637d-6       !! The magnetic constant [H/m]
+   real(8), parameter :: amu_kg = 1.660565d-27        !! atomic mass unit [kg]
 !** properties of the dielectric layer positioned at -d < x < 0:
-   real(8), parameter :: d_m = 0.01 !thickness of dielectric layer on top of the left electrode
+   real(8), parameter :: d_m = 0.01                   !! thickness of dielectric layer on top of the left electrode
    real(8), parameter :: eps_layer = 3.9_8
 !!  real(8), parameter :: eps_layer = 1.e10 !*** to test implementation of the boundary condition
    real(8) eps_param
@@ -197,6 +197,10 @@ module CurrentProblemValues
 ! mesh values --------------------------------
    real(8), allocatable :: EX(:)        !! The X-electric field on the mesh (node points)
 
+   real(8), allocatable :: EX_old(:)    !! The X-electric field on the mesh (node points) at the previous time step
+                                        !! This is updated the step before a snapshot is made, in order to calculate
+                                        !! displacement current at the snapshot timestep
+
    real(8), allocatable :: GradEX(:)    !! The X-gradient of X-electric field, used for
                                         !! interpolation of EX on the mesh to particle positions
 
@@ -301,66 +305,82 @@ module MCCollisions
       integer, pointer :: activated(:)
    end type ialloc_activated
 
-   integer maxNcolkind_spec(1:N_spec)         ! maximal number of kinds of collisions for electrons,
-   ! currently we have collisions for two plasma species only
+   integer maxNcolkind_spec(1:N_spec)         !! maximal number of kinds of collisions for electrons, ions
+                                              !! currently we have collisions for two plasma species only
+                                              !! value is hardcoded into the code
 
 !------- to read from file ---------
-   integer Neutral_flag                  ! Flags what type of gas one is using (0 = He, 1 = Ar), note that Xenon is the default gas and operates
-   ! with Ar parameters in parCollisionProc.f90
-   integer Collision_flag_Turner         ! Flags what type of collision model one is using (1 = Turner Benchmark model, anything else = original EDIPIC model)
+   integer Neutral_flag                   !! Flags what type of gas one is using (0 = He, 1 = Ar),
+                                          !! note that Xenon is the default gas and operates
+                                          !! with Ar parameters in parCollisionProc.f90
+   integer Collision_flag_Turner          !! Flags what type of collision model one is using (1 = Turner Benchmark model, anything else = original EDIPIC model)
 
-   real(8) M_neutral_amu                 ! The neutral component mass         [a.m.u.]
-   real(8) N_neutral_m3                  ! The neutral component density      [m^-3]
-   real(8) T_neutral_eV                  ! The neutral component temperature  [eV]
+   real(8) M_neutral_amu                  !! The neutral component mass         [a.m.u.]
+   real(8) N_neutral_m3                   !! The neutral component density      [m^-3]
+   real(8) T_neutral_eV                   !! The neutral component temperature  [eV]
 
-   real(8) Freq_turb_e_1_s1              ! Frequency of collisions, accounting the electron turbulence, model 1, [s^-1]
-   real(8) Freq_turb_i_1_s1              ! Frequency of collisions, accounting the ion turbulence, model 1,      [s^-1]
+   real(8) Freq_turb_e_1_s1               !! Frequency of collisions, accounting the electron turbulence, model 1, [s^-1]
+   real(8) Freq_turb_i_1_s1               !! Frequency of collisions, accounting the ion turbulence, model 1,      [s^-1]
 
-   real(8) alpha_Vscl                    ! Scaling factor, when you take some velocity from normalized Maxwell distribution,
-   ! and multiply the velocity by the above mentioned factor,
-   ! you obtain the dimensionless value in electron thermal velocities
+   real(8) alpha_Vscl                     !! Scaling factor, when you take some velocity from a normalized Maxwell distribution
+                                          !! and multiply the velocity by the above mentioned factor,
+                                          !! you obtain the dimensionless value in electron thermal velocities
 
-   real(8) energy_factor_eV_s(1:N_spec)       ! Scaling factor for obtaining energy of particle in electron-Volts
-   ! from the squared particle dim-less velocity :  W_kin_eV(s) = energy_factor_eV_s(s) * v**2,
-   ! here s - species index, v - dim-less absolute value of velocity (in units of v_Te / N_box_vel)
+   real(8) energy_factor_eV_s(1:N_spec)   !! Scaling factor for obtaining energy of particle in electron-Volts
+                                          !! from the squared particle dim-less velocity :  W_kin_eV(s) = energy_factor_eV_s(s) * v**2,
+                                          !! here s - species index,
+                                          !! v - dim-less absolute value of velocity (in units of v_Te / N_box_vel)
 
-   integer Colflag_kind_spec(1:5,1:N_spec)    ! For different species [electron(*,1), ion(*,2)],                !@#$
-   ! the arrays of flags, indicating that some particular kind
-   ! of collisions with neutrals is turned on
-   ! 1%1 <=> e-n elastic,         model 1
-   ! 2%1 <=> e-n excitation,      model 1
-   ! 3%1 <=> e-n ionization,      model 1
-   ! 4%1 <=> turbulence,          model 1
-   ! 5%1 <=> e-n excitation,      model 2
-   ! 1%2 <=> i-n elastic,         model 1
-   ! 2%2 <=> i-n charge exchange, model 1
-   ! 3%2 <=> turbulence,          model 1
-   ! 4%2 <=> yet empty
-   ! 5%2 <=> yet empty
+   integer Colflag_kind_spec(1:5,1:N_spec)      !! For different species [electron(*,1), ion(*,2)],                !@#$
+                                                !! arrays of flags, indicating that some particular kind
+                                                !! of collisions with neutrals is turned on
+                                                !! 1%1 <=> e-n elastic,         model 1
+                                                !! 2%1 <=> e-n excitation,      model 1
+                                                !! 3%1 <=> e-n ionization,      model 1
+                                                !! 4%1 <=> turbulence,          model 1
+                                                !! 5%1 <=> e-n excitation,      model 2
+                                                !! 1%2 <=> i-n elastic,         model 1
+                                                !! 2%2 <=> i-n charge exchange, model 1
+                                                !! 3%2 <=> turbulence,          model 1
+                                                !! 4%2 <=> yet empty
+                                                !! 5%2 <=> yet empty
 
-   integer N_en_elast                             ! number of experimental values to be read
-   real, allocatable :: Energy_en_elast_eV(:)     ! energies of known cross-secion values  for e-n elastic    collisions, [eV]
-   real, allocatable :: CrSect_en_elast_m2(:)     ! experimentally measured cross-sections for e-n elastic    collisions, [m^2]
+   integer N_en_elast                           !! number of experimental values to be read
+   real, allocatable :: Energy_en_elast_eV(:)   !! energies of known cross-secion values  for e-n elastic    collisions, [eV]
+   real, allocatable :: CrSect_en_elast_m2(:)   !! experimentally measured cross-sections for e-n elastic    collisions, [m^2]
 
-   integer N_en_excit                             ! number of experimental values to be read for excitation, model 1
-   real, allocatable :: Energy_en_excit_eV(:)     ! energies of known cross-secion values  for e-n excitation collisions, [eV]
-   real, allocatable :: CrSect_en_excit_m2(:)     ! experimentally measured cross-sections for e-n excitation collisions, [m^2]
-   real(8) Thresh_en_excit_eV                     ! energy threshold, [eV]
+   integer N_en_excit                           !! number of experimental values to be read for excitation, model 1
+   real, allocatable :: Energy_en_excit_eV(:)   !! energies of known cross-secion values  for e-n excitation collisions, [eV]
+   real, allocatable :: CrSect_en_excit_m2(:)   !! experimentally measured cross-sections for e-n excitation collisions, [m^2]
+   real(8) Thresh_en_excit_eV                   !! energy threshold, [eV]
 
-   integer N_en_excit_2                           ! number of experimental values to be read for excitation, model 2
-   real, allocatable :: Energy_en_excit_2_eV(:)   ! energies of known cross-secion values  for e-n excitation collisions, [eV]
-   real, allocatable :: CrSect_en_excit_2_m2(:)   ! experimentally measured cross-sections for e-n excitation collisions, [m^2]
-   real(8) Thresh_en_excit_2_eV                   ! energy threshold, [eV]
+   integer N_en_excit_2                         !! number of experimental values to be read for excitation, model 2
+   real, allocatable :: Energy_en_excit_2_eV(:) !! energies of known cross-secion values  for e-n excitation collisions, [eV]
+   real, allocatable :: CrSect_en_excit_2_m2(:) !! experimentally measured cross-sections for e-n excitation collisions, [m^2]
+   real(8) Thresh_en_excit_2_eV                 !! energy threshold, [eV]
 
-   integer N_en_ioniz                             ! number of experimental values to be read
-   real, allocatable :: Energy_en_ioniz_eV(:)     ! energies of known cross-secion values  for e-n ionization collisions, [eV]
-   real, allocatable :: CrSect_en_ioniz_m2(:)     ! experimentally measured cross-sections for e-n ionization collisions, [m^2]
-   real(8) Thresh_en_ioniz_eV                     ! energy threshold, [eV]
+   integer N_en_ioniz                           !! number of experimental values to be read
+   real, allocatable :: Energy_en_ioniz_eV(:)   !! energies of known cross-secion values  for e-n ionization collisions, [eV]
+   real, allocatable :: CrSect_en_ioniz_m2(:)   !! experimentally measured cross-sections for e-n ionization collisions, [m^2]
+   real(8) Thresh_en_ioniz_eV                   !! energy threshold, [eV]
 
-   real(8) maxEnergy_eV_spec(1:N_spec)        ! maximal value of energy of colliding plasma species, [eV]
+   logical in_elast_flag                        !! switch, determines if i-n elastic collisions are from the default collision
+                                                !! frequency=10 MHz (.true.) or from experimental cross-section data (.false.)
+   integer N_in_elast                           !! number of experimental values to be read
+   real, allocatable :: Energy_in_elast_eV(:)   !! energies of known cross-secion values  for i-n elastic collisions, [eV]
+   real, allocatable :: CrSect_in_elast_m2(:)   !! experimentally measured cross-sections for i-n elastic collisions, [m^2]
 
-   integer Nenergyval_spec(1:N_spec)          ! number of values of energy
-   ! where the collisions probabilities are calculated
+   logical in_chrgx_flag                        !! switch, determines if i-n charge exchange collisions are from the default collision
+                                                !! frequency model (.true.) or from experimental cross-section data (.false.)
+   integer N_in_chrgx                           !! number of experimental values to be read
+   real, allocatable :: Energy_in_chrgx_eV(:)   !! energies of known cross-secion values  for i-n charge exchange collisions, [eV]
+   real, allocatable :: CrSect_in_chrgx_m2(:)   !! experimentally measured cross-sections for i-n charge exchange collisions, [m^2]
+
+
+   real(8) maxEnergy_eV_spec(1:N_spec)          !! maximal value of energy of colliding plasma species, [eV]
+
+   integer Nenergyval_spec(1:N_spec)            !! number of values of energy
+                                                !! where the collisions probabilities are calculated
 !------- to calculate --------------
 
    integer, allocatable :: Ncolkind_spec(:)           ! Number of kinds of collisions for different plasma species
@@ -371,12 +391,12 @@ module MCCollisions
    real, allocatable :: maxColfrac_spec(:)    ! The MAXIMAL RELATIVE number of particles of one species, !@
    ! colliding at the current time level (including NULL-collisions)
 
-   type(ialloc_activated), allocatable :: Colkind_of_spec(:)      ! Set of indexes determining those kinds of collisions,
-   ! which are turned on in file "msc_partcols.dat"
+   type(ialloc_activated), allocatable :: Colkind_of_spec(:)      !! For each species, points to a 1-d array of collison indexes
+                                                                  !! turned on in file "msc_partcols.dat"
 
-   type(ralloc_kind_energy), allocatable :: Colprob_of_spec(:)    ! For different species, the pointers to the 2-d arrays of
-   ! probabilities of different kinds of activated collisions
-   ! versus the energy of the particle of that species
+   type(ralloc_kind_energy), allocatable :: Colprob_of_spec(:)    !! For different species, the pointers to the 2-d arrays of
+                                                                  !! probabilities of different kinds of activated collisions
+                                                                  !! versus the energy of the particle of that species
 
    integer, allocatable :: Numbers_of_particles(:)
    integer, allocatable :: Numbers_of_collisions(:)
