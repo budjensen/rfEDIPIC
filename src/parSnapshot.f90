@@ -72,6 +72,8 @@ SUBROUTINE CREATE_SNAPSHOT
    REAL(8) coll_rate_factor         !! Inverse of the collection time for flux counted by NVX_mesh
                                     !! coll_rate_factor = 1 / WriteOut_step
                                     !! OR               = Averaging_factor = 1 / WriteAvg_step for the first snapshot
+   integer first_diag_output_step   !! The first time step when the diagnostic output is written for the full simulation.
+                                    !! Used in the calculation of coll_rate_factor
    REAL(8) ionization_rate
    REAL(8) factor_Watt_cm3          !! Converts energy deposition due to collisions into physical units
                                     !! factor_Watt_cm3 = factor_ionrate * Factor_energy_eV * e_Cl * 1.e-6
@@ -87,6 +89,13 @@ SUBROUTINE CREATE_SNAPSHOT
 ! functions
    REAL(8) Bx_gauss
    REAL(8) By_gauss
+
+   if (current_snap.LE.N_of_all_snaps) then
+      ! Save the electric field for the next time step's displacement current, if one step before a snapshot
+      if (T_cntr.EQ.(Tcntr_snapshot(current_snap)-1)) then
+         EX_old = EX
+      end if
+   end if
 
 ! check whether it is still necessary to save potential profiles
 ! note, counter_of_profiles_to_save can be non-zero only in the server process
@@ -433,7 +442,7 @@ SUBROUTINE CREATE_SNAPSHOT
       WRITE (99, '("# col  1 is X-coordinate [m]")')
 
       WRITE (99, '("# col  2 is electrostatic potential [V]")')
-      WRITE (99, '("# col  3 is X-electric field [V]")')
+      WRITE (99, '("# col  3 is X-electric field [V/m]")')
 
       WRITE (99, '("# col  4 is electron number density [m^-3]")')
       WRITE (99, '("# col  5 is ion number density [m^-3]")')
@@ -461,16 +470,16 @@ SUBROUTINE CREATE_SNAPSHOT
       WRITE (99, '("# col 21 is BX-magnetic field [Gauss]")')
       WRITE (99, '("# col 22 is BY-magnetic field [Gauss]")')
 
-      WRITE (99, '("# col 23 is volume ionization rate Z(x)")')
-      WRITE (99, '("# col 24 is integral of Z(x)dx)")')
-      WRITE (99, '("# col 25 is ion flux")')
-      WRITE (99, '("# col 26 is electron flux")')
+      WRITE (99, '("# col 23 is volume ionization rate Z(x) [m^-3 s^-1]")')
+      WRITE (99, '("# col 24 is integral of Z(x)dx [m^-2 s^-1]")')
+      WRITE (99, '("# col 25 is ion flux [m^-2 s^-1]")')
+      WRITE (99, '("# col 26 is electron flux [m^-2 s^-1]")')
 
-      WRITE (99, '("# col 27 is gas heating rate in W/cm3 due to elastic collisions w. electrons")')
-      WRITE (99, '("# col 28 is gas heating rate in W/cm3 due to collisions w. ions")')
-      write (99, '("# col 29 is normalized charge density at x=0")')
+      WRITE (99, '("# col 27 is gas heating rate due to elastic collisions w. electrons [W/cm^3]")')
+      WRITE (99, '("# col 28 is gas heating rate due to collisions w. ions [W/cm^3]")')
+      write (99, '("# col 29 is normalized charge density at x=0 [dim-less]")')
 
-
+      write (99, '("# col 30 is the dispacement current [A/m^2]")')
 
 ! the values below are set zero for the case when there is only one species (N_spec=1)
       Ni_m3 = 0.0_8
@@ -485,7 +494,12 @@ SUBROUTINE CREATE_SNAPSHOT
 !!     factor_flux = Averaging_factor * (v_Te_ms / N_box_vel) * (N_plasma_m3 / N_of_particles_cell)
       factor_flux = Averaging_factor / delta_t_s * N_in_macro !flux calculated by counting particles crossing the node
       coll_rate_factor = 1. / dble(WriteOut_step)
-      IF (current_snap .EQ. 1) coll_rate_factor = Averaging_factor
+
+      ! coll_rate_factor determines the time of collection of the flux counted by NVX_mesh, P_heat_cell, and N_new_cell
+      ! (either since the last diagnostic output or since the beginning of the simulation, if the first diagnostic output is not yet reached)
+      first_diag_output_step = WriteStart_step + WriteAvg_step - 1
+      IF ((current_snap.EQ.1).AND.(T_cntr.EQ.first_diag_output_step)) coll_rate_factor = 1. / (dble(first_diag_output_step) + 1.)
+
       factor_flux = coll_rate_factor / delta_t_s * N_in_macro
       factor_ionrate = (N_plasma_m3 / N_of_particles_cell) * coll_rate_factor / delta_t_s
       factor_ionrate_int = factor_ionrate * delta_x_m
@@ -602,7 +616,7 @@ SUBROUTINE CREATE_SNAPSHOT
          factor_eV = 0.5_8 * m_e_kg / e_Cl
 
          IF (n.EQ.0) THEN
-            WRITE (99, '(29(1x,e14.7))') &
+            WRITE (99, '(30(1x,e14.7))') &
             & n * delta_x_m, &   ! 1
             & F(n) * U_scl_V, &       ! 2
             & EX(n) * E_scl_Vm, &     ! 3
@@ -636,12 +650,13 @@ SUBROUTINE CREATE_SNAPSHOT
             & ionization_sum, &      ! 24
             & qi_m2s, &              ! 25
             & qe_m2s, &              ! 26
-            & 0.0_8, & !27 !!!! 9-22-23 - This use to print n=0, which was not allocated
-            & 0.0_8, & !28 !!!! Now we just print P_heat_cell(n=0)=0, which is not a big deal (I hope)
-            & full_Q_left                                    !29
+            & 0.0_8, &               ! 27 !!!! 9-22-23 - This use to print n=0, which was not allocated
+            & 0.0_8, &               ! 28 !!!! Now we just print P_heat_cell(n=0)=0, which is not a big deal (I hope)
+            & full_Q_left, &                                           ! 29
+            & (EX(n) - EX_old(n)) / delta_t_s * eps_0_Fm * E_scl_Vm    ! 30
          ELSE
 
-            WRITE (99, '(29(1x,e14.7))') &
+            WRITE (99, '(30(1x,e14.7))') &
             & n * delta_x_m, &   ! 1
             & F(n) * U_scl_V, &       ! 2
             & EX(n) * E_scl_Vm, &     ! 3
@@ -677,7 +692,8 @@ SUBROUTINE CREATE_SNAPSHOT
             & qe_m2s, &              ! 26
             & P_heat_cell(n, 1) * Ms(1) * factor_Watt_cm3, & !27 !!!! 9-22-23 - This use to print n=0, which was not allocated
             & P_heat_cell(n, 2) * Ms(2) * factor_Watt_cm3, & !28 !!!! Now we just print P_heat_cell(n=0)=0, which is not a big deal (I hope)
-            & full_Q_left                                    !29
+            & full_Q_left, &                                 !29
+            & (EX(n) - EX_old(n)) / delta_t_s * eps_0_Fm * E_scl_Vm    ! 30
          END IF
 
       END DO
@@ -3270,6 +3286,21 @@ SUBROUTINE SNAP_LOCAL_ELECTRON_EDFS
          END IF
 
          cell = INT(X_of_spec(1)%part(k))
+
+         ! ! If cell greater than Edf_location_bnd(endloc), then the particle is outside the last location
+         ! ! If this is the case, print a warning that includes the process number, and the particle number
+         ! ! Then skip the particle and move on to the next one
+         ! IF (cell.GE.Edf_location_bnd(N_of_all_edf_locs)) THEN
+         !    PRINT '(2x,"Process ",i3," : SNAP_LOCAL_ELECTRON_EDFS : Warning: particle ",i8," is outside the last location !!!")', &
+         !    & Rank_of_process, k
+         !    PRINT '(2x,"The particle location is: cell = ",i8," !!!")', cell
+         !    CYCLE
+         ! END IF
+         ! ! Note that this if statement above is not necessary if the particles are not allowed to leave the domain (which they are not)
+         ! ! But, it seeemed like a compiler optimization error due to -O2 flags, so I added it just in case. Seems to work just fine now.
+         ! !  - 1/31/24
+         ! ! Now I have updated the compiler and the bug is gone. Statement has been commented out. - 1/31/24
+
          DO loc = 1, N_of_all_edf_locs
             IF (cell.LE.Edf_location_bnd(loc)) THEN
 

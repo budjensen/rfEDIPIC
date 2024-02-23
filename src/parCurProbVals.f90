@@ -453,7 +453,7 @@ SUBROUTINE INITIATE_PARAMETERS
 
    IF (M_i_amu.LT.0.0_8) THEN
       IF (Rank_of_process.EQ.0) THEN
-         PRINT '(/2x,"Ion mass is ",f10.3," electron masses or ",e12.5," kg")', Rank_of_process, ABS(M_i_amu), ABS(M_i_amu) * m_e_kg / amu_kg
+         PRINT '(/2x,"Ion mass is ",f10.3," electron masses or ",e12.5," a.m.u.")', Rank_of_process, ABS(M_i_amu), ABS(M_i_amu) * m_e_kg / amu_kg
       END IF
       M_i_amu = ABS(M_i_amu) * m_e_kg / amu_kg
    END IF
@@ -638,9 +638,9 @@ SUBROUTINE INITIATE_PARAMETERS
       PRINT  '(2x,"The time step is                                 : ",f9.3," ps")', delta_t_s * 1.0e12
 
       IF (rf_on) THEN
-         PRINT  '(/2x,"The RF frequency is                              : ",e10.3," Hz")', f_rf_Hz
-         PRINT  '(2x,"The RF amplitude is                              : ",e10.3," V")',  U_rf_V
-         PRINT  '(2x,"The RF voltage will begin at                     : ",e10.3," s")', t_start_s
+         PRINT  '(/2x,"The RF frequency is                              : ",e11.4," Hz")', f_rf_Hz
+         PRINT  '(2x,"The RF amplitude is                              : ",e11.4," V")',  U_rf_V
+         PRINT  '(2x,"The RF voltage will begin at                     : ",e11.4," s")', t_start_s
       END IF
 
       PRINT '(/2x,"Ratio of electron plasma period to the time step : ",f9.2)', 6.28318530718_8 / (W_plasma_s1 * delta_t_s)
@@ -777,6 +777,8 @@ SUBROUTINE CONFIGURE_MESH_ARRAYS
 
    ALLOCATE(EX(0:N_cells), STAT=ALLOC_ERR)
 
+   allocate(EX_old(0:N_cells), STAT=ALLOC_ERR)
+
    ALLOCATE(GradEX(0:(N_cells-1)), STAT=ALLOC_ERR)
 
    ALLOCATE(F(0:N_cells), STAT=ALLOC_ERR)
@@ -803,6 +805,7 @@ SUBROUTINE SETZEROS_MESH_ARRAYS
 !  PRINT '(4x,"Setting the values of mesh arrays equal to zero ...")'
 
    EX          = 0.0_8
+   EX_old      = 0.0_8
    GradEX      = 0.0_8
    F           = 0.0_8
    Xi          = 0.0_8
@@ -827,6 +830,7 @@ SUBROUTINE REMOVE_MESH_ARRAYS
 !  PRINT '("Deleting mesh arrays ...")'
 
    DEALLOCATE(EX, STAT=DEALLOC_ERR)
+   deallocate(EX_old, STAT=DEALLOC_ERR)
    DEALLOCATE(GradEX, STAT=DEALLOC_ERR)
    DEALLOCATE(F, STAT=DEALLOC_ERR)
    DEALLOCATE(Xi, STAT=DEALLOC_ERR)
