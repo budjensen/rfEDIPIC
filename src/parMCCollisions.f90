@@ -492,6 +492,108 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
 
    END IF
 
+   ! read cross sections for ion neutral collisions from data file, if this kind of collisions is activated.
+   ! If the collisions are activated and the data file is not found, we will use the default collision frequency of
+   ! 1.0e+7 Hz for the elastic collisions.
+   IF (Colflag_kind_spec(1, 2).EQ.1) THEN
+
+      INQUIRE (FILE = 'ssc_crsect_in_elast.dat', EXIST = exists)
+      IF (exists) THEN
+
+         ! If the data file is found, turn on the switch for the i-n elastic collisions
+         ! and read the cross section data from the file.
+         in_elast_flag = .true.
+
+         OPEN (9, FILE = 'ssc_crsect_in_elast.dat')
+
+         PRINT '(2x,"Process ",i3," : i-n elastic collisions cross-sections data file is found. Reading the data file...")',&
+         &  Rank_of_process
+         READ (9, '(2x,i4)') N_in_elast
+
+         ALLOCATE(Energy_in_elast_eV(1:N_in_elast), STAT=ALLOC_ERR)
+         IF(ALLOC_ERR.NE.0)THEN
+            PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Energy_in_elast_eV !!!")', Rank_of_process
+            PRINT  '(2x,"Program will be terminated now :(")'
+            STOP
+         END IF
+
+         ALLOCATE(CrSect_in_elast_m2(1:N_in_elast), STAT=ALLOC_ERR)
+         IF(ALLOC_ERR.NE.0)THEN
+            PRINT '(/2x,"Process ",i3," : Error in ALLOCATE CrSect_in_elast_m2 !!!")', Rank_of_process
+            PRINT  '(2x,"Program will be terminated now :(")'
+            STOP
+         END IF
+
+         DO j = 1, N_in_elast
+            read (9,*) Energy_in_elast_eV(j), CrSect_in_elast_m2(j)
+         END DO
+
+         CLOSE (9, STATUS = 'KEEP')
+
+      ELSE
+
+         ! If the data file is not found, turn off the switch for the i-n elastic collisions
+         ! and compute collisions based off the default collision frequency=10 MHz.
+         in_elast_flag = .true.
+
+         PRINT '(/2x,"Process ",i3," : No i-n elastic cross section data file (ssc_crsect_in_elast.dat) was found.")', Rank_of_process
+         PRINT  '(2x,"Using constant collision frequency of 10 MHz...")'
+
+      END IF
+
+   END IF
+
+   ! read cross sections for ion neutral collisions from data file, if this kind of collisions is activated.
+   ! If the collisions are activated and the data file is not found, we will use the default collision frequency built
+   ! into EDIPIC
+   IF (Colflag_kind_spec(2, 2).EQ.1) THEN
+
+      INQUIRE (FILE = 'ssc_crsect_in_chrgx.dat', EXIST = exists)
+      IF (exists) THEN
+
+         ! If the data file is found, turn on the switch for the i-n charge exchange collisions
+         ! and read the cross section data from the file.
+         in_chrgx_flag = .true.
+
+         OPEN (9, FILE = 'ssc_crsect_in_chrgx.dat')
+
+         PRINT '(2x,"Process ",i3," : i-n charge exchange collisions cross-sections data file is found. Reading the data file...")',&
+         &  Rank_of_process
+         READ (9, '(2x,i4)') N_in_chrgx
+
+         ALLOCATE(Energy_in_chrgx_eV(1:N_in_chrgx), STAT=ALLOC_ERR)
+         IF(ALLOC_ERR.NE.0)THEN
+            PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Energy_in_chrgx_eV !!!")', Rank_of_process
+            PRINT  '(2x,"Program will be terminated now :(")'
+            STOP
+         END IF
+
+         ALLOCATE(CrSect_in_chrgx_m2(1:N_in_chrgx), STAT=ALLOC_ERR)
+         IF(ALLOC_ERR.NE.0)THEN
+            PRINT '(/2x,"Process ",i3," : Error in ALLOCATE CrSect_in_chrgx_m2 !!!")', Rank_of_process
+            PRINT  '(2x,"Program will be terminated now :(")'
+            STOP
+         END IF
+
+         DO j = 1, N_in_chrgx
+            read (9,*) Energy_in_chrgx_eV(j), CrSect_in_chrgx_m2(j)
+         END DO
+
+         CLOSE (9, STATUS = 'KEEP')
+
+      ELSE
+
+         ! If the data file is not found, turn off the switch for the i-n charge exchange collisions
+         ! and compute collisions based off the default collision frequency=10 MHz.
+         in_chrgx_flag = .true.
+
+         PRINT '(/2x,"Process ",i3," : No i-n charge exchange cross section data file (ssc_crsect_in_chrgx.dat) was found.")', Rank_of_process
+         PRINT  '(2x,"Using the default collision frequency...")'
+
+      END IF
+
+   END IF
+
 END SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
 
 !=========================================================================================================
@@ -538,6 +640,24 @@ SUBROUTINE REMOVE_CRSECT_ARRAYS
       END IF
    END IF
 
+   IF (ALLOCATED(Energy_in_elast_eV)) THEN
+      DEALLOCATE(Energy_in_elast_eV, STAT=DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT '(/2x,"Process ",i3," : Error in DEALLOCATE Energy_in_elast_eV !!!")', Rank_of_process
+         PRINT  '(2x,"Program will be terminated now :(")'
+         STOP
+      END IF
+   END IF
+   
+   IF (ALLOCATED(Energy_in_chrgx_eV)) THEN
+      DEALLOCATE(Energy_in_chrgx_eV, STAT=DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT '(/2x,"Process ",i3," : Error in DEALLOCATE Energy_in_chrgx_eV !!!")', Rank_of_process
+         PRINT  '(2x,"Program will be terminated now :(")'
+         STOP
+      END IF
+   END IF
+
    IF (ALLOCATED(CrSect_en_elast_m2)) THEN
       DEALLOCATE(CrSect_en_elast_m2, STAT=DEALLOC_ERR)
       IF(DEALLOC_ERR.NE.0)THEN
@@ -569,6 +689,24 @@ SUBROUTINE REMOVE_CRSECT_ARRAYS
       DEALLOCATE(CrSect_en_ioniz_m2, STAT=DEALLOC_ERR)
       IF(DEALLOC_ERR.NE.0)THEN
          PRINT '(/2x,"Process ",i3," : Error in DEALLOCATE CrSect_en_ioniz_m2 !!!")', Rank_of_process
+         PRINT  '(2x,"Program will be terminated now :(")'
+         STOP
+      END IF
+   END IF
+
+   IF (ALLOCATED(CrSect_in_elast_m2)) THEN
+      DEALLOCATE(CrSect_in_elast_m2, STAT=DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT '(/2x,"Process ",i3," : Error in DEALLOCATE CrSect_in_elast_m2 !!!")', Rank_of_process
+         PRINT  '(2x,"Program will be terminated now :(")'
+         STOP
+      END IF
+   END IF
+
+   IF (ALLOCATED(CrSect_in_chrgx_m2)) THEN
+      DEALLOCATE(CrSect_in_chrgx_m2, STAT=DEALLOC_ERR)
+      IF(DEALLOC_ERR.NE.0)THEN
+         PRINT '(/2x,"Process ",i3," : Error in DEALLOCATE CrSect_in_chrgx_m2 !!!")', Rank_of_process
          PRINT  '(2x,"Program will be terminated now :(")'
          STOP
       END IF
@@ -791,10 +929,13 @@ SUBROUTINE SETVALUES_COLLISION_ARRAYS
 
    DO s = 1, N_spec
 
-! calculate the array of indexes of active collisions Colkind_of_spec(1:N_spec)%activated(1:Ncolkind_spec(s))
+      ! calculate the array of indexes of active collisions Colkind_of_spec(1:N_spec)%activated(1:Ncolkind_spec(s))
       k = 0
+      ! For each collision type
       DO j = 1, maxNcolkind_spec(s)
+         ! If the collision is activated
          IF(Colflag_kind_spec(j, s).EQ.1) THEN
+            ! Increment the collision counter
             k = k + 1
             IF (k.GT.Ncolkind_spec(s)) THEN
                PRINT '(2x,"Process ",i3," : Error in determining Colkind_of_spec(",i2,")%activated")', Rank_of_process, s
@@ -802,10 +943,11 @@ SUBROUTINE SETVALUES_COLLISION_ARRAYS
                PRINT '(2x,"Program will be terminated now :(")'
                STOP
             END IF
+            ! Set the collision to active
             Colkind_of_spec(s)%activated(k) = j
          END IF
       END DO
-! if the species has no activated collisions, take the next species
+      ! if the species has no activated collisions, take the next species
       IF (Ncolkind_spec(s).EQ.0) CYCLE
 
 ! calculate the array of probabilities Colprob_of_spec(1:N_spec)%kind_energy(1:Ncolkind_spec(s),1:Nenergyval_spec(s))
@@ -891,8 +1033,17 @@ SUBROUTINE SETVALUES_COLLISION_ARRAYS
          CLOSE (99, STATUS = 'KEEP')
       END IF
 
+      IF (Colflag_kind_spec(1, 2).EQ.1) THEN                                  ! ion, elastic
+         OPEN (99, FILE = '_in_elast_coll_freqs.dat')
+         DO j = 1, Nenergyval_spec(2)
+            energy_eV = (j-1) * deltaEnergy_eV_spec(2)
+            WRITE (99, '(2(2x,e12.5))') energy_eV, FREQUENCY_OF_COLLISION(energy_eV, 1, 2) / delta_t_s
+         END DO
+         CLOSE (99, STATUS = 'KEEP')
+      END IF
+
       IF (Colflag_kind_spec(2, 2).EQ.1) THEN                                  ! ion, charge exchange
-         OPEN (99, FILE = '_in_chargex_coll_freqs.dat')
+         OPEN (99, FILE = '_in_chrgx_coll_freqs.dat')
          DO j = 1, Nenergyval_spec(2)
             energy_eV = (j-1) * deltaEnergy_eV_spec(2)
             WRITE (99, '(2(2x,e12.5))') energy_eV, FREQUENCY_OF_COLLISION(energy_eV, 2, 2) / delta_t_s
@@ -900,10 +1051,19 @@ SUBROUTINE SETVALUES_COLLISION_ARRAYS
          CLOSE (99, STATUS = 'KEEP')
       END IF
 
+      IF (Colflag_kind_spec(3, 2).EQ.1) THEN                                   ! ion, turbulent
+         OPEN (99, FILE = '_i_turb_coll_freqs.dat')
+         DO j = 1, Nenergyval_spec(2)
+            energy_eV = (j-1) * deltaEnergy_eV_spec(2)
+            WRITE (99, '(2(2x,e12.5))') energy_eV, FREQUENCY_OF_COLLISION(energy_eV, 3, 2) / delta_t_s
+         END DO
+         CLOSE (99, STATUS = 'KEEP')
+      END IF
+
       OPEN (99, FILE = '_en_cumul_probab.dat')
       DO j = 1, Nenergyval_spec(1)
          energy_eV = (j-1) * deltaEnergy_eV_spec(1)
-         WRITE (99, '(4(2x,e12.5))') energy_eV, (Colprob_of_spec(1)%kind_energy(k,j), k=1,Ncolkind_spec(1))
+         WRITE (99, '(6(2x,e12.5))') energy_eV, (Colprob_of_spec(1)%kind_energy(k,j), k=1,Ncolkind_spec(1))
       END DO
       CLOSE (99, STATUS = 'KEEP')
 

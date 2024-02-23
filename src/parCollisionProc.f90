@@ -188,14 +188,18 @@ REAL(8) FUNCTION Frequency_EN_s1_1(energy_eV)
       RETURN
    END IF
 
-   IF (energy_eV.GE.Energy_en_elast_eV(N_en_elast)) THEN
+   ! Constant cross section below the minimum energy, in case low energy cross sections are not provided
+   if (energy_eV.le.Energy_en_elast_eV(1)) then
+      Frequency_EN_s1_1 = N_neutral_m3 * CrSect_en_elast_m2(1) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
+      return
+   end if
 
+   IF (energy_eV.GE.Energy_en_elast_eV(N_en_elast)) THEN
 !     Frequency_EN_s1_1 = N_neutral_m3 * CrSect_en_elast_m2(N_en_elast) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
-!*** this should work better, 06/06/14:
+      !*** this should work better, 06/06/14:
       aa = energy_eV/Energy_en_elast_eV(N_en_elast)
       bb = 1./aa
       Frequency_EN_s1_1 = bb * N_neutral_m3 * CrSect_en_elast_m2(N_en_elast) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
-
    ELSE
 
       DO j = 1, N_en_elast - 1
@@ -205,22 +209,18 @@ REAL(8) FUNCTION Frequency_EN_s1_1(energy_eV)
       j = MIN(j, N_en_elast - 1)
 
       IF (Energy_en_elast_eV(j).EQ.Energy_en_elast_eV(j+1)) THEN
-
          Frequency_EN_s1_1 = N_neutral_m3 * CrSect_en_elast_m2(j+1) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
-
       ELSE
-
 !!        fj_s1   = N_neutral_m3 * CrSect_en_elast_m2(j)   * SQRT(2.0_8 * Energy_en_elast_eV(j)   * e_Cl / m_e_kg)
 !!        fjp1_s1 = N_neutral_m3 * CrSect_en_elast_m2(j+1) * SQRT(2.0_8 * Energy_en_elast_eV(j+1) * e_Cl / m_e_kg)
-
-!***** LSP-like interpolation:
+         !***** LSP-like interpolation:
          fj_s1   = N_neutral_m3 * CrSect_en_elast_m2(j)   * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
          fjp1_s1 = N_neutral_m3 * CrSect_en_elast_m2(j+1) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
 
-!! note, we interpolate the frequency, not the cross section
-! when the cross-section is interpolated, the curve frequency(energy) may become non-monotonic due to contribution of factor sqrt(energy)
+         ! Note: we interpolate the frequency, not the cross section
+         ! when the cross-section is interpolated, the curve frequency(energy)
+         ! may become non-monotonic due to contribution of factor sqrt(energy)
          Frequency_EN_s1_1 = fj_s1 + (energy_eV - Energy_en_elast_eV(j)) * (fjp1_s1 - fj_s1) / (Energy_en_elast_eV(j+1) - Energy_en_elast_eV(j))
-
       END IF
 
    END IF
@@ -409,13 +409,11 @@ REAL(8) FUNCTION Frequency_EN_s1_2(energy_eV)
    END IF
 
    IF (energy_eV.GT.Energy_en_excit_eV(N_en_excit)) THEN
-
 !     Frequency_EN_s1_2 = N_neutral_m3 * CrSect_en_excit_m2(N_en_excit) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
-! *** adjustment, 06/06/14:
+      ! *** adjustment, 06/06/14:
       aa = energy_eV/Energy_en_excit_eV(N_en_excit)
       bb = 1./aa
       Frequency_EN_s1_2 = bb * N_neutral_m3 * CrSect_en_excit_m2(N_en_excit) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
-
    ELSE
 
       DO j = 1, N_en_excit - 1
@@ -425,22 +423,18 @@ REAL(8) FUNCTION Frequency_EN_s1_2(energy_eV)
       j = MIN(j, N_en_excit - 1)
 
       IF (Energy_en_excit_eV(j).EQ.Energy_en_excit_eV(j+1)) THEN
-
          Frequency_EN_s1_2 = N_neutral_m3 * CrSect_en_excit_m2(j+1) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
-
       ELSE
-
 !!        fj_s1   = N_neutral_m3 * CrSect_en_excit_m2(j)   * SQRT(2.0_8 * Energy_en_excit_eV(j)   * e_Cl / m_e_kg)
 !!        fjp1_s1 = N_neutral_m3 * CrSect_en_excit_m2(j+1) * SQRT(2.0_8 * Energy_en_excit_eV(j+1) * e_Cl / m_e_kg)
-
-!***** LSP-like interpolation instead:
+         !***** LSP-like interpolation instead:
          fj_s1   = N_neutral_m3 * CrSect_en_excit_m2(j)   * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
          fjp1_s1 = N_neutral_m3 * CrSect_en_excit_m2(j+1) * SQRT(2.0_8 * energy_eV * e_Cl / m_e_kg)
 
-! note, we interpolate the frequency, not the cross section
-! when the cross-section is interpolated, the curve frequency(energy) may become non-monotonic due to contribution of factor sqrt(energy)
+         ! Note: we interpolate the frequency, not the cross section
+         ! when the cross-section is interpolated, the curve frequency(energy)
+         ! may become non-monotonic due to contribution of factor sqrt(energy)
          Frequency_EN_s1_2 = fj_s1 + (energy_eV - Energy_en_excit_eV(j)) * (fjp1_s1 - fj_s1) / (Energy_en_excit_eV(j+1) - Energy_en_excit_eV(j))
-
       END IF
 
    END IF
@@ -1308,12 +1302,71 @@ END SUBROUTINE CollideElectron_5
 REAL(8) FUNCTION Frequency_IN_s1_1(energy_eV)
 !! Calculates the frequency of i-n elastic collisions
 
-   USE MCCollisions
+   USE MCCollisions, only : in_elast_flag, N_in_elast, Energy_in_elast_eV, CrSect_in_elast_m2, N_neutral_m3
+   use CurrentProblemValues, only : e_Cl, M_i_amu, amu_kg
    IMPLICIT NONE
 
-   REAL energy_eV
+   real(8) fj_s1, fjp1_s1 !! Frequencies at the jth and j+1th energies for frequency interpolation
 
-   Frequency_IN_s1_1 = 1.0e7
+   REAL energy_eV !! Particle energy [eV]
+   real aa, bb    !! Coefficients for scaling down the collision frequency if the energy is above the highest tabulated value
+   integer j
+
+   real(8) m_i_kg  !! Mass of single ion [kg] ( = M_i_amu * amu_kg )
+   m_i_kg = M_i_amu * amu_kg
+
+   if (in_elast_flag) then
+      ! If elastic cross sections are provided, then use them to compute the collision frequency
+      ! This code snippet is taken from the function Frequency_EN_s1_1
+
+      IF (energy_eV.LE.1.0d-6) THEN
+         Frequency_IN_s1_1 = 0.0_8
+         RETURN
+      END IF
+
+      ! Constant cross section below the minimum energy, in case low energy cross sections are not provided
+      if (energy_eV.le.Energy_in_elast_eV(1)) then
+         Frequency_IN_s1_1 = N_neutral_m3 * CrSect_in_elast_m2(1) * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
+         return
+      end if
+
+      IF (energy_eV.GE.Energy_in_elast_eV(N_in_elast)) THEN
+         ! Set frequency to the highest tabulated value
+         !Frequency_IN_s1_1 = N_neutral_m3 * CrSect_in_elast_m2(N_in_elast) * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
+
+         ! Scale down the frequency for energies above the highest tabulated value
+         aa = energy_eV/Energy_in_elast_eV(N_in_elast)
+         bb = 1./aa
+         Frequency_IN_s1_1 = bb * N_neutral_m3 * CrSect_in_elast_m2(N_in_elast) * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
+      ELSE
+
+         DO j = 1, N_in_elast - 1
+            IF ((energy_eV.GE.Energy_in_elast_eV(j)).AND.(energy_eV.LT.Energy_in_elast_eV(j+1))) EXIT
+         END DO
+
+         j = MIN(j, N_in_elast - 1)
+
+         IF (Energy_in_elast_eV(j).EQ.Energy_in_elast_eV(j+1)) THEN
+            Frequency_IN_s1_1 = N_neutral_m3 * CrSect_in_elast_m2(j+1) * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
+         ELSE
+            !fj_s1   = N_neutral_m3 * CrSect_in_elast_m2(j)   * SQRT(2.0_8 * Energy_in_elast_eV(j)   * e_Cl / m_i_kg)
+            !fjp1_s1 = N_neutral_m3 * CrSect_in_elast_m2(j+1) * SQRT(2.0_8 * Energy_in_elast_eV(j+1) * e_Cl / m_i_kg)
+            !***** LSP-like interpolation:
+            fj_s1   = N_neutral_m3 * CrSect_in_elast_m2(j)   * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
+            fjp1_s1 = N_neutral_m3 * CrSect_in_elast_m2(j+1) * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
+
+            ! Note: we interpolate the frequency, not the cross section
+            ! when the cross-section is interpolated, the curve frequency(energy)
+            ! may become non-monotonic due to contribution of factor sqrt(energy)
+            Frequency_IN_s1_1 = fj_s1 + (energy_eV - Energy_in_elast_eV(j)) * (fjp1_s1 - fj_s1) / (Energy_in_elast_eV(j+1) - Energy_in_elast_eV(j))
+         END IF
+
+      END IF
+   else
+      ! If no elastic cross sections are provided, then use the default constant collision frequency
+      Frequency_IN_s1_1 = 1.0e7
+   end if
+
    RETURN
 
 END FUNCTION Frequency_IN_s1_1
@@ -1400,33 +1453,94 @@ REAL(8) FUNCTION Frequency_IN_s1_2(energy_eV)
 !! Calculates the frequency of i-n charge exchange collisions
 !! Note: energy corresponds to relative velocity
 
-   USE MCCollisions
-   USE CurrentProblemValues, ONLY : e_Cl, amu_kg
+   USE MCCollisions, only : in_chrgx_flag, N_in_chrgx, Energy_in_chrgx_eV, CrSect_in_chrgx_m2, N_neutral_m3, Neutral_flag
+   USE CurrentProblemValues, ONLY : e_Cl, amu_kg, M_i_amu
    IMPLICIT NONE
    REAL energy_eV, V_rel_ms, sigma_ct_m2, sigma_ct_m2_1eV, gammaR, factor, energy_eff_eV, estar_eV, sigma_star_m2
+
+   real(8) fj_s1, fjp1_s1 !! Frequencies at the jth and j+1th energies for frequency interpolation
+
+   real aa, bb    !! Coefficients for scaling down the collision frequency if the energy is above the highest tabulated value
+   integer j
+
+   real(8) m_i_kg  !! Mass of single ion [kg] ( = M_i_amu * amu_kg )
+
    gammaR = 10.
+   m_i_kg = M_i_amu * amu_kg
 
-   SELECT CASE (Neutral_flag)
-    CASE (0)  ! Helium
-      sigma_ct_m2_1eV = 2.8e-19 !!** Helium gas
-    CASE (1)  ! Argon
-      sigma_ct_m2_1eV = 5.53e-19 !!** Argon gas
-   END SELECT
+   if (in_chrgx_flag) then
+      ! If charge exchange cross sections are provided, then use them to compute the collision frequency
+      ! This code snippet is taken from the function Frequency_EN_s1_1
+   
+      IF (energy_eV.LE.1.0d-6) THEN
+         Frequency_IN_s1_2 = 0.0_8
+         RETURN
+      END IF
 
-! charge exchange cross-section for helium, per BM Smirnov:
-   energy_eff_eV = energy_eV
-   if (energy_eV .le. 1.e-4) energy_eff_eV = 1.e-4
-   SELECT CASE (Neutral_flag)
-    CASE (0)  ! Helium
-      factor = ( 1. - (1./gammaR) * 0.5 * log(energy_eff_eV) ) ** 2 !!** Helium gas
-    CASE (1)  ! Argon
-      factor = (1.0_8 - 0.0543 * log(energy_eff_eV)) ** 2 !!** Argon gas, per Maiorov
-   END SELECT
-   sigma_ct_m2 = sigma_ct_m2_1eV * factor
-   if (sigma_ct_m2 .ge. 1.e-18) sigma_ct_m2 = 1.e-18
-   V_rel_ms = SQRT( (2. * e_Cl * energy_eV ) / (M_neutral_amu * amu_kg ) )
-!*!  sigma_ct_m2 = 3.E-19 !*!
-   Frequency_IN_s1_2 = dble(V_rel_ms * N_neutral_m3 * sigma_ct_m2)
+      ! Constant cross section below the minimum energy, in case low energy cross sections are not provided
+      if (energy_eV.le.Energy_in_chrgx_eV(1)) then
+         Frequency_IN_s1_2 = N_neutral_m3 * CrSect_in_chrgx_m2(1) * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
+         return
+      end if
+   
+      IF (energy_eV.GE.Energy_in_chrgx_eV(N_in_chrgx)) THEN
+         ! Set frequency to the highest tabulated value
+         !Frequency_IN_s1_2 = N_neutral_m3 * CrSect_in_chrgx_m2(N_in_chrgx) * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
+
+         ! Scale down the frequency for energies above the highest tabulated value
+         aa = energy_eV/Energy_in_chrgx_eV(N_in_chrgx)
+         bb = 1./aa
+         Frequency_IN_s1_2 = bb * N_neutral_m3 * CrSect_in_chrgx_m2(N_in_chrgx) * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
+      ELSE
+
+         DO j = 1, N_in_chrgx - 1
+            IF ((energy_eV.GE.Energy_in_chrgx_eV(j)).AND.(energy_eV.LT.Energy_in_chrgx_eV(j+1))) EXIT
+         END DO
+
+         j = MIN(j, N_in_chrgx - 1)
+
+         IF (Energy_in_chrgx_eV(j).EQ.Energy_in_chrgx_eV(j+1)) THEN
+            Frequency_IN_s1_2 = N_neutral_m3 * CrSect_in_chrgx_m2(j+1) * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
+         ELSE
+            !fj_s1   = N_neutral_m3 * CrSect_in_chrgx_m2(j)   * SQRT(2.0_8 * Energy_in_chrgx_eV(j)   * e_Cl / m_i_kg)
+            !fjp1_s1 = N_neutral_m3 * CrSect_in_chrgx_m2(j+1) * SQRT(2.0_8 * Energy_in_chrgx_eV(j+1) * e_Cl / m_i_kg)
+            !***** LSP-like interpolation:
+            fj_s1   = N_neutral_m3 * CrSect_in_chrgx_m2(j)   * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
+            fjp1_s1 = N_neutral_m3 * CrSect_in_chrgx_m2(j+1) * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
+
+            ! Note: we interpolate the frequency, not the cross section
+            ! when the cross-section is interpolated, the curve frequency(energy)
+            ! may become non-monotonic due to contribution of factor sqrt(energy)
+            Frequency_IN_s1_2 = fj_s1 + (energy_eV - Energy_in_chrgx_eV(j)) * (fjp1_s1 - fj_s1) / (Energy_in_chrgx_eV(j+1) - Energy_in_chrgx_eV(j))
+         END IF
+      END IF
+
+   else
+      ! If no charge exchange cross sections are provided, then use the default model built into EDIPIC
+
+      SELECT CASE (Neutral_flag)
+      CASE (0)  ! Helium
+         sigma_ct_m2_1eV = 2.8e-19 !!** Helium gas
+      CASE (1)  ! Argon
+         sigma_ct_m2_1eV = 5.53e-19 !!** Argon gas
+      END SELECT
+
+      ! charge exchange cross-section for helium, per BM Smirnov:
+      energy_eff_eV = energy_eV
+      if (energy_eV .le. 1.e-4) energy_eff_eV = 1.e-4
+      SELECT CASE (Neutral_flag)
+      CASE (0)  ! Helium
+         factor = ( 1. - (1./gammaR) * 0.5 * log(energy_eff_eV) ) ** 2 !!** Helium gas
+      CASE (1)  ! Argon
+         factor = (1.0_8 - 0.0543 * log(energy_eff_eV)) ** 2 !!** Argon gas, per Maiorov
+      END SELECT
+      sigma_ct_m2 = sigma_ct_m2_1eV * factor
+      if (sigma_ct_m2 .ge. 1.e-18) sigma_ct_m2 = 1.e-18
+      V_rel_ms = SQRT( (2. * e_Cl * energy_eV ) / (M_i_amu * amu_kg ) ) ! Changed M_neutral_amu to M_i_amu on 2-21-2024, but seems
+                                                                        ! to be valid for M_neutral_amu = M_i_amu
+      !*!  sigma_ct_m2 = 3.E-19 !*!
+      Frequency_IN_s1_2 = dble(V_rel_ms * N_neutral_m3 * sigma_ct_m2)
+   end if
 
 END FUNCTION Frequency_IN_s1_2
 !
