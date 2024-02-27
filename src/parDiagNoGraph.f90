@@ -2219,7 +2219,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
    CLOSE (50, STATUS = 'KEEP')
 
    OPEN  (50, FILE = 'dim_potenergy_vst.dat', POSITION = 'APPEND')
-   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Energy_pot_eV(1) + Energy_pot_eV(2), Energy_pot_eV(1), Energy_pot_eV(2)
+   WRITE (50, '(2x,f12.5,3(2x,e12.5))') time_ns, Energy_pot_eV(1) + Energy_pot_eV(2), Energy_pot_eV(1), Energy_pot_eV(2)
    CLOSE (50, STATUS = 'KEEP')
 
    OPEN  (50, FILE = 'dim_kinenergy_vst.dat', POSITION = 'APPEND')
@@ -2271,7 +2271,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
 ! potential energy of system
    OPEN  (50, FILE = 'dim_rate_potenergy_vst.dat', POSITION = 'APPEND')
-   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Rate_energy_pot_eVns1(1) + Rate_energy_pot_eVns1(2), &
+   WRITE (50, '(2x,f12.5,3(2x,e12.5))')    time_ns, Rate_energy_pot_eVns1(1) + Rate_energy_pot_eVns1(2), &
    & Rate_energy_pot_eVns1(1), Rate_energy_pot_eVns1(2)
    CLOSE (50, STATUS = 'KEEP')
 
@@ -2301,7 +2301,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
 ! energy of Joule heating of plasma by accelerating electric field
    OPEN  (50, FILE = 'dim_rate_energy_heat_vst.dat', POSITION = 'APPEND')
-   WRITE (50, '(2x,f12.5,2x,e12.5)')    time_ns, Rate_energy_heat_eVns1(1) + Rate_energy_heat_eVns1(2), &
+   WRITE (50, '(2x,f12.5,3(2x,e12.5))')    time_ns, Rate_energy_heat_eVns1(1) + Rate_energy_heat_eVns1(2), &
    & Rate_energy_heat_eVns1(1), Rate_energy_heat_eVns1(2)
    CLOSE (50, STATUS = 'KEEP')
 
