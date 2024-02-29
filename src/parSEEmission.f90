@@ -960,7 +960,7 @@ SUBROUTINE INJECT_TRUE_SECONDARY(x, vx_inc, tag)
 !  END IF
 !  right_node = left_node + 1
 
-! Save the parameters of the injected (inelastically backscattered) electron in the linked list
+! Save the parameters of the injected (true secondary) electron in the linked list
    IF (ASSOCIATED(Current_electron)) THEN
       N_inject(1) = N_inject(1) + 1
       IF (x_new.LT.(N_cells/2)) THEN                                         ! --------------------------------- if hits the LEFT wall

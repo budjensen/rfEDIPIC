@@ -313,7 +313,10 @@ module MCCollisions
    integer Neutral_flag                   !! Flags what type of gas one is using (0 = He, 1 = Ar),
                                           !! note that Xenon is the default gas and operates
                                           !! with Ar parameters in parCollisionProc.f90
-   integer Collision_flag_Turner          !! Flags what type of collision model one is using (1 = Turner Benchmark model, anything else = original EDIPIC model)
+   integer Collision_flag                 !! Flags what type of collision model one is using
+                                          !! 0 = Phelp's database model for Argon
+                                          !! 1 = Turner Benchmark model
+                                          !! anything else = original EDIPIC model
 
    real(8) M_neutral_amu                  !! The neutral component mass         [a.m.u.]
    real(8) N_neutral_m3                   !! The neutral component density      [m^-3]
@@ -765,9 +768,12 @@ module Diagnostics
    real(8), allocatable :: QVZ_mesh(:)           ! - " - electrical current density in Z-direction
 
 !*** diagnostic arrays for ion/electron fluxes and ionization rate, 04/28/14:
-   integer, allocatable :: N_new_cell(:)  !counter of ion-electron pair creation
-   real(8), allocatable :: NVX_mesh(:,:)  !ion and electron fluxes, assigned to nodes
-   real(8), allocatable :: P_heat_cell(:,:)!09/09/14, power deposited into neutral gas due to collisions with each species
+   integer N_new_cell_ON_step                !! Timestep when ion-electron pair creation counting will begin.
+                                             !! = 500 RF periods if RF is on, or
+                                             !! = 100 ns if RF off
+   integer, allocatable :: N_new_cell(:)     !! Ion-electron pair creation counter
+   real(8), allocatable :: NVX_mesh(:,:)     !! Ion and electron flux counter at each node
+   real(8), allocatable :: P_heat_cell(:,:)  !! Power deposited into neutral gas due to collisions with each species - 09/09/14
 
 ! energy values, dimensional
    real(8) Energy_full_eV                        ! full energy of system, [eV]
@@ -1013,4 +1019,3 @@ module TestParticles
    type(TestParticle), allocatable :: Test_part(:)            ! test particle parameters
 
 end module TestParticles
-

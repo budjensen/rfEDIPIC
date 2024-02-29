@@ -74,9 +74,9 @@ SUBROUTINE INITIATE_MC_COLLISIONS
       READ (9, '(7x,i1)') Colflag_kind_spec(3,2)                                                            !@#$
       READ (9, '(A67)') buf !--#d.dddE#dd- Frequency, model-1 (s^-1) ---------------------------")')         !@#$
       READ (9, '(2x,e10.3)') Freq_turb_i_1_s1                                                                  !@#$
-      READ (9, '(A67)') buf !==== Turner Benchmark Collision Model, ACTIVATION and CONTROL =====")')         !@#$
-      READ (9, '(A67)') buf !-------d----- Turner Collision Model (1 = yes, 0 = no)-------------")')         !@#$
-      READ (9, '(7x,i1)') Collision_flag_Turner                                                              !@#$
+      READ (9, '(A67)') buf !============= Collision Model, ACTIVATION and CONTROL =============")')         !@#$
+      READ (9, '(A67)') buf !-------d----- Model (0 = Phelps [Ar], 1 = Turner, else = default) -")')         !@#$
+      READ (9, '(7x,i1)') Collision_flag                                                              !@#$
 
    ELSE
 
@@ -99,7 +99,7 @@ SUBROUTINE INITIATE_MC_COLLISIONS
       Colflag_kind_spec(3,2) = 0           ! i-turbulence-1,       no                                !@#$
       Freq_turb_i_1_s1       = 0.0_8                                                                 !@#$
       Colflag_kind_spec(4,2) = 0           ! empty                                                   !@#$
-      Collision_flag_Turner  = 0           ! Turner Collision Model, no                              !@#$
+      Collision_flag  = 0           ! Turner Collision Model, no                              !@#$
 
       PRINT '(2x,"Process ",i3," : File with the name ssc_partcolls.dat not found. Use the default settings ...")', &
       & Rank_of_process
@@ -151,9 +151,9 @@ SUBROUTINE INITIATE_MC_COLLISIONS
          WRITE (9, '(7x,i1)') Colflag_kind_spec(3,2)                                                            !@#$
          WRITE (9, '("--#d.dddE#dd- Frequency, model-1 (s^-1) ---------------------------")')         !@#$
          WRITE (9, '(2x,e10.3)') Freq_turb_i_1_s1                                                                  !@#$
-         WRITE (9, '("==== Turner Benchmark Collision Model, ACTIVATION and CONTROL =====")')
-         WRITE (9, '("-------d----- Turner Collision Model (1 = yes, 0 = no)-------------")')
-         WRITE (9, '(7x,i1)') Collision_flag_Turner
+         WRITE (9, '("============= Collision Model, ACTIVATION and CONTROL =============")')
+         WRITE (9, '("-------d----- Model (0 = Phelps [Ar], 1 = Turner, else = default) -")')
+         WRITE (9, '(7x,i1)') Collision_flag
       END IF
 
    END IF
@@ -254,12 +254,14 @@ SUBROUTINE INITIATE_MC_COLLISIONS
          STOP
       END SELECT
 
-      SELECT CASE (Collision_flag_Turner)
+      SELECT CASE (Collision_flag)
        CASE (0)
+         PRINT '(/2x,"Using the Phelps Benchmark collision model, for Argon.")'
+       CASE (1)
          PRINT '(/2x,"Using the Turner Benchmark collision model.")'
 
-         !   CASE DEFAULT
-         !   PRINT '(/2x,"Using the collision model natively built into EDIPIC")'
+      !  CASE DEFAULT
+         ! PRINT '(/2x,"Using the collision model natively built into EDIPIC")'
       END SELECT
 
    END IF
@@ -534,10 +536,10 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
 
          ! If the data file is not found, turn off the switch for the i-n elastic collisions
          ! and compute collisions based off the default collision frequency=10 MHz.
-         in_elast_flag = .true.
+         in_elast_flag = .false.
 
          PRINT '(/2x,"Process ",i3," : No i-n elastic cross section data file (ssc_crsect_in_elast.dat) was found.")', Rank_of_process
-         PRINT  '(2x,"Using constant collision frequency of 10 MHz...")'
+         ! PRINT  '(2x,"Using constant collision frequency of 10 MHz...")'
 
       END IF
 
@@ -585,10 +587,10 @@ SUBROUTINE CONFIG_READ_CRSECT_ARRAYS
 
          ! If the data file is not found, turn off the switch for the i-n charge exchange collisions
          ! and compute collisions based off the default collision frequency=10 MHz.
-         in_chrgx_flag = .true.
+         in_chrgx_flag = .false.
 
          PRINT '(/2x,"Process ",i3," : No i-n charge exchange cross section data file (ssc_crsect_in_chrgx.dat) was found.")', Rank_of_process
-         PRINT  '(2x,"Using the default collision frequency...")'
+         ! PRINT  '(2x,"Using the default collision frequency...")'
 
       END IF
 

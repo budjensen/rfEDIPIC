@@ -68,7 +68,8 @@ SUBROUTINE CREATE_SNAPSHOT
    REAL(8) density_e, ionization_sum, qe_m2s, qi_m2s
    REAL(8) factor_flux              !! factor_flux = coll_rate_factor / delta_t_s * N_in_macro
    REAL(8) factor_ionrate_int       !! factor_ionrate_int = factor_ionrate * delta_x_m
-   REAL(8) factor_ionrate           !! factor_ionrate = (N_plasma_m3 / N_of_particles_cell) * coll_rate_factor / delta_t_s
+   REAL(8) factor_ionrate           !! factor_ionrate = (N_plasma_m3 / N_of_particles_cell) / (delta_t_s * dble(T_cntr - N_new_cell_ON_step))
+                                    !!    Used to be  = (N_plasma_m3 / N_of_particles_cell) * coll_rate_factor / delta_t_s 
    REAL(8) coll_rate_factor         !! Inverse of the collection time for flux counted by NVX_mesh
                                     !! coll_rate_factor = 1 / WriteOut_step
                                     !! OR               = Averaging_factor = 1 / WriteAvg_step for the first snapshot
@@ -501,7 +502,8 @@ SUBROUTINE CREATE_SNAPSHOT
       IF ((current_snap.EQ.1).AND.(T_cntr.EQ.first_diag_output_step)) coll_rate_factor = 1. / (dble(first_diag_output_step) + 1.)
 
       factor_flux = coll_rate_factor / delta_t_s * N_in_macro
-      factor_ionrate = (N_plasma_m3 / N_of_particles_cell) * coll_rate_factor / delta_t_s
+      ! factor_ionrate = (N_plasma_m3 / N_of_particles_cell) * coll_rate_factor / delta_t_s ! Turned off on 2/27/24
+      factor_ionrate = (N_plasma_m3 / N_of_particles_cell) / (delta_t_s * dble(T_cntr - N_new_cell_ON_step))
       factor_ionrate_int = factor_ionrate * delta_x_m
       factor_Watt_cm3 = factor_ionrate * Factor_energy_eV * e_Cl * 1.e-6 !convert energy deposition due to collisions into phys. units
 

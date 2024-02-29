@@ -288,7 +288,7 @@ SUBROUTINE CollideElectron_1(num, energy_eV)
 ! Calculate the scattering angle relative to the initial direction of electron velocity
    R = grnd()
 
-   IF (Collision_flag_Turner.EQ.1) THEN
+   IF (Collision_flag.EQ.1) THEN
       ! Calculate CosKsi according to the Turner Benchmark
       CosKsi = 1.0_8 - 2.0_8 * DBLE(R)
    ELSE
@@ -515,7 +515,7 @@ SUBROUTINE CollideElectron_2(num, energy_eV) !, random_seed)
 ! Calculate the scattering angle relative to the initial direction of electron ! [Vahedi]: Use the modified energy "energy_sc_eV" here
    R = grnd()
 
-   IF (Collision_flag_Turner.EQ.1) THEN
+   IF (Collision_flag.EQ.1) THEN
       ! Calculate CosKsi according to the Turner Benchmark
       CosKsi = 1.0_8 - 2.0_8 * DBLE(R)
    ELSE
@@ -669,7 +669,7 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
    USE ParallelOperationValues
    USE MCCollisions
    USE CurrentProblemValues
-   USE Diagnostics, ONLY : Rate_energy_coll, N_new_cell
+   USE Diagnostics, ONLY : Rate_energy_coll, N_new_cell, N_new_cell_ON_step
    USE ElectronInjection, ONLY : UseSmartTagsFlag
    USE mt19937
    IMPLICIT NONE
@@ -753,7 +753,7 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
    END IF
 
 ! Calculate the energy of the ejected electron
-   IF (Collision_flag_Turner.EQ.1) THEN
+   IF (Collision_flag.EQ.1) THEN
       energy_ej_eV = 0.5_8 * (energy_inc_eV - Thresh_en_ioniz_eV)
       energy_sc_eV = energy_inc_eV - Thresh_en_ioniz_eV - energy_ej_eV
    ELSE
@@ -776,7 +776,7 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
 ! Calculate the scattering angle Ksi for the incident electron ! [Vahedi]: use the modified energy "energy_sc_eV" here
    R = grnd()
 
-   IF (Collision_flag_Turner.EQ.1) THEN
+   IF (Collision_flag.EQ.1) THEN
       ! Calculate CosKsi according to the Turner Benchmark
       CosKsi_sc = 1.0_8 - 2.0_8 * DBLE(R)
    ELSE
@@ -820,7 +820,7 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
 !####  CosKsi_ej = (2.0_8 + energy_ej_eV - 2.0_8 * (1.0_8 + energy_ej_eV)**R) / energy_ej_eV ####
 !  CosKsi_ej = 1.0_8 - 2.0_8 * DBLE(R) / (1.0_8 + 8.0_8 * (energy_ej_eV / 27.21_8) * (1.0_8 - DBLE(R)))
 
-   IF (Collision_flag_Turner.EQ.1) THEN
+   IF (Collision_flag.EQ.1) THEN
       ! Calculate CosKsi according to the Turner Benchmark
       CosKsi_ej = 1.0_8 - 2.0_8 * DBLE(R)
    ELSE
@@ -1018,7 +1018,10 @@ SUBROUTINE CollideElectron_3(num, energy_inc_eV)
    Q_strm_spec(right_node, 2) = Q_strm_spec(right_node, 2) + X_of_spec(1)%part(num) - left_node     !
 
 !******* counter of newly created i-e pairs for diagnostics, to be cleared each time after writing into the file:
-   N_new_cell(right_node) = N_new_cell(right_node) + 1
+   ! MODIFICATION: Never cleared, but only collected after N_new_cell_ON_step (calculated in INITIATE_DIAGNOSTICS)
+   if ((rf_on).and.(T_cntr.gt.N_new_cell_ON_step)) then
+      N_new_cell(right_node) = N_new_cell(right_node) + 1
+   end if
 
 END SUBROUTINE CollideElectron_3
 
@@ -1213,7 +1216,7 @@ SUBROUTINE CollideElectron_5(num, energy_eV) !, random_seed)
 ! Calculate the scattering angle relative to the initial direction of electron ! [Vahedi]: Use the modified energy "energy_sc_eV" here
    R = grnd()
 
-   IF (Collision_flag_Turner.EQ.1) THEN
+   IF (Collision_flag.EQ.1) THEN
       ! Calculate CosKsi according to the Turner Benchmark
       CosKsi = 1.0_8 - 2.0_8 * DBLE(R)
    ELSE
@@ -1297,16 +1300,18 @@ SUBROUTINE CollideElectron_5(num, energy_eV) !, random_seed)
 END SUBROUTINE CollideElectron_5
 
 !=====================================================================================================
-!****************************** elastic ion-neutral collisions, model 1 ******************************
+!****************************** isotropic ion-neutral collisions, model 1 ******************************
 
 REAL(8) FUNCTION Frequency_IN_s1_1(energy_eV)
-!! Calculates the frequency of i-n elastic collisions
+!! Calculates the frequency of i-n elastic (aka. isotropic part of the cross section) collisions
 
-   USE MCCollisions, only : in_elast_flag, N_in_elast, Energy_in_elast_eV, CrSect_in_elast_m2, N_neutral_m3
+   USE MCCollisions, only : in_elast_flag, N_in_elast, Energy_in_elast_eV, CrSect_in_elast_m2, N_neutral_m3, Neutral_flag
    use CurrentProblemValues, only : e_Cl, M_i_amu, amu_kg
    IMPLICIT NONE
 
    real(8) fj_s1, fjp1_s1 !! Frequencies at the jth and j+1th energies for frequency interpolation
+   real sigma_ct_m2       !! Cross section for elastic collisions [m^2]
+   real V_rel_ms          !! Relative velocity [m/s]
 
    REAL energy_eV !! Particle energy [eV]
    real aa, bb    !! Coefficients for scaling down the collision frequency if the energy is above the highest tabulated value
@@ -1316,7 +1321,7 @@ REAL(8) FUNCTION Frequency_IN_s1_1(energy_eV)
    m_i_kg = M_i_amu * amu_kg
 
    if (in_elast_flag) then
-      ! If elastic cross sections are provided, then use them to compute the collision frequency
+      ! If cross sections are provided, then use them to compute the collision frequency
       ! This code snippet is taken from the function Frequency_EN_s1_1
 
       IF (energy_eV.LE.1.0d-6) THEN
@@ -1363,8 +1368,18 @@ REAL(8) FUNCTION Frequency_IN_s1_1(energy_eV)
 
       END IF
    else
+
       ! If no elastic cross sections are provided, then use the default constant collision frequency
-      Frequency_IN_s1_1 = 1.0e7
+      ! shipped with EDIPIC, or the analytic cross sections from Phelp's database
+      select case (Neutral_flag)
+       case (0)  ! Helium
+         Frequency_IN_s1_1 = 1.0e7 ! Default value shipped with EDIPIC
+       case (1)  ! Argon
+         ! Following is taken from IONATOM.TXT in A.V. Phelp's database
+         sigma_ct_m2 = 21.6 / sqrt(energy_eV) * 1.e-20
+         V_rel_ms = sqrt( (2. * e_Cl * energy_eV ) / (M_i_amu * amu_kg ) )
+         Frequency_IN_s1_1 = dble(V_rel_ms * N_neutral_m3 * sigma_ct_m2)
+      end select
    end if
 
    RETURN
@@ -1374,7 +1389,7 @@ END FUNCTION Frequency_IN_s1_1
 ! COLLISION PROCESSING -------------------------------------------------------------------------------
 !
 SUBROUTINE CollideIon_1(num, Vx_n, Vy_n, Vz_n) !, random_seed)
-!! Carries out an i-n elastic collision
+!! Carries out an i-n elastic (aka. isotropic part of the cross section) collision
 
    USE MCCollisions
    USE CurrentProblemValues
@@ -1440,9 +1455,11 @@ SUBROUTINE CollideIon_1(num, Vx_n, Vy_n, Vz_n) !, random_seed)
 
 ! the tag of collided particle can be modified here !!!!!!!!!!!!!!!
 
-! calculate and save the change of energy
+   ! calculate and save the change of energy
    energy_change = VX_of_spec(2)%part(num)**2 + VY_of_spec(2)%part(num)**2 + VZ_of_spec(2)%part(num)**2 - energy_change
    Rate_energy_coll(2) = Rate_energy_coll(2) + energy_change
+
+   ! Should P_heat_cell be updated here?
 
 END SUBROUTINE CollideIon_1
 
@@ -1450,11 +1467,12 @@ END SUBROUTINE CollideIon_1
 !************************* charge exchange ion-neutral collisions, model 1 ***************************
 
 REAL(8) FUNCTION Frequency_IN_s1_2(energy_eV)
-!! Calculates the frequency of i-n charge exchange collisions
+!! Calculates the frequency of i-n charge exchange (aka. backward scattered part of the cross section) collisions
 !! Note: energy corresponds to relative velocity
 
-   USE MCCollisions, only : in_chrgx_flag, N_in_chrgx, Energy_in_chrgx_eV, CrSect_in_chrgx_m2, N_neutral_m3, Neutral_flag
+   USE MCCollisions, only : in_chrgx_flag, N_in_chrgx, Energy_in_chrgx_eV, CrSect_in_chrgx_m2, N_neutral_m3, Neutral_flag, Collision_flag
    USE CurrentProblemValues, ONLY : e_Cl, amu_kg, M_i_amu
+   use ParallelOperationValues, only : Rank_of_process
    IMPLICIT NONE
    REAL energy_eV, V_rel_ms, sigma_ct_m2, sigma_ct_m2_1eV, gammaR, factor, energy_eff_eV, estar_eV, sigma_star_m2
 
@@ -1471,7 +1489,7 @@ REAL(8) FUNCTION Frequency_IN_s1_2(energy_eV)
    if (in_chrgx_flag) then
       ! If charge exchange cross sections are provided, then use them to compute the collision frequency
       ! This code snippet is taken from the function Frequency_EN_s1_1
-   
+
       IF (energy_eV.LE.1.0d-6) THEN
          Frequency_IN_s1_2 = 0.0_8
          RETURN
@@ -1482,7 +1500,7 @@ REAL(8) FUNCTION Frequency_IN_s1_2(energy_eV)
          Frequency_IN_s1_2 = N_neutral_m3 * CrSect_in_chrgx_m2(1) * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
          return
       end if
-   
+
       IF (energy_eV.GE.Energy_in_chrgx_eV(N_in_chrgx)) THEN
          ! Set frequency to the highest tabulated value
          !Frequency_IN_s1_2 = N_neutral_m3 * CrSect_in_chrgx_m2(N_in_chrgx) * SQRT(2.0_8 * energy_eV * e_Cl / m_i_kg)
@@ -1516,12 +1534,46 @@ REAL(8) FUNCTION Frequency_IN_s1_2(energy_eV)
       END IF
 
    else
-      ! If no charge exchange cross sections are provided, then use the default model built into EDIPIC
+      ! If no charge exchange cross sections are provided, then use the default collision frequency
+      ! shipped with EDIPIC, or the analytic cross sections from Phelp's database
+      select case (Neutral_flag)
+       case (0)  ! Helium
+         ! Pick the requested collisional model
+         select case (Collision_flag)
+          case (0) ! Turner model
+            print '(2x,"Process ",i3," : WARNING from Frequency_IN_s1_2 (charge exchange i-n collisions):")', Rank_of_process
+            print '(4x,"Helium gas was selected with the Phelps collisional model. We have not added these yet.")'
+            print '(4x,"The program will continue with default EDIPIC charge exchange cross sections.")'
+          case (1) ! Turner model
+            print '(2x,"Process ",i3," : WARNING from Frequency_IN_s1_2 (charge exchange i-n collisions):")', Rank_of_process
+            print '(4x,"No charge exchange cross sections were provided, yet the flag is set to the Turner model")'
+            print '(4x,"The program will continue with the default EDIPIC charge exchange cross section model.")'
+          case default
+            ! Nothing here, so that we skip to the default model
+         end select
+       case (1)  ! Argon
+         ! Pick the requested collisional model
+         select case (Collision_flag)
+          case (0) ! Phelps database model
+            ! Following is taken from IONATOM.TXT in A.V. Phelp's database
+            sigma_ct_m2 = 52. / (energy_eV ** 0.08) /(1. + 0.08 / energy_eV)/((1. + energy_eV/1000.) ** 0.3) * 1.e-20
+            V_rel_ms = SQRT((2. * e_Cl * energy_eV ) / (M_i_amu * amu_kg ))
+            Frequency_IN_s1_2 = dble(V_rel_ms * N_neutral_m3 * sigma_ct_m2)
+            return
+          case (1) ! Turner model
+            print '(2x,"Process ",i3," : WARNING from Frequency_IN_s1_2 (charge exchange i-n collisions):")', Rank_of_process
+            print '(4x,"No charge exchange cross sections were provided, yet the flag is set to the Turner model")'
+            print '(4x,"The program will continue with the default EDIPIC charge exchange cross section model.")'
+          case default
+            ! Nothing here, so that we skip to the default model
+         end select
+      end select
 
+      ! If we are here, then no charge exchange cross sections were provided, and we will use the default model built into EDIPIC
       SELECT CASE (Neutral_flag)
-      CASE (0)  ! Helium
+       CASE (0)  ! Helium
          sigma_ct_m2_1eV = 2.8e-19 !!** Helium gas
-      CASE (1)  ! Argon
+       CASE (1)  ! Argon
          sigma_ct_m2_1eV = 5.53e-19 !!** Argon gas
       END SELECT
 
@@ -1529,15 +1581,15 @@ REAL(8) FUNCTION Frequency_IN_s1_2(energy_eV)
       energy_eff_eV = energy_eV
       if (energy_eV .le. 1.e-4) energy_eff_eV = 1.e-4
       SELECT CASE (Neutral_flag)
-      CASE (0)  ! Helium
+       CASE (0)  ! Helium
          factor = ( 1. - (1./gammaR) * 0.5 * log(energy_eff_eV) ) ** 2 !!** Helium gas
-      CASE (1)  ! Argon
+       CASE (1)  ! Argon
          factor = (1.0_8 - 0.0543 * log(energy_eff_eV)) ** 2 !!** Argon gas, per Maiorov
       END SELECT
       sigma_ct_m2 = sigma_ct_m2_1eV * factor
       if (sigma_ct_m2 .ge. 1.e-18) sigma_ct_m2 = 1.e-18
       V_rel_ms = SQRT( (2. * e_Cl * energy_eV ) / (M_i_amu * amu_kg ) ) ! Changed M_neutral_amu to M_i_amu on 2-21-2024, but seems
-                                                                        ! to be valid for M_neutral_amu = M_i_amu
+      ! to be valid for M_neutral_amu = M_i_amu
       !*!  sigma_ct_m2 = 3.E-19 !*!
       Frequency_IN_s1_2 = dble(V_rel_ms * N_neutral_m3 * sigma_ct_m2)
    end if
@@ -1547,7 +1599,7 @@ END FUNCTION Frequency_IN_s1_2
 ! COLLISION PROCESSING -------------------------------------------------------------------------------
 !
 SUBROUTINE CollideIon_2( num, Vx_n, Vy_n, Vz_n )
-!! Carries out an i-n charge exchange collision
+!! Carries out an i-n charge exchange (aka. backward scattered part of the cross section) collision
 
    USE MCCollisions
    USE CurrentProblemValues

@@ -662,6 +662,12 @@ SUBROUTINE INITIATE_DIAGNOSTICS
    QVZ_mesh = 0.0_8
 
    N_new_cell = 0 !integer
+   ! Determine when to begin accumulating N_new_cell
+   if (rf_on) then
+      N_new_cell_ON_step = int((500 / f_rf_Hz) / delta_t_s) ! timestep at 500 RF periods
+   else
+      N_new_cell_ON_step = int(100.e-9 / delta_t_s) ! timestep at 100 ns
+   end if
    P_heat_cell = 0.0_8
    NVX_mesh = 0.0_8
 
@@ -1714,7 +1720,7 @@ SUBROUTINE DO_DIAGNOSTICS_STEP_2
       QVY_mesh = 0.0_8
       QVZ_mesh = 0.0_8
 
-      N_new_cell = 0
+      ! N_new_cell = 0 ! Turned off on 2/27/24
       P_heat_cell = 0.0_8
       NVX_mesh = 0.0_8
 
