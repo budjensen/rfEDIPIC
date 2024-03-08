@@ -1,0 +1,18 @@
+======================== RF Period Snapshot Control =========================
+-------d----- RF Diagnostics Control Switch ( 1/0 = on/off ) ----------------
+       1
+======================= RF Snapshot Averaging Control =======================
+--dddddd----- RF Period of first collection ---------------------------------
+     500
+---ddddd----- Number of RF periods to average -------------------------------
+     100
+------dd----- Number of collection times within one RF period ---------------
+       7
+---0.dddddd-- Collection times, in radians ( 0 <= t < 2pi = 6.283185 ) ------
+   0.000000    = 0
+   0.523599    = pi/6
+   1.047198    = pi/3
+   1.570796    = pi/2
+   2.094395    = 2pi/3
+   2.617994    = 5pi/6
+   3.141593    = pi
