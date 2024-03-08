@@ -501,11 +501,14 @@ SUBROUTINE CREATE_SNAPSHOT
       first_diag_output_step = WriteStart_step + WriteAvg_step - 1
       IF ((current_snap.EQ.1).AND.(T_cntr.EQ.first_diag_output_step)) coll_rate_factor = 1. / (dble(first_diag_output_step) + 1.)
 
-      factor_flux = coll_rate_factor / delta_t_s * N_in_macro
+      factor_flux = coll_rate_factor * N_scl_m3 * delta_x_m / delta_t_s
       ! factor_ionrate = (N_plasma_m3 / N_of_particles_cell) * coll_rate_factor / delta_t_s ! Turned off on 2/27/24
       factor_ionrate = (N_plasma_m3 / N_of_particles_cell) / (delta_t_s * dble(T_cntr - N_new_cell_ON_step))
       factor_ionrate_int = factor_ionrate * delta_x_m
-      factor_Watt_cm3 = factor_ionrate * Factor_energy_eV * e_Cl * 1.e-6 !convert energy deposition due to collisions into phys. units
+      ! factor_Watt_cm3 = factor_ionrate * Factor_energy_eV * e_Cl * 1.e-6 !convert energy deposition due to collisions into phys. units
+                                                                           ! Turned off on 2/27/24 an calculated explicitly, since
+                                                                           ! we changed how factor_ionrate is calculated
+      factor_Watt_cm3 = (N_plasma_m3 / N_of_particles_cell) * coll_rate_factor / delta_t_s * Factor_energy_eV * e_Cl * 1.e-6
 
       DO n = 0, N_cells
 
