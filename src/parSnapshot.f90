@@ -1128,13 +1128,13 @@ SUBROUTINE SNAP_LOCAL_ELECTRON_VDFS
                N_in_loc(loc) = N_in_loc(loc) + 1
 
                IF (Tag_of_spec(1)%part(k).EQ.eTag_Emit_Left) THEN
-                  ebl_vxdf_loc(indx_x, loc) = ebl_vxdf_loc(indx_x, loc) + 1
-                  ebl_vydf_loc(indx_y, loc) = ebl_vydf_loc(indx_y, loc) + 1
-                  ebl_vzdf_loc(indx_z, loc) = ebl_vzdf_loc(indx_z, loc) + 1
+                  if (flag_evxdf) ebl_vxdf_loc(indx_x, loc) = ebl_vxdf_loc(indx_x, loc) + 1
+                  if (flag_evydf) ebl_vydf_loc(indx_y, loc) = ebl_vydf_loc(indx_y, loc) + 1
+                  if (flag_evzdf) ebl_vzdf_loc(indx_z, loc) = ebl_vzdf_loc(indx_z, loc) + 1
                ELSE IF (Tag_of_spec(1)%part(k).EQ.eTag_Emit_Right) THEN
-                  ebr_vxdf_loc(indx_x, loc) = ebr_vxdf_loc(indx_x, loc) + 1
-                  ebr_vydf_loc(indx_y, loc) = ebr_vydf_loc(indx_y, loc) + 1
-                  ebr_vzdf_loc(indx_z, loc) = ebr_vzdf_loc(indx_z, loc) + 1
+                  if (flag_evxdf) ebr_vxdf_loc(indx_x, loc) = ebr_vxdf_loc(indx_x, loc) + 1
+                  if (flag_evydf) ebr_vydf_loc(indx_y, loc) = ebr_vydf_loc(indx_y, loc) + 1
+                  if (flag_evzdf) ebr_vzdf_loc(indx_z, loc) = ebr_vzdf_loc(indx_z, loc) + 1
                END IF
 
                EXIT
@@ -1178,38 +1178,50 @@ SUBROUTINE SNAP_LOCAL_ELECTRON_VDFS
          end if
 
       ! emitted from the left
-! ebl_vxdf_loc
-         ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))  = ebl_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc)
-         ibufer2(1:(N_box_Vx_e_top+N_box_Vx_e_top)) = 0
-         CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vx_e_top+N_box_Vx_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! ebl_vydf_loc
-         ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))  = ebl_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc)
-         ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
-         CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! ebl_vzdf_loc
-         ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))  = ebl_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc)
-         ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
-         CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         if (flag_evxdf) then
+            ! ebl_vxdf_loc
+            ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))  = ebl_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc)
+            ibufer2(1:(N_box_Vx_e_top+N_box_Vx_e_top)) = 0
+            CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vx_e_top+N_box_Vx_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+         if (flag_evydf) then
+            ! ebl_vydf_loc
+            ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))  = ebl_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc)
+            ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
+            CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+         if (flag_evzdf) then
+            ! ebl_vzdf_loc
+            ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))  = ebl_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc)
+            ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
+            CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
 
       ! emitted from the right
-! ebr_vxdf_loc
-         ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))  = ebr_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc)
-         ibufer2(1:(N_box_Vx_e_top+N_box_Vx_e_top)) = 0
-         CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vx_e_top+N_box_Vx_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! ebr_vydf_loc
-         ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))  = ebr_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc)
-         ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
-         CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! ebr_vzdf_loc
-         ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))  = ebr_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc)
-         ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
-         CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         if (flag_evxdf) then
+            ! ebr_vxdf_loc
+            ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))  = ebr_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc)
+            ibufer2(1:(N_box_Vx_e_top+N_box_Vx_e_top)) = 0
+            CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vx_e_top+N_box_Vx_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+         if (flag_evydf) then
+            ! ebr_vydf_loc
+            ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))  = ebr_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc)
+            ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
+            CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+         if (flag_evzdf) then
+            ! ebr_vzdf_loc
+            ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))  = ebr_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc)
+            ibufer2(1:(N_box_Vyz_e_top+N_box_Vyz_e_top)) = 0
+            CALL MPI_REDUCE(ibufer, ibufer2, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
       END DO                                 ! end of cycle over locations
 
    ELSE                                                                                     ! server >>>
@@ -1254,44 +1266,56 @@ SUBROUTINE SNAP_LOCAL_ELECTRON_VDFS
          end if
 
       ! emitted from the left
-! ebl_vxdf_loc
-         ibufer  = 0
-         ibufer2 = 0
-         CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vx_e_top+N_box_Vx_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         ebl_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc) = ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! ebl_vydf_loc
-         ibufer = 0
-         ibufer2 = 0
-         CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         ebl_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! ebl_vzdf_loc
-         ibufer = 0
-         ibufer2 = 0
-         CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         ebl_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         if (flag_evxdf) then
+            ! ebl_vxdf_loc
+            ibufer  = 0
+            ibufer2 = 0
+            CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vx_e_top+N_box_Vx_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            ebl_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc) = ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+         if (flag_evydf) then
+            ! ebl_vydf_loc
+            ibufer = 0
+            ibufer2 = 0
+            CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            ebl_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+         if (flag_evzdf) then
+            ! ebl_vzdf_loc
+            ibufer = 0
+            ibufer2 = 0
+            CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            ebl_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
 
       ! emitted from the right
-! ebr_vxdf_loc
-         ibufer  = 0
-         ibufer2 = 0
-         CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vx_e_top+N_box_Vx_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         ebr_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc) = ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! ebr_vydf_loc
-         ibufer = 0
-         ibufer2 = 0
-         CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         ebr_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-! ebr_vzdf_loc
-         ibufer = 0
-         ibufer2 = 0
-         CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-         ebr_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
-         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         if (flag_evxdf) then
+            ! ebr_vxdf_loc
+            ibufer  = 0
+            ibufer2 = 0
+            CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vx_e_top+N_box_Vx_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            ebr_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top, loc) = ibufer(1:(N_box_Vx_e_top+N_box_Vx_e_top))
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+         if (flag_evydf) then
+            ! ebr_vydf_loc
+            ibufer = 0
+            ibufer2 = 0
+            CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            ebr_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
+         if (flag_evzdf) then
+            ! ebr_vzdf_loc
+            ibufer = 0
+            ibufer2 = 0
+            CALL MPI_REDUCE(ibufer2, ibufer, (N_box_Vyz_e_top+N_box_Vyz_e_top), MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+            ebr_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top, loc) = ibufer(1:(N_box_Vyz_e_top+N_box_Vyz_e_top))
+            CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+         end if
       END DO                                 ! end of cycle over locations
 
       if (flag_evxdf) then
@@ -1376,13 +1400,13 @@ SUBROUTINE SNAP_LOCAL_ELECTRON_VDFS
    if (flag_evydf) e_vydf_loc = 0
    if (flag_evzdf) e_vzdf_loc = 0
 
-   ebl_vxdf_loc = 0
-   ebl_vydf_loc = 0
-   ebl_vzdf_loc = 0
+   if (flag_evxdf) ebl_vxdf_loc = 0
+   if (flag_evydf) ebl_vydf_loc = 0
+   if (flag_evzdf) ebl_vzdf_loc = 0
 
-   ebr_vxdf_loc = 0
-   ebr_vydf_loc = 0
-   ebr_vzdf_loc = 0
+   if (flag_evxdf) ebr_vxdf_loc = 0
+   if (flag_evydf) ebr_vydf_loc = 0
+   if (flag_evzdf) ebr_vzdf_loc = 0
 
    IF (ALLOCATED(ibufer)) THEN
       DEALLOCATE(ibufer, STAT = DEALLOC_ERR)
@@ -2322,27 +2346,33 @@ SUBROUTINE CREATE_DF_ARRAYS
 !     PRINT *, 'The program will be terminated now :('
 !     STOP
 !  END IF
-
-   ALLOCATE(ebl_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-   IF(ALLOC_ERR.NE.0)THEN
-      PRINT *, 'Error in ALLOCATE ebl_vxdf_loc !!!'
-      PRINT *, 'The program will be terminated now :('
-      STOP
-   END IF
-
-   ALLOCATE(ebl_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-   IF(ALLOC_ERR.NE.0)THEN
-      PRINT *, 'Error in ALLOCATE ebl_vydf_loc !!!'
-      PRINT *, 'The program will be terminated now :('
-      STOP
-   END IF
-
-   ALLOCATE(ebl_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-   IF(ALLOC_ERR.NE.0)THEN
-      PRINT *, 'Error in ALLOCATE ebl_vzdf_loc !!!'
-      PRINT *, 'The program will be terminated now :('
-      STOP
-   END IF
+   if (flag_evxdf) then
+      ALLOCATE(ebl_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in ALLOCATE ebl_vxdf_loc !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+      ebl_vxdf_loc = 0
+   end if
+   if (flag_evydf) then
+      ALLOCATE(ebl_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in ALLOCATE ebl_vydf_loc !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+      ebl_vydf_loc = 0
+   end if
+   if (flag_evzdf) then
+      ALLOCATE(ebl_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in ALLOCATE ebl_vzdf_loc !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+      ebl_vzdf_loc = 0
+   end if
 
 !--------- emitted from the right
 !  ALLOCATE(ebr_2vxvydf_loc(N_box_Vx_e_low:N_box_Vx_e_top, N_box_Vyz_e_low:N_box_Vyz_e_top, 1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
@@ -2358,42 +2388,42 @@ SUBROUTINE CREATE_DF_ARRAYS
 !     PRINT *, 'The program will be terminated now :('
 !     STOP
 !  END IF
-
-   ALLOCATE(ebr_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-   IF(ALLOC_ERR.NE.0)THEN
-      PRINT *, 'Error in ALLOCATE ebr_vxdf_loc !!!'
-      PRINT *, 'The program will be terminated now :('
-      STOP
-   END IF
-
-   ALLOCATE(ebr_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-   IF(ALLOC_ERR.NE.0)THEN
-      PRINT *, 'Error in ALLOCATE ebr_vydf_loc !!!'
-      PRINT *, 'The program will be terminated now :('
-      STOP
-   END IF
-
-   ALLOCATE(ebr_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
-   IF(ALLOC_ERR.NE.0)THEN
-      PRINT *, 'Error in ALLOCATE ebr_vzdf_loc !!!'
-      PRINT *, 'The program will be terminated now :('
-      STOP
-   END IF
+   if (flag_evxdf) then
+      ALLOCATE(ebr_vxdf_loc(N_box_Vx_e_low:N_box_Vx_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in ALLOCATE ebr_vxdf_loc !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+      ebr_vxdf_loc = 0
+   end if
+   if (flag_evydf) then
+      ALLOCATE(ebr_vydf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in ALLOCATE ebr_vydf_loc !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+      ebr_vydf_loc = 0
+   end if
+   if (flag_evzdf) then
+      ALLOCATE(ebr_vzdf_loc(N_box_Vyz_e_low:N_box_Vyz_e_top,1:N_of_all_vdf_locs), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT *, 'Error in ALLOCATE ebr_vzdf_loc !!!'
+         PRINT *, 'The program will be terminated now :('
+         STOP
+      END IF
+      ebr_vzdf_loc = 0
+   end if
 
 !  e_2vxvydf_loc = 0
 !  e_2vxvzdf_loc = 0
 
 !  ebl_2vxvydf_loc = 0
 !  ebl_2vxvzdf_loc = 0
-   ebl_vxdf_loc = 0
-   ebl_vydf_loc = 0
-   ebl_vzdf_loc = 0
 
 !  ebr_2vxvydf_loc = 0
 !  ebr_2vxvzdf_loc = 0
-   ebr_vxdf_loc = 0
-   ebr_vydf_loc = 0
-   ebr_vzdf_loc = 0
 
 !---------
    IF (N_spec.ge.2) THEN   ! if ions are accounted in simulation
