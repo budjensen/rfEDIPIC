@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH -J tests
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=2
+#SBATCH --exclusive
+#SBATCH --time=00:10:00
+##SBATCH -q pppl-short
+
+exec=/scratch/gpfs/bj8080/rfEDIPIC/src/tests/tests
+
+module load ddt/20.0.1
+export ALLINEA_DEBUG_SRUN_ARGS="%default% --oversubscribe"
+export ALLINEA_USE_SSH_STARTUP=1
+ddt --connect srun $exec > debug.${SLURM_JOBID}.out
