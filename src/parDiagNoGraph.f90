@@ -302,24 +302,25 @@ SUBROUTINE INITIATE_DIAGNOSTICS
    CLOSE (9, STATUS = 'KEEP')
 
 ! report about the status of creation of probes for time dependencies ================================
-! note, only the server node needs to keep the probe locations
+   if (N_of_probes.gt.0) then
+      ! allocate the array of probe locations
+      ALLOCATE(probe_node(1:N_of_probes), STAT=ALLOC_ERR)
+      IF(ALLOC_ERR.NE.0)THEN
+         PRINT '(/2x,"Error in ALLOCATE probe_node !!!")'
+         PRINT  '(2x,"Program will be terminated now :(")'
+         STOP
+      END IF
+      probe_node(1:N_of_probes) = probe_location(1:N_of_probes)
+   end if
    IF (Rank_of_process.EQ.0) THEN
       IF (N_of_probes.LE.0) THEN
          PRINT '(2x,"Probes for time dependencies are NOT specified...")'
       ELSE
          PRINT '(2x,"Probes for time dependencies are specified in ",i3," locations")', N_of_probes
-! allocate the array of probe locations
-         ALLOCATE(probe_node(1:N_of_probes), STAT=ALLOC_ERR)
-         IF(ALLOC_ERR.NE.0)THEN
-            PRINT '(/2x,"Error in ALLOCATE probe_node !!!")'
-            PRINT  '(2x,"Program will be terminated now :(")'
-            STOP
-         END IF
-         probe_node(1:N_of_probes) = probe_location(1:N_of_probes)
-! write locations to the file
+         ! write locations to the file
          OPEN (41, FILE = '_probelocs.dat')
-!                        ---nnn------nnnnnn----nnnnn.nnnn
          WRITE (41, '("# number    x[node]     x[mm]")')
+         !             ---nnn------nnnnnn----nnnnn.nnnn
          DO i = 1, N_of_probes
             WRITE (41, '(3x,i3,6x,i6,4x,f10.4)') i, probe_node(i), 1000.0_8 * probe_node(i) * delta_x_m
          END DO
@@ -943,7 +944,7 @@ SUBROUTINE PREPARE_TIME_DEPENDENCE_DATAFILES
       OPEN (50, FILE = 'dim_jz_vst.dat', STATUS = 'REPLACE')                  ! electric current density in Z-direction
       CLOSE (50, STATUS = 'KEEP')
 
-! PLASMA DENSITIES, POTENTIAL, ELECTRIC FIELD, IN PROBES
+! PLASMA DENSITIES, POTENTIAL, ELECTRIC FIELD, and FLUXES IN PROBES
 
       OPEN (50, FILE = 'dim_Ne_vst.dat', STATUS = 'REPLACE')                  ! electrons
       CLOSE (50, STATUS = 'KEEP')
@@ -956,6 +957,12 @@ SUBROUTINE PREPARE_TIME_DEPENDENCE_DATAFILES
 
       OPEN (50, FILE = 'dim_Ex_vst.dat', STATUS = 'REPLACE')                  ! wall: left / right
       CLOSE (50, STATUS = 'KEEP')
+
+      open (50, file = 'dim_Je_vst.dat', status = 'replace')                   ! electron flux
+      close (50, status = 'keep')
+
+      open (50, file = 'dim_Ji_vst.dat', status = 'replace')                   ! ion flux
+      close (50, status = 'keep')
 
 ! COLLISION FREQUENCIES
 
@@ -1310,6 +1317,28 @@ SUBROUTINE PREPARE_TIME_DEPENDENCE_DATAFILES
          ENDFILE 50
          CLOSE (50, STATUS = 'KEEP')
       END IF
+
+      ! Electron fluxes
+      inquire (file = 'dim_Je_vst.dat', exist = exists)
+      if ((exists).and.(N_of_probes.GT.0)) then
+         open (50, file = 'dim_Je_vst.dat', status = 'old')
+         do i = 1, N_of_saved_records
+            read (50, '(2x,f12.5,999(1x,e12.5))') r_dummy !, arr_dummy(1:N_of_probes)
+         end do
+         endfile 50
+         close (50, status = 'KEEP')
+      end if
+
+      ! Ion fluxes
+      inquire (file = 'dim_Ji_vst.dat', exist = exists)
+      if ((exists).and.(N_of_probes.GT.0)) then
+         open (50, file = 'dim_Ji_vst.dat', status = 'old')
+         do i = 1, N_of_saved_records
+            read (50, '(2x,f12.5,999(1x,e12.5))') r_dummy !, arr_dummy(1:N_of_probes)
+         end do
+         endfile 50
+         close (50, status = 'KEEP')
+      end if
 
 ! COLLISION FREQUENCIES
 
@@ -1832,6 +1861,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
    REAL(8) Factor_Qwall_Cm2
 
    REAL(8) J_external_A, J_Ohm_A
+   real(8) flux_at_node                     ! function
 
    delta_t_plot = delta_t_s * dble(WriteOut_step)
 
@@ -1934,6 +1964,15 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
       CALL MPI_REDUCE(dbufer, dbufer2, 42, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
       CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+      ! Get fluxes and send to server, if probes are turned on
+      if (N_of_probes.gt.0) then
+         do s = 1, N_spec
+            do i = 1, N_of_probes
+               temp_array(i) = flux_at_node(probe_node(i), s)
+            end do
+         end do
+      end if
 
 ! quit
       RETURN
@@ -2335,7 +2374,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
 
    IF (N_of_probes.GT.0) THEN
 
-! electron density
+      ! electron density
       OPEN  (50, FILE = 'dim_Ne_vst.dat', POSITION = 'APPEND')
       DO i = 1, N_of_probes
          temp_array(i) = Q_strm_spec(probe_node(i), 1) * N_scl_m3
@@ -2344,7 +2383,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
       WRITE (50, '(2x,f12.5,999(1x,e12.5))') time_ns, temp_array(1:N_of_probes)
       CLOSE (50, STATUS = 'KEEP')
 
-! ion density
+      ! ion density
       IF (N_spec.EQ.2) THEN
          OPEN  (50, FILE = 'dim_Ni_vst.dat', POSITION = 'APPEND')
          DO i = 1, N_of_probes
@@ -2355,7 +2394,7 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
          CLOSE (50, STATUS = 'KEEP')
       END IF
 
-! potential
+      ! potential
       OPEN  (50, FILE = 'dim_F_vst.dat', POSITION = 'APPEND')
       DO i = 1, N_of_probes
          temp_array(i) = F(probe_node(i)) * U_scl_V
@@ -2363,13 +2402,29 @@ SUBROUTINE PROCESS_DIAGNOSTIC_DATA
       WRITE (50, '(2x,f12.5,999(1x,e12.5))') time_ns, temp_array(1:N_of_probes)
       CLOSE (50, STATUS = 'KEEP')
 
-! electric field
+      ! electric field
       OPEN  (50, FILE = 'dim_Ex_vst.dat', POSITION = 'APPEND')
       DO i = 1, N_of_probes
          temp_array(i) = EX(probe_node(i)) * E_scl_Vm
       END DO
       WRITE (50, '(2x,f12.5,999(1x,e12.5))') time_ns, temp_array(1:N_of_probes)
       CLOSE (50, STATUS = 'KEEP')
+
+      ! Electron fluxes
+      open  (50, file = 'dim_Je_vst.dat', position = 'append')
+      do i = 1, N_of_probes
+         temp_array(i) = flux_at_node(probe_node(i), 1)
+      end do
+      write (50, '(2x,f12.5,999(1x,e12.5))') time_ns, temp_array(1:N_of_probes)
+      close (50, status = 'keep')
+
+      ! Ion fluxes
+      open  (50, file = 'dim_Ji_vst.dat', position = 'append')
+      do i = 1, N_of_probes
+         temp_array(i) = flux_at_node(probe_node(i), 2)
+      end do
+      write (50, '(2x,f12.5,999(1x,e12.5))') time_ns, temp_array(1:N_of_probes)
+      close (50, status = 'keep')
 
    END IF
 
@@ -2797,6 +2852,150 @@ SUBROUTINE DoTextOutput
 END SUBROUTINE DoTextOutput
 
 !--------------------------------------
+subroutine get_instantaneous_flux()
+   !! Calculates the instantaneous fluxes of each species at the current time step
+   use CurrentProblemValues
+   use ParallelOperationValues
+   use Diagnostics
+   implicit none
+
+   integer :: s, k
+   real(8) :: x, vx
+   integer :: left_node, right_node
+   real(8) :: dn_right, dn_left
+
+   ! Check if we should be here
+   if (Rank_of_process.eq.0) return             ! Accumulate data only if the process is a client
+
+   ! Clear the flux array from the prior timestep
+   flux_m2s1 = 0.0_8
+
+   ! Loop over species
+   do s = 1, N_spec
+      ! Loop over particles
+      do k = 1, N_part(s)
+         ! Initiate the temporary variables
+         x            = X_of_spec(s)%part(k)
+         left_node    = int(x)
+         if (left_node.eq.N_cells) then         ! If particle is at the right node exactly (but not collided yet)
+            left_node = left_node - 1
+         end if
+         right_node   = left_node + 1
+         dn_right     = x - left_node
+         dn_left      = right_node - x
+         vx           = VX_of_spec(s)%part(k)
+
+         ! Add particle to flux counter (currently just the velocity, until we dimensionlize it later on)
+         flux_m2s1(left_node,s) = flux_m2s1(left_node,s) + vx * dn_left
+         flux_m2s1(right_node,s) = flux_m2s1(right_node,s) + vx * dn_right
+      end do
+      ! Dimensionalize
+      flux_m2s1(:,s) = flux_m2s1(:,s) * V_scl_ms * N_scl_m3
+   end do
+
+end subroutine get_instantaneous_flux
+
+!> Returns the instantaneous flux at a given node for a given species.
+!! Flux is a calculated as a sum of the contributions from the two neighboring cells.
+!! MPI is used to sum the fluxes from all processes and only the server process
+!! returns the result.
+real(8) function flux_at_node(node_idx, species_idx)
+   use CurrentProblemValues, only : N_spec, N_part, N_cells, X_of_spec, VX_of_spec, V_scl_ms, N_scl_m3
+   use ParallelOperationValues, only : Rank_of_process
+   use mpi
+   implicit none
+   integer, intent(in) :: node_idx     !! Index of the probe node
+   integer, intent(in) :: species_idx  !! Index of the species (1 = electrons, 2 = ions)
+
+   real(8) :: x, vx
+   integer :: k
+   integer :: left_node, right_node
+   real(8) :: dn_weight
+
+   integer :: ierr                     !! Error code for MPI
+   real(8) :: dbuff, dbuff2            !! Buffers for MPI
+
+   if (node_idx.lt.0 .or. node_idx.gt.N_cells) then
+      print *, '  ERROR in flux_at_node: node index is out of range'
+      print *, '  The program will stop now :('
+      stop
+   end if
+   if (species_idx.lt.1 .or. species_idx.gt.N_spec) then
+      print *, '  ERROR in flux_at_node: species index is out of range'
+      print *, '  The program will stop now :('
+      stop
+   end if
+
+   ! Initialize the flux to zero
+   flux_at_node = 0.0_8
+   ! Initialize weight to zero
+   dn_weight = 0.0_8
+
+   if (Rank_of_process.gt.0) then            ! Accumulate data only if the process is a client
+
+      ! Loop over particles
+      do k = 1, N_part(species_idx)
+         ! Initiate temporary variables
+         x            = X_of_spec(species_idx)%part(k)
+         left_node    = int(x)
+         if (left_node.eq.N_cells) then         ! If particle is at the right node exactly (but not collided yet)
+            left_node = left_node - 1
+         end if
+
+         ! Skip particles that are not in the cells to the left or right of the probe
+         if (left_node.lt.node_idx - 1) cycle
+         if (left_node.gt.node_idx    ) cycle
+
+         ! Initiate another temporary variable
+         right_node   = left_node + 1
+
+         ! Set weight of the particle at the node
+         if (left_node.eq.node_idx - 1) then ! If particle is to the left of the probe
+            dn_weight = x - left_node
+         else if (left_node.eq.node_idx) then ! If particle is to the right of the probe
+            dn_weight = right_node - x
+         else
+            print *, '  ERROR in flux_at_node: particle is not in a cell immediately to the left or right of the probe'
+            print *, '  The program will stop now :('
+            stop
+         end if
+
+         ! Initiate final temporary variable
+         vx           = VX_of_spec(species_idx)%part(k)
+
+         ! Add particle to flux counter (currently just the velocity, until we dimensionlize it later on)
+         flux_at_node = flux_at_node + vx * dn_weight
+      end do
+      ! Dimensionalize
+      flux_at_node = flux_at_node * V_scl_ms * N_scl_m3
+
+      ! Prepare buffers
+      dbuff  = flux_at_node
+      dbuff2 = 0.0_8
+
+      ! Send data to server
+      call mpi_reduce(dbuff, dbuff2, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+      call mpi_barrier(MPI_COMM_WORLD, ierr)
+      return
+
+   else                                      ! Receive data if the process is a server
+
+      ! Prepare buffers
+      dbuff  = 0.0_8
+      dbuff2 = 0.0_8
+
+      ! receive data from clients
+      call mpi_reduce(dbuff2, dbuff, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+      call mpi_barrier(MPI_COMM_WORLD, ierr)
+
+      ! Set the flux to the received value
+      flux_at_node = dbuff
+   
+   end if
+
+end function flux_at_node
+
+!--------------------------------------
 REAL(8) FUNCTION GetAverageValue(v, n)
 !! Calculates average of double v and integer n as v/n, if n>0, and 0 otherwise.
 !! Returns a double
@@ -2954,6 +3153,15 @@ SUBROUTINE AllocateDiagnosticArrays
    END IF
 
 ! diagnostic arrays, mesh
+   if (.not.allocated(flux_m2s1)) then
+      allocate(flux_m2s1(0:N_cells, 1:N_spec), stat=ALLOC_ERR)
+      if(ALLOC_ERR.NE.0) then
+         print *, 'Error in ALLOCATE flux_m2s1 !!!'
+         print *, 'The program will be terminated now :('
+         stop
+      end if
+   end if
+
    IF (.NOT.ALLOCATED(QF_mesh)) THEN
       ALLOCATE(QF_mesh(0:N_cells), STAT=ALLOC_ERR)
       IF(ALLOC_ERR.NE.0)THEN
@@ -3082,6 +3290,15 @@ SUBROUTINE DeallocateDiagnosticArrays
    END IF
 
 ! diagnostic arrays, mesh
+   if (ALLOCATED(flux_m2s1)) then
+      deallocate(flux_m2s1, stat=DEALLOC_ERR)
+      if(DEALLOC_ERR.NE.0)then
+         print *, 'Error in DEALLOCATE QF_mesh !!!'
+         print *, 'The program will be terminated now :('
+         stop
+      end if
+   end if
+
    IF (ALLOCATED(QF_mesh)) THEN
       DEALLOCATE(QF_mesh, STAT=DEALLOC_ERR)
       IF(DEALLOC_ERR.NE.0)THEN

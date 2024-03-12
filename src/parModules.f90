@@ -189,34 +189,38 @@ module CurrentProblemValues
 ! service data -------------------------------
 
    integer N_part_client_spec(1:256,1:N_spec)     ! Number of particles in client processes, (1-st index - process, 2-nd index - species)
-   integer N_part(1:N_spec)                  ! Numbers of particles
+   integer N_part(1:N_spec)                  !! Number of particles - total number for the server,
+                                             !! number of particles in the client processes for the clients
    integer Length(1:N_spec)                  ! Lengthes of allocated arrays
    integer N_inject(1:N_spec)                ! Number (counter) of injected particles (due to ionization or SEE)
 
 ! allocatable ARRAYS *****************************
 ! mesh values --------------------------------
-   real(8), allocatable :: EX(:)        !! The X-electric field on the mesh (node points)
+   real(8), allocatable :: EX(:)        !! The X-electric field on the mesh (0:N_cells)
 
-   real(8), allocatable :: EX_old(:)    !! The X-electric field on the mesh (node points) at the previous time step
+   real(8), allocatable :: EX_old(:)    !! The X-electric field on the mesh (0:N_cells) at the previous time step
                                         !! This is updated the step before a snapshot is made, in order to calculate
                                         !! displacement current at the snapshot timestep
 
    real(8), allocatable :: GradEX(:)    !! The X-gradient of X-electric field, used for
                                         !! interpolation of EX on the mesh to particle positions
+                                        !! Allocated as (0:(N_cells-1))
 
-   real(8), allocatable :: F(:)         !! The electric potential on the mesh (node points)
+   real(8), allocatable :: F(:)         !! The electric potential on the mesh (0:N_cells)
 
    real(8), allocatable :: Xi(:)        !! The effective dielectric susceptibility, calculated from Q_strm_spec in
                                         !! CALCULATE_STR_CHARGE_DENSITY and used in CALCULATE_STR_LONG_ELECTR_FIELD
 
    real(8), allocatable :: Q_stream(:)  !! The instantaneous streaming charge, calculated as
                                         !! Q_stream(:) = Qs(s) * Q_strm_spec(:,s) in CALCULATE_STR_CHARGE_DENSITY
+                                        !! Allocated as (0:N_cells)
 
    real(8), allocatable :: Q_strm_spec(:,:)  !! Instantaneous streaming charge of each species (necessary because susceptibility
                                              !! depends on mass) at node points. Accumulated in particle push procedures and
                                              !! during particle creation. Used in calculating Q_stream and Xi in 
                                              !! CALCULATE_STR_CHARGE_DENSITY, and for calculating instantaneous ion (Ni) 
                                              !! and electron (Ne) densities in diagnostics.
+                                             !! Allocated as (0:N_cells,1:N_spec)
 ! allocatable array types --------------------
 
    type dalloc_array
@@ -752,7 +756,8 @@ module Diagnostics
 
 ! DIAGNOSTIC MESH-SPECIES ARRAYS ****************************
 
-   real(8), allocatable :: VX2_cell(:,:)         ! collects VX^2 for each cell (here cell is the space between two neighboring nodes)
+   real(8), allocatable :: VX2_cell(:,:)         !! VX^2 for each cell (space between two neighboring nodes) collcted over the
+                                                 !! averaging period
    real(8), allocatable :: VY2_cell(:,:)         ! - " - VY^2
    real(8), allocatable :: VZ2_cell(:,:)         ! - " - VZ^2
 
@@ -766,6 +771,8 @@ module Diagnostics
    real(8), allocatable :: QVX_mesh(:)           ! - " - electrical current density in X-direction
    real(8), allocatable :: QVY_mesh(:)           ! - " - electrical current density in Y-direction
    real(8), allocatable :: QVZ_mesh(:)           ! - " - electrical current density in Z-direction
+
+   real(8), allocatable :: flux_m2s1(:,:)        !! Instantaneous flux of particles at each node
 
 !*** diagnostic arrays for ion/electron fluxes and ionization rate, 04/28/14:
    integer N_new_cell_ON_step                !! Timestep when ion-electron pair creation counting will begin.
@@ -858,15 +865,15 @@ module Diagnostics
    real(8) VY_recent(1:N_spec)                        ! for Y-velocity, separate for electrons (1) and ions (2)
    real(8) VZ_recent(1:N_spec)                        ! for Z-velocity, separate for electrons (1) and ions (2)
 
-! energy factors
-   real(8) N_in_macro                           !! number of electrons/ions in one macroparticle
+   ! energy factors [in units of 1/m^2]
+   real(8) N_in_macro                           !! number of electrons/ions in one macroparticle [1/m^2]
                                                 !! N_in_macro = N_plasma_m3 * delta_x_m / N_of_particles_cell
    real(8) Factor_energy_eV                     !! Factor_energy_eV = T_e_eV / N_box_vel**2
-   real(8) Factor_energy_macro_eV               !! Factor_energy_macro_eV = N_in_macro * Factor_energy_eV
+   real(8) Factor_energy_macro_eV               !! Factor_energy_macro_eV = N_in_macro * Factor_energy_eV [eV/m^2]
    real(8) Factor_energy_pot_eV                 !! Factor_energy_pot_eV = N_in_macro * (2.0_8 * T_e_eV / r_cells_debye) * 0.5_8
-   real(8) Factor_rate_ns1                      !! Factor_rate_ns1 = 1.0_8 / (WriteOut_step * delta_t_s * 1.0e9)
-   real(8) Factor_rate_macro_ns1                !! Factor_rate_macro_ns1 = N_in_macro * Factor_rate_ns1
-   real(8) Factor_rate_eVns1                    !! Factor_rate_eVns1 = Factor_energy_eV * Factor_rate_macro_ns1
+   real(8) Factor_rate_ns1                      !! Factor_rate_ns1 = 1.0_8 / (WriteOut_step * delta_t_s * 1.0e9) [1/ns]
+   real(8) Factor_rate_macro_ns1                !! Factor_rate_macro_ns1 = N_in_macro * Factor_rate_ns1 [1/(ns*m^2)]
+   real(8) Factor_rate_eVns1                    !! Factor_rate_eVns1 = Factor_energy_eV * Factor_rate_macro_ns1 [eV/(ns*m^2)]
    real(8) Factor_Joule_energy_eV               !! Factor_Joule_energy_eV = N_in_macro * (v_Te_ms / N_box_vel) * E_z_ext_Vm * (delta_t_s)
 
    real(8) Init_energy_full_eV
