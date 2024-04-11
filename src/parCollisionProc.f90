@@ -1540,15 +1540,19 @@ REAL(8) FUNCTION Frequency_IN_s1_2(energy_eV)
        case (0)  ! Helium
          ! Pick the requested collisional model
          select case (Collision_flag)
-          case (0) ! Turner model
-            print '(2x,"Process ",i3," : WARNING from Frequency_IN_s1_2 (charge exchange i-n collisions):")', Rank_of_process
-            print '(4x,"Helium gas was selected with the Phelps collisional model. We have not added these yet.")'
-            print '(4x,"The program will continue with default EDIPIC charge exchange cross sections.")'
+          case (0) ! Phelps model
+            if ((Rank_of_process.eq.0).and.(energy_eV.eq.0.0_8)) then
+               print '(2x,"WARNING from Frequency_IN_s1_2 (charge exchange i-n collisions):")'
+               print '(4x,"Helium gas was selected with the Phelps collisional model. We have not added these yet.")'
+               print '(4x,"The program will continue with default EDIPIC charge exchange cross sections.")'
+            end if
           case (1) ! Turner model
-            print '(2x,"Process ",i3," : WARNING from Frequency_IN_s1_2 (charge exchange i-n collisions):")', Rank_of_process
-            print '(4x,"No charge exchange cross sections were provided, yet the flag is set to the Turner model")'
-            print '(4x,"The program will continue with the default EDIPIC charge exchange cross section model.")'
-          case default
+            if ((Rank_of_process.eq.0).and.(energy_eV.eq.0.0_8)) then
+               print '(2x,"WARNING from Frequency_IN_s1_2 (charge exchange i-n collisions):")'
+               print '(4x,"No charge exchange cross sections were provided, yet the flag is set to the Turner model")'
+               print '(4x,"The program will continue with the default EDIPIC charge exchange cross section model.")'
+            end if
+            case default
             ! Nothing here, so that we skip to the default model
          end select
        case (1)  ! Argon
@@ -1561,9 +1565,11 @@ REAL(8) FUNCTION Frequency_IN_s1_2(energy_eV)
             Frequency_IN_s1_2 = dble(V_rel_ms * N_neutral_m3 * sigma_ct_m2)
             return
           case (1) ! Turner model
-            print '(2x,"Process ",i3," : WARNING from Frequency_IN_s1_2 (charge exchange i-n collisions):")', Rank_of_process
-            print '(4x,"No charge exchange cross sections were provided, yet the flag is set to the Turner model")'
-            print '(4x,"The program will continue with the default EDIPIC charge exchange cross section model.")'
+            if ((Rank_of_process.eq.0).and.(energy_eV.eq.0.0_8)) then
+               print '(2x,"WARNING from Frequency_IN_s1_2 (charge exchange i-n collisions):")'
+               print '(4x,"No charge exchange cross sections were provided, yet the flag is set to the Turner model")'
+               print '(4x,"The program will continue with the default EDIPIC charge exchange cross section model.")'
+            end if
           case default
             ! Nothing here, so that we skip to the default model
          end select
