@@ -1787,7 +1787,8 @@ SUBROUTINE SNAP_LOCAL_ION_VDFS
 ! calculate arrays of distribution function
       DO k = 1, N_part(2)                             !
 
-         indx_x = INT( VX_of_spec(2)%part(k) * SQRT(Ms(2)) )
+         indx_x = INT( VX_of_spec(2)%part(k) * SQRT(Ms(2)) )      ! scale by sqrt(Ms(2)) since the midpoints of ion boxes are scaled
+                                                                  ! by sqrt(Ms(2)) relative to the electron velocity boxes
          IF (VX_of_spec(2)%part(k).GT.0.0_8) indx_x = indx_x + 1
          IF ((indx_x.LT.N_box_Vx_i_low).OR.(indx_x.GT.N_box_Vx_i_top)) CYCLE ! skip ions which are too fast
 
@@ -2259,6 +2260,42 @@ SUBROUTINE CREATE_DF_ARRAYS
    es_2vdf_lw = 0
    es_2vdf_rw = 0
 
+   IF (N_spec.ge.2) THEN   ! if ions are accounted in simulation
+
+      if (flag_ilwedf.or.flag_irwedf) then
+         ALLOCATE(iedf_wall_mid_of_box_eV(1:N_E_bins), STAT=ALLOC_ERR)
+         IF(ALLOC_ERR.NE.0)THEN
+            PRINT *, 'Error in ALLOCATE iedf_wall_mid_of_box_eV !!!'
+            PRINT *, 'The program will be terminated now :('
+            STOP
+         END IF
+         DO i = 1, N_E_bins
+            iedf_wall_mid_of_box_eV(i) = (DBLE(i) - 0.5_8) * delta_Ei_wall_eV
+         END DO
+
+         if (flag_irwedf) then
+            ALLOCATE(irwedf(1 : N_E_bins), STAT=ALLOC_ERR)
+            IF(ALLOC_ERR.NE.0)THEN
+               PRINT *, 'Error in ALLOCATE irwedf !!!'
+               PRINT *, 'The program will be terminated now :('
+               STOP
+            END IF
+            irwedf = 0.0_8 !initialized here, cleared after each snapshot
+         end if
+   
+         if (flag_ilwedf) then
+            ALLOCATE(ilwedf(1 : N_E_bins), STAT=ALLOC_ERR)
+            IF(ALLOC_ERR.NE.0)THEN
+               PRINT *, 'Error in ALLOCATE ilwedf !!!'
+               PRINT *, 'The program will be terminated now :('
+               STOP
+            END IF
+            ilwedf = 0.0_8 !initialized here, cleared after each snapshot
+         end if
+
+      end if
+   END IF
+
    IF (N_of_all_vdf_locs.EQ.0) RETURN    ! skip the rest if no local distributions are requested (N_of_breakpoints < 0 in the initialization file)
 
 !  IF (Rank_of_process.EQ.0) THEN
@@ -2428,39 +2465,41 @@ SUBROUTINE CREATE_DF_ARRAYS
 !---------
    IF (N_spec.ge.2) THEN   ! if ions are accounted in simulation
 
-      if (flag_ilwedf.or.flag_irwedf) then
-         ALLOCATE(iedf_wall_mid_of_box_eV(1:N_E_bins), STAT=ALLOC_ERR)
-         IF(ALLOC_ERR.NE.0)THEN
-            PRINT *, 'Error in ALLOCATE iedf_wall_mid_of_box_eV !!!'
-            PRINT *, 'The program will be terminated now :('
-            STOP
-         END IF
-         DO i = 1, N_E_bins
-            iedf_wall_mid_of_box_eV(i) = (DBLE(i) - 0.5_8) * delta_Ei_wall_eV
-         END DO
+      ! Moved up to the top, before the return check for N_of_all_vdf_locs
+      ! if (flag_ilwedf.or.flag_irwedf) then
+      !    ALLOCATE(iedf_wall_mid_of_box_eV(1:N_E_bins), STAT=ALLOC_ERR)
+      !    IF(ALLOC_ERR.NE.0)THEN
+      !       PRINT *, 'Error in ALLOCATE iedf_wall_mid_of_box_eV !!!'
+      !       PRINT *, 'The program will be terminated now :('
+      !       STOP
+      !    END IF
+      !    DO i = 1, N_E_bins
+      !       iedf_wall_mid_of_box_eV(i) = (DBLE(i) - 0.5_8) * delta_Ei_wall_eV
+      !    END DO
 
-         if (flag_irwedf) then
-            ALLOCATE(irwedf(1 : N_E_bins), STAT=ALLOC_ERR)
-            IF(ALLOC_ERR.NE.0)THEN
-               PRINT *, 'Error in ALLOCATE irwedf !!!'
-               PRINT *, 'The program will be terminated now :('
-               STOP
-            END IF
-            irwedf = 0.0_8 !initialized here, cleared after each snapshot
-         end if
+      !    if (flag_irwedf) then
+      !       ALLOCATE(irwedf(1 : N_E_bins), STAT=ALLOC_ERR)
+      !       IF(ALLOC_ERR.NE.0)THEN
+      !          PRINT *, 'Error in ALLOCATE irwedf !!!'
+      !          PRINT *, 'The program will be terminated now :('
+      !          STOP
+      !       END IF
+      !       irwedf = 0.0_8 !initialized here, cleared after each snapshot
+      !    end if
    
-         if (flag_ilwedf) then
-            ALLOCATE(ilwedf(1 : N_E_bins), STAT=ALLOC_ERR)
-            IF(ALLOC_ERR.NE.0)THEN
-               PRINT *, 'Error in ALLOCATE ilwedf !!!'
-               PRINT *, 'The program will be terminated now :('
-               STOP
-            END IF
-            ilwedf = 0.0_8 !initialized here, cleared after each snapshot
-         end if
+      !    if (flag_ilwedf) then
+      !       ALLOCATE(ilwedf(1 : N_E_bins), STAT=ALLOC_ERR)
+      !       IF(ALLOC_ERR.NE.0)THEN
+      !          PRINT *, 'Error in ALLOCATE ilwedf !!!'
+      !          PRINT *, 'The program will be terminated now :('
+      !          STOP
+      !       END IF
+      !       ilwedf = 0.0_8 !initialized here, cleared after each snapshot
+      !    end if
 
-      end if
+      ! end if
 
+      ! This next allocation is not behind a flag, since it is needed for standard distribution creation
       ALLOCATE(ivx_mid_of_box(N_box_Vx_i_low:N_box_Vx_i_top), STAT=ALLOC_ERR)
       IF(ALLOC_ERR.NE.0)THEN
          PRINT *, 'Error in ALLOCATE ivx_mid_of_box !!!'
