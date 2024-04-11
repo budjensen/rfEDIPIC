@@ -5,7 +5,7 @@
 !
 SUBROUTINE PROCESS_ION_COLLISION_WITH_LEFT_WALL(x, vx, vy, vz, v2, s)
 
-   USE SEEmission, ONLY : N_of_lost_ions, PlasmaSourceFlag, Ion_interac_model
+   USE SEEmission, ONLY : N_of_lost_ions, PlasmaSourceFlag, Ion_interac_model, flag_LWsee
    USE Diagnostics, ONLY : Factor_energy_eV
    USE IonInducedSEEmission
    USE CurrentProblemValues
@@ -59,7 +59,7 @@ SUBROUTINE PROCESS_ION_COLLISION_WITH_LEFT_WALL(x, vx, vy, vz, v2, s)
 
 ! try to inject a secondary electron
 
-   IF ( grnd().LT.setD_ionsee_true ) CALL LEFT_WALL_INJECT_ION_INDUCED_SECONDARY
+   IF (( grnd().LT.setD_ionsee_true ).and.(flag_LWsee)) CALL LEFT_WALL_INJECT_ION_INDUCED_SECONDARY
 
 END SUBROUTINE PROCESS_ION_COLLISION_WITH_LEFT_WALL
 

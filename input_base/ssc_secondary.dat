@@ -92,3 +92,6 @@
        0.000
 --dddddd.ddd- Temperature of injected secondary electron, [eV] --------------
        2.000
+*************************** LEFT WALL SEE CONTROL ***************************
+-------d----- Left wall electron and ion SEE ON/OFF ( = 1/0 ) ---------------
+       1

@@ -21,6 +21,8 @@ SUBROUTINE INITIATE_SE_EMISSION
    REAL(8) Coeff_SEE_Inelastic
    REAL(8) Coeff_SEE_True
 
+   integer SEE_left_wall_control !! Temporary variable to set flag_LWsee
+
    CHARACTER (77) buf
    INTEGER ierr
 
@@ -133,6 +135,10 @@ SUBROUTINE INITIATE_SE_EMISSION
       READ (9, '(A77)') buf ! --dddddd.ddd- Temperature of injected secondary electron, [eV] --------------")')
       READ (9, '(2x,f10.3)') T_ionsee_eV
 
+      READ (9, '(A77)') buf ! *************************** LEFT WALL SEE CONTROL ***************************")')
+      READ (9, '(A77)') buf ! -------d----- Left wall electron and ion SEE ON/OFF ( = 1/0 ) ---------------")')
+      READ (9, '(7x,i1)') SEE_left_wall_control
+
 
    ELSE
 
@@ -178,6 +184,8 @@ SUBROUTINE INITIATE_SE_EMISSION
       setD_ionsee_true      = 0.1_8
       minE_ionsee_eV        = 100.0_8
       T_ionsee_eV           = 1.0_8
+
+      SEE_left_wall_control = 1                 ! SEE at the left wall is turned on
 
       IF (Rank_of_process.EQ.0) THEN
 
@@ -284,6 +292,9 @@ SUBROUTINE INITIATE_SE_EMISSION
          WRITE (9, '("--dddddd.ddd- Temperature of injected secondary electron, [eV] --------------")')
          WRITE (9, '(2x,f10.3)') T_ionsee_eV
 
+         WRITE (9, '("*************************** LEFT WALL SEE CONTROL ***************************")')
+         WRITE (9, '("-------d----- Left wall electron and ion SEE ON/OFF ( = 1/0 ) ---------------")')
+         WRITE (9, '(7x,i1)') SEE_left_wall_control
       END IF
 
    END IF
@@ -446,6 +457,19 @@ SUBROUTINE INITIATE_SE_EMISSION
 
    ionsee_left_count  = 0; ionsee_left_energy = 0.0_8
    ionsee_right_count = 0; ionsee_right_energy = 0.0_8
+
+   if (SEE_left_wall_control.eq.1) then
+      ! If either 
+      if (((Ion_interac_model.eq.2).or.(Emitted_model(3).gt.0)).and.(Rank_of_process.eq.0)) then
+         print '(/2x,"Secondary electron emission at the left wall is turned ON")'
+      end if
+      flag_LWsee = .true.
+   else
+      if (((Ion_interac_model.eq.2).or.(Emitted_model(3).gt.0)).and.(Rank_of_process.eq.0)) then
+         print '(/2x,"All Secondary electron emission at the left wall is turned OFF")'
+      end if
+      flag_LWsee = .false.
+   end if
 
 END SUBROUTINE INITIATE_SE_EMISSION
 
@@ -888,6 +912,9 @@ SUBROUTINE INJECT_TRUE_SECONDARY(x, vx_inc, tag)
    REAL(8) x_new         ! x-coordinate        - " -
    INTEGER left_node     ! left node           - " -
    INTEGER right_node    ! right node          - " -
+
+   ! Exit if we impacted the left wall and the left wall has no see emission
+   if ((x.LT.0.0_8).and.(.not.flag_LWsee)) return
 
    if (vx_inc.eq.0.0_8) then
       print '(/2x,"Process ",i3," : Warning! Or maybe Error!!!")', Rank_of_process
