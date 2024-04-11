@@ -48,7 +48,7 @@
 --dddddd----- Number of velocity boxes per unit of V_therm ------------------
      128 
 ============================ SIMULATION CONTROL =============================
--------d----- Initial particle density profile (0/1=Uniform/Parabolic) ------
+-------d----- Initial density profile (0/1/2=Uniform/Parabolic/Exp. Decay) --
        0
 --dddddd.ddd- Duration of simulation (ns) -----------------------------------
    94395.280

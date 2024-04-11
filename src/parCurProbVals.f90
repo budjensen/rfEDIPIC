@@ -101,7 +101,7 @@ SUBROUTINE INITIATE_PARAMETERS
       READ (9, '(A77)') buf !--dddddd----- Number of velocity boxes per unit of V_therm ------------------")')
       READ (9, '(2x,i6)') N_box_vel
       READ (9, '(A77)') buf !============================ SIMULATION CONTROL =============================")')
-      READ (9, '(A77)') buf !-------d----- Initial particle density profile (0/1=Uniform/Parabolic) ------")')
+      READ (9, '(A77)') buf !-------d----- Initial density profile (0/1/2=Uniform/Parabolic/Exp. Decay) --")')
       READ (9, '(7x,i1)') Density_flag
       READ (9, '(A77)') buf !--dddddd.ddd- Duration of simulation (ns) -----------------------------------")')
       READ (9, '(2x,f10.3)') T_sim_ns
@@ -206,7 +206,7 @@ SUBROUTINE INITIATE_PARAMETERS
          WRITE (9, '("--dddddd----- Number of velocity boxes per unit of V_therm ------------------")')
          WRITE (9, '(2x,i6)') N_box_vel
          WRITE (9, '("============================ SIMULATION CONTROL =============================")')
-         WRITE (9, '("-------d----- Initial particle density profile (0/1=Uniform/Parabolic) ------")')
+         WRITE (9, '("-------d----- Initial density profile (0/1/2=Uniform/Parabolic/Exp. Decay) --")')
          WRITE (9, '(7x,i1)') Density_flag
          WRITE (9, '("--dddddd.ddd- Duration of simulation (ns) -----------------------------------")')
          WRITE (9, '(2x,f10.3)') T_sim_ns
@@ -1509,6 +1509,8 @@ REAL(8) FUNCTION density(x)
    IMPLICIT NONE
 
    REAL(8) x
+   real(8) alpha
+   real(8) norm
 ! We assume the constant profile of density distribution
 
 !  density = 1.0_8
@@ -1525,9 +1527,14 @@ REAL(8) FUNCTION density(x)
 
 !  density = 0.25_8
 
-   IF (Density_flag.EQ.1) THEN
-      density = density * (-6.0_8 * (x / N_cells - 0.5_8)**2 + 2.0_8) * (2.0_8 / 3.0_8) ! 2/3 normalization factor
-   END IF
+   if (Density_flag.EQ.1) then
+      norm = 2.0_8 / 3.0_8
+      density = density * (-6.0_8 * (x / N_cells - 0.5_8)**2 + 2.0_8) * norm
+   else if (Density_flag.eq.2) then
+      alpha = 5.0_8
+      norm = 1.0_8 / (alpha * (1 - exp(-1.0_8 / alpha)))
+      density = density * exp(-x / dble(N_cells)) * norm
+   end if
 
 !density  = 0.0_8  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !if ((x.ge.0.0_8).and.(x.le.100.0_8)) density = 1.0_8    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
