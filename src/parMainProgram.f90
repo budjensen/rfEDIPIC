@@ -22,7 +22,7 @@ program MainProg
 
    call INITIATE_MC_COLLISIONS
    call INITIATE_SE_EMISSION        ! all, with some differences
-   call INITIATE_ELECTRON_INJECTION
+   call INITIATE_INJECTION
    call INITIATE_BEAM_IN_PLASMA
    call INITIATE_COULOMB_COLLISIONS
 
@@ -49,6 +49,7 @@ program MainProg
             call FINAL_PUSH                                                  ! clients
             call INJECT_ADDITIONAL_EI_PAIRS_LEFT_WALL                        ! clients
             call INJECT_ELECTRONS_AT_WALLS                                   ! clients
+            call inject_ions_at_walls                                        ! clients
          else
 !restore this later           call TEST_PARTICLES_COMBINED_PUSH_AND_SAVE                       ! server
          end if

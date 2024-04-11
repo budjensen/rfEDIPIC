@@ -52,8 +52,10 @@ module CurrentProblemValues
    real(8) Vy_e_drift      !! Dim-less electron ExB-drift y-velocity
 
    integer BC_flag                !! Flag, defines the boundary conditions for the potential
-   integer Density_flag           !! Flag, if =1, then the initial particle distribution is parabolic (implementation
-                                  !! is aimed to converge faster), if =0, then the initial distribution is uniform
+   integer Density_flag           !> Flag, initial distribution control:
+                                  !! if = 0, uniform
+                                  !! |  = 1, parabolic
+                                  !! |  = 2, exponential decay
    integer N_of_particles_cell    !! Number of macroparticles of one species per cell
    integer N_of_cells_debye       !! Number of minimal cells per electron Debye length
    integer N_max_vel              !! Factor defines the maximal expected electron velocity (in thermal velocities, used for calculation of timestep)
@@ -142,11 +144,14 @@ module CurrentProblemValues
 ! SPECIES ARRAYS, HAVE FIXED DIMENSION (1:N_spec) *****
 ! particle parameters ------------------------
 
-   real(8) Ms(1:N_spec)  ! normalized masses of species (by the electron mass)
+   real(8) Ms(1:N_spec)  !! normalized masses of species (by the electron mass)
    integer Qs(1:N_spec)  !! normalized charges of species (by the electron charge ABS. value)
                          !! A signed quanity
-   real(8) QMs(1:N_spec) ! normalized charge-to-mass ratio of species (by that of electron ABS. value)
-   real(8) VT(1:N_spec)  ! normalized thermal velocities of species (by that of the electrons)
+   real(8) QMs(1:N_spec) !! normalized charge-to-mass ratio of species (by that of electron ABS. value)
+   real(8) VT(1:N_spec)  !! normalized thermal velocities of species (by that of the electrons)
+                         !! VT(1) = N_box_vel ( = N velocity boxes per V_th_e )
+                         !! VT(2) = sqrt( T_i_eV / (Ms(2) * T_e_eV) ) * N_box_vel
+                         !! --"-- = ( V_th_i / V_th_e ) * N_box_vel
 
 ! precalculated coefficients -----------------
 
@@ -475,6 +480,8 @@ end module LangevinCollisions
 ! >>
 module SEEmission
 
+   logical flag_LWsee                  !! flag, turns on/off SEE emission (both by electrons and ions) at the left wall
+
 ! the left plasma boundary can be the usual dielectric wall or the plasma source
 
    integer PlasmaSourceFlag            ! controls the properties of the left plasma boundary
@@ -617,38 +624,58 @@ end module IonInducedSEEmission
 !
 module ElectronInjection
 
-   integer BeamInjectFlag_left                 ! flag, which turns on / off the constant electron emission at the LEFT wall
-   integer BeamInjectFlag_right                ! - " - at the RIGHT wall
+   integer eBeamInjectFlag_left                 !! flag, turns on / off constant electron emission at the LEFT wall
+   integer eBeamInjectFlag_right                !! flag, turns on / off constant electron emission at the RIGHT wall
+   integer iBeamInjectFlag_left                 !! flag, turns on / off constant ion emission at the LEFT wall
+   integer iBeamInjectFlag_right                !! flag, turns on / off constant ion emission at the RIGHT wall
 
-   real(8) Delay_of_injection_ns_left          ! left wall, delay between the start of simulation and the start of emission , [ns] ([timesteps] if negative)
-   real(8) Delay_of_injection_ns_right         ! right wall, - " -
+   real(8) Delay_of_e_injection_ns_left         !!  left wall, delay between start of simulation and start of emission, [ns] ([timesteps] if negative)
+   real(8) Delay_of_e_injection_ns_right        !! right wall, delay between start of simulation and start of emission, [ns] ([timesteps] if negative)
+   real(8) Delay_of_i_injection_ns_left         !!  left wall, delay between start of simulation and start of emission, [ns] ([timesteps] if negative)
+   real(8) Delay_of_i_injection_ns_right        !! right wall, delay between start of simulation and start of emission, [ns] ([timesteps] if negative)
 
-   real(8) Beam_energy_eV_left                 ! left wall, initial energy of cold beam / temperature of warm source, [eV]
-   real(8) Beam_energy_eV_right                ! right wall, - " -
+   real(8) eBeam_energy_eV_left                 !!  left wall, initial energy of cold beam / temperature of warm source, [eV]
+   real(8) eBeam_energy_eV_right                !! right wall, initial energy of cold beam / temperature of warm source, [eV]
+   real(8) iBeam_energy_eV_left                 !!  left wall, initial energy of cold beam / temperature of warm source, [eV]
+   real(8) iBeam_energy_eV_right                !! right wall, initial energy of cold beam / temperature of warm source, [eV]
 
-   real(8) Beam_J_Am2_left                     ! left wall, current density of injected stream at the moment of injection only
-   real(8) Beam_J_Am2_right                    ! right wall, - " -
+   real(8) eBeam_J_Am2_left                     !!  left wall, current density of injected electron stream at the moment of injection only
+   real(8) eBeam_J_Am2_right                    !! right wall, current density of injected electron stream at the moment of injection only
+   real(8) iBeam_J_Am2_left                     !!  left wall, current density of injected ion stream at the moment of injection only
+   real(8) iBeam_J_Am2_right                    !! right wall, current density of injected ion stream at the moment of injection only
 
-   real(8) VX_e_beam_left                      ! left wall, dimensionless initial velocity of electron beam
-   real(8) VX_e_beam_right                     ! right wall, - " -
+   real(8) VX_e_beam_left                       !!  left wall, dimensionless initial velocity of electron beam
+   real(8) VX_e_beam_right                      !! right wall, dimensionless initial velocity of electron beam
+   real(8) VX_i_beam_left                       !!  left wall, dimensionless initial velocity of ion beam
+   real(8) VX_i_beam_right                      !! right wall, dimensionless initial velocity of ion beam
 
-   integer N_to_inject_total_left              ! left wall, total number of macroparticles to be emitted at each timestep
-   integer N_to_inject_total_right             ! right wall, - " -
+   integer N_e_to_inject_total_left               !!  left wall, total number of electron macroparticles to be emitted at each timestep
+   integer N_e_to_inject_total_right              !! right wall, total number of electron macroparticles to be emitted at each timestep
+   integer N_i_to_inject_total_left               !!  left wall, total number of ion macroparticles to be emitted at each timestep
+   integer N_i_to_inject_total_right              !! right wall, total number of ion macroparticles to be emitted at each timestep
 
-   integer const_N_to_inject_by_proc_left      ! left wall, constant number of particles to be emitted by each process each timestep
-   integer const_N_to_inject_by_proc_right     ! right wall, - " -
+   integer const_N_e_to_inject_by_proc_left       !!  left wall, constant number of electron particles to be emitted by each process each timestep
+   integer const_N_e_to_inject_by_proc_right      !! right wall, constant number of electron particles to be emitted by each process each timestep
+   integer const_N_i_to_inject_by_proc_left       !!  left wall, constant number of ion particles to be emitted by each process each timestep
+   integer const_N_i_to_inject_by_proc_right      !! right wall, constant number of ion particles to be emitted by each process each timestep
 
-   integer variable_N_to_inject_left           ! left wall, variable number of particles to be emitted by each timestep (distributed between all processes)
-   integer variable_N_to_inject_right          ! right wall, - " -
+   integer variable_N_e_to_inject_left            !!  left wall, variable number of electron particles to be emitted by each timestep (distributed between all processes)
+   integer variable_N_e_to_inject_right           !! right wall, variable number of electron particles to be emitted by each timestep (distributed between all processes)
+   integer variable_N_i_to_inject_left            !!  left wall, variable number of ion particles to be emitted by each timestep (distributed between all processes)
+   integer variable_N_i_to_inject_right           !! right wall, variable number of ion particles to be emitted by each timestep (distributed between all processes)
 
-   integer inject_every_this_many_timesteps_left  ! left wall, a particle must be emitted every this many timesteps (1=continuous, 2=every other, etc)
-   integer inject_every_this_many_timesteps_right ! right wall, - " -
+   integer inject_e_every_this_many_timesteps_left  !!  left wall, an electron particle must be emitted every this many timesteps (1=continuous, 2=every other, etc)
+   integer inject_e_every_this_many_timesteps_right !! right wall, an electron particle must be emitted every this many timesteps (1=continuous, 2=every other, etc)
+   integer inject_i_every_this_many_timesteps_left  !!  left wall, an ion particle must be emitted every this many timesteps (1=continuous, 2=every other, etc)
+   integer inject_i_every_this_many_timesteps_right !! right wall, an ion particle must be emitted every this many timesteps (1=continuous, 2=every other, etc)
 
-   integer Delay_of_injection_T_cntr_left      ! left wall, calculated delay between the start of simulation and the start of emission [timesteps]
-   integer Delay_of_injection_T_cntr_right     ! right wall, - " -
+   integer Delay_of_e_injection_T_cntr_left       !!  left wall, calculated delay between the start of simulation and the start of electron emission [timesteps]
+   integer Delay_of_e_injection_T_cntr_right      !! right wall, calculated delay between the start of simulation and the start of electron emission [timesteps]
+   integer Delay_of_i_injection_T_cntr_left       !!  left wall, calculated delay between the start of simulation and the start of ion emission [timesteps]
+   integer Delay_of_i_injection_T_cntr_right      !! right wall, calculated delay between the start of simulation and the start of ion emission [timesteps]
 
-   real(8) Gap_betw_part_left                  ! left wall, distance between neighbour beam particles
-   real(8) Gap_betw_part_right                 ! right wall, - " -
+   real(8) Gap_betw_e_part_left                   !!  left wall, distance between neighbour electron beam particles
+   real(8) Gap_betw_e_part_right                  !! right wall, distance between neighbour electron beam particles
 
    integer UseSmartTagsFlag                     !! flag, controls the modification of the particle's tag related with the change of particle's velocity
                                                 !! If = 1 : Particles which change direction of propagation (velocity sign) inside the plasma obtain a 
@@ -914,9 +941,9 @@ module Snapshots
    real(8) Ve_x_max               ! Maximal x-velocity (normal) for electron velocity distribution (initially given in V_therm)
    real(8) Ve_yz_max              ! Maximal y,z-velocity (parallel) for electron velocity distribution (initially given in V_therm)
 
-   real(8) Ee_max_eV              ! Maximal energy for electron energy distribution (initially given in eV)
-   real(8) Ei_max_eV              ! Maximal energy for ion energy distribution (initially given in eV)
-   real(8) Ei_wall_max_eV         ! Maximal energy for ion energy distribution at the wall (initially given in eV)
+   real(8) Ee_max_eV              !! Maximal energy for electron energy distribution (initially given in eV)
+   real(8) Ei_max_eV              !! Maximal energy for ion energy distribution (initially given in eV)
+   real(8) Ei_wall_max_eV         !! Maximal energy for ion energy distribution at the wall (initially given in eV)
    integer N_E_bins               !! Number of energy bins for electron and ion energy distributions (bin indexes run 1:N_E_bins)
 
    real(8) delta_Ee_eV            ! Energy step for electron energy distribution (initially given in eV)
